@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://blitzy.invalid/schemas/upstream-harvest/capture-envelope-1.0.0.json",
+  "$id": "https://blitzy.invalid/schemas/upstream-harvest/capture-envelope-1.1.0.json",
   "title": "Upstream harvest capture envelope",
-  "description": "The single normative shape of the `_capture` audit envelope carried by every JSON artifact in upstream-harvest/. It exists because the ten sibling captures were written by separate sessions and drifted: `tooling` was a string in one artifact and an object in the others, per-call rate-limit header values were strings in three artifacts and integers in the rest, `records_returned` on /rate_limit rows carried three different meanings (0, null and 1), and the `family` label appeared only on pull-request review calls. Every envelope in this folder validates against this schema; a capture that does not validate is a defect in the capture, not in the schema. The schema constrains the audit envelope ONLY - the harvested GitHub payloads (issues, pulls, reviews, review_comments, issue_comments, issue, pull_request, repository_metadata) are stored exactly as the API returned them and are deliberately left unconstrained so that no schema rule can ever motivate editing raw third-party data.",
+  "description": "The single normative shape of the `_capture` audit envelope carried by every JSON artifact in upstream-harvest/. It exists because the ten sibling captures were written by separate sessions and drifted: `tooling` was a string in one artifact and an object in the others, per-call rate-limit header values were strings in three artifacts and integers in the rest, `records_returned` on /rate_limit rows carried three different meanings (0, null and 1), and the `family` label appeared only on pull-request review calls. Every envelope in this folder validates against this schema; a capture that does not validate is a defect in the capture, not in the schema. The schema constrains the audit envelope ONLY - the harvested GitHub payloads (issues, pulls, reviews, review_comments, issue_comments, issue, pull_request, repository_metadata) are stored exactly as the API returned them and are deliberately left unconstrained so that no schema rule can ever motivate editing raw third-party data. VERSION 1.1.0 adds exactly two normative constraints to 1.0.0 and changes nothing else: `credential_transport_exposure` becomes a required three-valued classification, so an artifact can no longer leave the credential's transport exposure unstated or attest it away in prose; and `notes` must contain a PUBLIC-DATA GOVERNANCE entry, so the public-data handling contract in HARVEST-MANIFEST.md section 12 is enforced per artifact by a validator rather than remembered by a human. Both constraints govern the audit envelope only; neither can be satisfied by editing a harvested payload.",
   "type": "object",
   "required": [
     "_capture"
@@ -23,6 +23,7 @@
         "captured_at_utc",
         "authenticated",
         "rate_limit_observed",
+        "credential_transport_exposure",
         "calls",
         "record_counts",
         "tooling",
@@ -42,7 +43,16 @@
         },
         "envelope_schema_version": {
           "type": "string",
-          "const": "1.0.0"
+          "const": "1.1.0"
+        },
+        "credential_transport_exposure": {
+          "description": "How the read-only API credential reached the HTTP request for THIS artifact, classified rather than asserted. `in_process_client_only` is permitted only where the artifact's own recorded client is an in-process library (python3 urllib.request), which cannot place a header in a process argument vector. `argv_exposed` records a transport known to have placed the credential in the argument vector, where /proc/<pid>/cmdline can read it for the lifetime of the request. `UNKNOWN` is required wherever the recorded transport is curl without a retained invocation transcript, wherever two client fields disagree, and wherever no client was recorded at capture time - an unprovable claim of non-exposure is a false provenance claim and this enum exists to make it unwritable. The value constrains provenance only; it never licenses editing a harvested payload.",
+          "type": "string",
+          "enum": [
+            "in_process_client_only",
+            "argv_exposed",
+            "UNKNOWN"
+          ]
         },
         "repository": {
           "description": "The harvested repository, hard-pinned. A value other than this one means the wrong repository was captured.",
@@ -120,11 +130,15 @@
           }
         },
         "notes": {
-          "description": "Authored provenance and completeness notes. Every note must open with its evidence label so no authored claim reads as raw captured data. Raw GitHub bodies are never labelled or edited - they are not notes.",
+          "description": "Authored provenance and completeness notes. Every note must open with its evidence label so no authored claim reads as raw captured data. Raw GitHub bodies are never labelled or edited - they are not notes. Since 1.1.0 the array must also carry a PUBLIC-DATA GOVERNANCE entry pointing at the handling, retention, disposal and secondary-use contract in HARVEST-MANIFEST.md section 12, so that the contract travels with the data it governs instead of living only in a sibling document a reader may never open.",
           "type": "array",
           "items": {
             "type": "string",
             "pattern": "^(FACT|INFERENCE|UNKNOWN)\\b"
+          },
+          "contains": {
+            "type": "string",
+            "pattern": "^FACT: PUBLIC-DATA GOVERNANCE\\b"
           }
         },
         "audit_status": {

@@ -58,8 +58,12 @@ Consequences, stated so no later session repeats work that cannot be repeated:
   `upstream-harvest/` (`git cat-file -e origin/Developer:PROGRAM-PLAN.md` exits non-zero;
   `git ls-tree origin/Developer --name-only` lists no `upstream-harvest` entry). `FACT` — no fork
   production, test, build or configuration file was modified in order to produce these artifacts, and
-  no write of any kind was issued against the upstream repository. `FACT` — copies also exist outside
-  the working tree at `/tmp/blitzy/plans/session-output-w-003/`. `FACT` — the five commits are **not**
+  no write of any kind was issued against the upstream repository. `FACT` — a copy of all thirteen paths
+  is additionally exported outside the working tree, to a session export directory under the shared
+  workspace root referred to throughout this manifest as `<session-export>/`, refreshed as the final
+  step of the planning run and checked with `diff -r`; the literal path is withheld because it names one
+  ephemeral container's clone and run topology and resolves for no later reader. `FACT` — the five
+  commits are **not**
   removed from history: AAP §0.5.2 and §0.10.5 exclude history rewriting outright — no
   `git filter-repo`, no `git rebase --root`, no force-push — and the commits are already published, so
   clearing them is a human action on the integration branch rather than an agent action.
@@ -83,7 +87,13 @@ Consequences, stated so no later session repeats work that cannot be repeated:
   planning branch into `Developer` or `main`** — read `PROGRAM-PLAN.md` out of it, keep
   `upstream-harvest/`, then delete the branch. Removal of the thirteen paths from the fork's working tree
   is itemized to the modernization run in `PROGRAM-PLAN.md` Deliverable A #9, gated on written human
-  confirmation that the capture is preserved elsewhere first.
+  confirmation that the capture is preserved elsewhere first. **This disclosure is not a waiver of the
+  requirement.** `INFERENCE` — stating the gap does not close it and must not be read as closing it;
+  reasoning: what the requirement protects is that no planning artifact becomes part of the product, and
+  that outcome rests on the human action above, not on this paragraph. The two things an agent could do
+  instead were both worse and were rejected: committing nothing destroys the deliverable, because the
+  platform publishes only committed content; and rewriting the branch's history after publication is
+  forbidden outright and would invalidate every hash this programme cites.
 - Because the capture cannot be repeated, its **completeness record is the only remaining evidence
   that it is complete**. That is what sections 4 through 8 are for.
 
@@ -243,10 +253,31 @@ environment. The authenticated ceiling is 5,000 requests per hour; the unauthent
 | `upstream-harvest/issue-comments/321.json` | `5000` | `5000` | `1786688052` | `2026-08-14T06:14:12Z` |
 | `upstream-harvest/issue-comments/323.json` | `5000` | `5000` | `1786687969` | `2026-08-14T06:12:49Z` |
 
-**The run was authenticated.** `FACT` — of the 36 HTTP requests itemised in section 4, 35 observed
-`x-ratelimit-limit = 5000` and all 26 non-`/rate_limit` requests observed `5000`. `FACT` — across
-those authenticated requests the observed `x-ratelimit-remaining` never fell below `4960` and never
-exceeded `5000`. `INFERENCE` — the quota therefore never approached exhaustion, so the empty-body
+**The run was authenticated.** `FACT` — of the **37** HTTP requests itemised in section 4, **36**
+observed `x-ratelimit-limit = 5000` and all 26 non-`/rate_limit` requests observed `5000`; the
+thirty-seventh is the deliberate unauthenticated control at `upstream-harvest/issues.json` →
+`_capture.calls[1]`, which observed the `60` ceiling and is described in §6.2. `FACT` — across
+those 36 authenticated requests the observed `x-ratelimit-remaining` never fell below `4960` and never
+exceeded `5000`.
+
+**One canonical total, generated rather than transcribed.** `FACT` — every request count in this
+manifest is the count of `_capture.calls` entries across the ten artifacts, and the command that
+produces it is the definition rather than a check of it:
+
+```
+python3 -c "import json,glob;fs=['upstream-harvest/issues.json','upstream-harvest/pulls.json',\
+'upstream-harvest/pr-330-reviews.json','upstream-harvest/pr-411-reviews.json']+\
+sorted(glob.glob('upstream-harvest/issue-comments/*.json'));\
+c=[k for f in fs for k in json.load(open(f))['_capture']['calls']];\
+print(len(c),'calls',sum('/rate_limit' in k['url'] for k in c),'rate_limit',\
+sum(str(k.get('x_ratelimit_limit'))=='5000' for k in c),'at the 5000 ceiling',\
+sorted({k['method'] for k in c}))"
+```
+
+`FACT` — result: `37 calls 11 rate_limit 36 at the 5000 ceiling ['GET']`. `INFERENCE` — a total is
+quoted in exactly one form for that reason; reasoning: a request total is the accounting of every use
+of a credential, so two disagreeing figures in one document weaken the very proof the section exists
+to give, and generating the figure removes the class of error rather than the instance. `INFERENCE` — the quota therefore never approached exhaustion, so the empty-body
 truncation failure mode described in section 1 cannot account for any zero record count in this
 capture; reasoning: that failure mode requires `remaining` to reach 0, and the lowest authenticated
 reading observed is 4960 of 5000.
@@ -266,10 +297,10 @@ signal, because `/rate_limit` is not a data endpoint and carries no harvest reco
 than reconciled. Example, from `upstream-harvest/pr-330-reviews.json`:
 `_capture.rate_limit_observed.remaining = 5000` with `reset = 1786688475`, while that artifact's
 first data request records `x_ratelimit_remaining = 4998` with `reset = 1786688408`. `FACT` — the
-artifacts themselves record two causes for the divergence: `GET /rate_limit` does not consume core
-quota, and the credential is shared with other sessions inside the same window
-(`upstream-harvest/pr-411-reviews.json` → `_capture.notes`; `upstream-harvest/issue-comments/321.json`
-→ `_capture.notes`).
+artifacts record the two figures as observed at different instants and assign no cause to the gap:
+`GET /rate_limit` does not consume core quota, and what consumed the remainder is carried as
+`UNKNOWN` (`upstream-harvest/pr-411-reviews.json` → `_capture.notes`;
+`upstream-harvest/issue-comments/321.json` → `_capture.notes`).
 
 ### 3.3 Tooling — verified and recorded in this container, nothing installed
 
@@ -294,40 +325,101 @@ carried as an explicit boolean in four artifacts (`upstream-harvest/pulls.json`,
 **The HTTP client, however, is not uniform, and reporting it as uniform would be a false provenance
 claim.** `FACT` — per artifact, from the field named in the last column:
 
-| # | Artifact | HTTP client | Field carrying it |
-| --- | --- | --- | --- |
-| 1 | `upstream-harvest/issues.json` | python3 `urllib.request` | `_capture.tooling.capture_driver` |
-| 2 | `upstream-harvest/pulls.json` | `curl` | `_capture.tooling.harvest_client` |
-| 3 | `upstream-harvest/pr-330-reviews.json` | `curl` | `_capture.tooling.transport` |
-| 4 | `upstream-harvest/pr-411-reviews.json` | `curl` | `_capture.tooling.transport` |
-| 5 | `upstream-harvest/issue-comments/53.json` | `UNKNOWN` — none recorded | — |
-| 6 | `upstream-harvest/issue-comments/93.json` | python3 `urllib.request` | `_capture.tooling.http_client_used` |
-| 7 | `upstream-harvest/issue-comments/150.json` | python3 `urllib.request` | `_capture.tooling.http_client_used` |
-| 8 | `upstream-harvest/issue-comments/220.json` | python3 `urllib.request` | `_capture.tooling.http_client_used` |
-| 9 | `upstream-harvest/issue-comments/321.json` | python3 `urllib.request` | `_capture.tooling.http_client_used` |
-| 10 | `upstream-harvest/issue-comments/323.json` | python3 `urllib.request` | `_capture.tooling.http_client_used` |
+| # | Artifact | HTTP client, as recorded at capture | Field carrying it | `_capture.credential_transport_exposure` |
+| --- | --- | --- | --- | --- |
+| 1 | `upstream-harvest/issues.json` | python3 `urllib.request` | `_capture.tooling.capture_driver`, corroborated by the structured `_capture.tooling.curl_used_for_capture = false`, which records that `curl` did not issue this artifact's requests | `in_process_client_only` |
+| 2 | `upstream-harvest/pulls.json` | `curl` for HTTP, python3 for JSON decode | `_capture.tooling.harvest_client`, repeated at `capture_driver` | `UNKNOWN` |
+| 3 | `upstream-harvest/pr-330-reviews.json` | `curl` for HTTP, python3 stdlib `json` as serializer | `_capture.tooling.transport` and `serializer`, now also stated at `capture_driver` | `UNKNOWN` |
+| 4 | `upstream-harvest/pr-411-reviews.json` | `curl` for HTTP, python3 stdlib `json` as serializer | `_capture.tooling.transport` and `serializer`, now also stated at `capture_driver` | `UNKNOWN` |
+| 5 | `upstream-harvest/issue-comments/53.json` | `UNKNOWN` — no client field was recorded at capture | `_capture.tooling.capture_driver`, which now states that `UNKNOWN` explicitly | `UNKNOWN` |
+| 6 | `upstream-harvest/issue-comments/93.json` | python3 `urllib.request` | `_capture.tooling.capture_driver` | `in_process_client_only` |
+| 7 | `upstream-harvest/issue-comments/150.json` | python3 `urllib.request` | `_capture.tooling.capture_driver` | `in_process_client_only` |
+| 8 | `upstream-harvest/issue-comments/220.json` | python3 `urllib.request` | `_capture.tooling.http_client_used`, repeated at `capture_driver` | `in_process_client_only` |
+| 9 | `upstream-harvest/issue-comments/321.json` | python3 `urllib.request` | `_capture.tooling.capture_driver` | `in_process_client_only` |
+| 10 | `upstream-harvest/issue-comments/323.json` | python3 `urllib.request` | `_capture.tooling.capture_driver` | `in_process_client_only` |
 
 The split is **six** artifacts on python3 `urllib.request`, **three** on curl, and **one**
 unrecorded. `UNKNOWN` — which client fetched `upstream-harvest/issue-comments/53.json`: its
-`_capture.tooling` records the nothing-installed posture and the observed tool versions but names no
-client, and the value is not recoverable after the fact. Note that *every* artifact records curl's
-version among the observed tools, whether or not curl issued its requests, which is the likely origin
-of an earlier over-broad claim in this section that all ten recorded a `python3` driver.
+`_capture.tooling` records the nothing-installed posture and the observed tool versions but named no
+client at capture, and the value is not recoverable after the fact. Note that *every* artifact records
+curl's version among the observed tools, whether or not curl issued its requests, which is the likely
+origin of an earlier over-broad claim in this section that all ten recorded a `python3` driver.
 
-`INFERENCE` — the mixed transport does not weaken the evidence; reasoning: both clients issued
-explicit `GET` requests against the same documented endpoints with the same `Accept` and
+**Two `capture_driver` values were corrected rather than left standing, and the correction is stated
+because rewriting one's own metadata silently is the same defect in a different place.** `FACT` — the
+envelope-normalisation change that introduced `capture-envelope.schema.json` made `capture_driver` a
+required field and populated it in the **five** artifacts that lacked it — `issues.json`,
+`pr-330-reviews.json`, `pr-411-reviews.json`, `issue-comments/220.json` and `issue-comments/53.json`.
+In **two** of the five the value was faithful to what the capture had recorded, `issues.json` from its
+recorded tooling, which sets `curl_used_for_capture = false`, and `220.json` from its own
+`http_client_used`; in the other **three** it was
+not, and each is corrected here: `pr-330-reviews.json` and `pr-411-reviews.json` had recorded
+`transport = "curl"` with python3
+stdlib `json` as their **serializer**, yet were given `capture_driver = "python3 urllib.request
+(standard library only)"`, contradicting their own transport field; and `issue-comments/53.json`,
+which recorded **no** client field at all, was given the same urllib value. `FACT` — all three now
+state what was observed, `53.json` states `UNKNOWN` explicitly, and each carries a
+`CREDENTIAL TRANSPORT EXPOSURE` note in its own `_capture.notes` recording the correction. `INFERENCE`
+— the harvested payloads are unaffected; reasoning: every edit was confined to the `_capture` audit
+envelope, and the canonical digest of each artifact's harvested arrays is unchanged by it.
+
+`INFERENCE` — the mixed transport does not weaken the completeness evidence; reasoning: both clients
+issued explicit `GET` requests against the same documented endpoints with the same `Accept` and
 `Authorization` header set, and each artifact records its own per-call status codes and rate-limit
-headers, so completeness is established per call rather than per client. `INFERENCE` — the one
-respect in which the two differ is recorded where it applies: `curl -H` places the credential in the
-process argument vector where a process listing can read it, which is why the `urllib` captures state
-that as their reason for not shelling out.
+headers, so completeness is established per call rather than per client. What the mixed transport
+*does* affect is credential exposure, and that is the subject of §3.3.1 rather than a parenthesis
+here.
+
+### 3.3.1 Credential transport — what is established, what is not, and the rule for any future capture
+
+**The credential is absent from every artifact at rest, and that is a different claim from never
+having been exposed.** `FACT` — a search of all twelve files in this folder for credential material —
+`ghp_`, `github_pat_`, `gh[sou]_`, an `Authorization` header value, or any bearer string — returns
+nothing, and response headers were captured to a separate dump rather than interleaved into any
+response body. `FACT` — the credential held `pull` as its only permission and every one of the 37
+itemised requests is a `GET` (§11).
+
+**Whether the credential ever entered a process argument vector is `UNKNOWN` for four artifacts, and
+is recorded as such rather than attested away.** `FACT` — `curl -H 'Authorization: …'` places the
+header in the process argument vector, where `/proc/<pid>/cmdline` is readable by any process of the
+same user for the lifetime of the request; a credential supplied through `curl --config` on a file
+descriptor, or set as a header inside an in-process client such as python3 `urllib.request`, does not
+appear there. `FACT` — no invocation transcript was retained for any capture, so for the three
+curl-transport artifacts the mechanism cannot be distinguished after the fact, and for
+`issue-comments/53.json` the client itself was never recorded. `FACT` — those four therefore carry
+`_capture.credential_transport_exposure = "UNKNOWN"`, and `upstream-harvest/pulls.json` additionally
+had an absolute clause retracted from its own SECRET HYGIENE note — that the credential never appeared
+on a command line — because its own `harvest_client` field records curl as the HTTP client, so the
+claim was never established by evidence. `INFERENCE` — the residual risk is bounded rather than
+nil: any exposure was to processes of the same user inside a single-tenant ephemeral container, for the
+duration of a request, of a read-only credential whose only permission is `pull`; reasoning: the
+permission set caps the worst case at reading data that is already public, and the archive accepts no
+writes from any credential.
+
+**The rule that binds any future authenticated capture in this programme, stated as a rule because
+this one cannot be re-run.** A capture may authenticate in exactly one of two ways: an **in-process
+HTTPS client** that sets the header inside the capturing process, which is what six of these ten
+artifacts did; or a client reading the credential from a **file descriptor or configuration file**
+never named on the command line — `curl --config <(printf 'header = "Authorization: Bearer %s"\n'
+"$TOKEN")` or the equivalent `--config -` reading the same text from standard input. Passing a credential as a command-line
+argument — `-H`, `-u`, `--header`, or an interpolated URL — is prohibited, and so is echoing any
+command line that carries one. Each artifact must record **one** transport, must state it in
+`capture_driver`, and must classify its exposure in `credential_transport_exposure`, whose three
+permitted values are fixed by the envelope schema; `in_process_client_only` may be written only where
+the recorded client cannot place a header in an argument vector. `INFERENCE` — the enum exists so that
+the unprovable claim is unwritable; reasoning: prose can assert non-exposure without evidence, and a
+validated three-value field cannot, so the control survives a session boundary where a convention
+would not.
 
 `FACT` — `_capture.tooling` is an **object** in all ten artifacts, and `nothing_installed` is a required
 `true` under the envelope schema (§4.4), so the posture above is now mechanically checked rather than
 merely asserted. `FACT` — one artifact, `upstream-harvest/issues.json`, had recorded its tooling as a
-single prose string instead: that text is preserved byte-for-byte at
-`_capture.tooling.provenance_note`, with the structured fields alongside it, so normalising the shape
-lost none of what it said.
+single prose string instead: its non-duplicative content is retained at
+`_capture.tooling.provenance_note` — the jq contradiction and the nothing-installed invariant —
+while everything else that string stated is carried by the structured fields alongside it
+(`python3_version_observed`, `curl_version_observed`, `curl_used_for_capture`,
+`jq_present`/`jq_used`, `gh_present`/`gh_used`, `nothing_installed`), so normalising the shape and
+then removing the restatement lost no fact.
 
 **Three contradictions of the supplied tooling ground truth, stated explicitly rather than quietly
 corrected** (AAP §0.2.2 requires contradictions to be shown with evidence; §0.10.2 forbids quiet
@@ -359,7 +451,7 @@ as the client-version contradictions above.
 as the literal first command of this run, exiting `0`. Observed exports include
 `JDK8_HOME=/usr/lib/jvm/java-8-openjdk-amd64`, `JDK11_HOME=/usr/lib/jvm/java-11-openjdk-amd64`,
 `JDK21_HOME=/usr/lib/jvm/java-21-openjdk-amd64`, `JAVA_HOME=$JDK11_HOME`,
-`GRADLE_USER_HOME=/root/.gradle`, and a de-duplicated
+`GRADLE_USER_HOME` (a container-local home path, deliberately not reproduced), and a de-duplicated
 `COB_CFLAGS=-std=c17 -finline-functions -pipe -Wdate-time -D_FORTIFY_SOURCE=3 -Wno-unused -fsigned-char`
 carrying a single `-D_FORTIFY_SOURCE` value.
 
@@ -467,7 +559,7 @@ be observed without issuing the request that returns those headers.
 `FACT` — it is now itemised as **row 31**, and as `calls[0]` of that artifact, with
 `record_status = "PARTIAL"`. Its three rate-limit values are re-recorded from
 `_capture.rate_limit_observed` and that artifact's own notes, which record them as observed at this
-gate; the call record states that provenance in its `evidence` field. `FACT` — its `http_status` and
+gate; the call record states that provenance in its `record_provenance` field. `FACT` — its `http_status` and
 `records_returned` are `null` and are named in `unknown_fields`, because those two values are recorded
 nowhere in the evidence. `INFERENCE` — it preceded the two harvesting calls, because the notes record
 the gate as read immediately before harvesting; `UNKNOWN` — its exact ordinal position in the sequence
@@ -482,8 +574,8 @@ fabrication; declaring the artifact `COMPLETE` while a record is admittedly inco
 the same failure one level up. `FACT` — the harvested comment payload is unaffected: 4 comments, and
 `issue.comments = 4` from a different endpoint agrees (§5.4, §7.3).
 
-`FACT` — the reconstructed row carries its own provenance on the call record: a `record_provenance`
-field naming every recovered value and its basis, an `evidence` field naming where the three
+`FACT` — the reconstructed row carries its own provenance on the call record: a single
+`record_provenance` field naming every recovered value and its basis, including where the three
 rate-limit values came from, and an `unrecoverable_fields` entry for the record count. `INFERENCE` —
 the request nonetheless succeeded, even though its status is recorded nowhere; reasoning: this endpoint
 returns a body carrying `resources.core.limit` only on success, an unauthenticated or rejected call
@@ -555,7 +647,7 @@ whose observed fields survive as quoted values, and row 37 duplicates a retained
 ### 4.4 One envelope schema, and the validation that enforces it
 
 `FACT` — `upstream-harvest/capture-envelope.schema.json` (JSON Schema draft-07,
-`envelope_schema_version` `1.0.0`) is the single normative shape of the `_capture` envelope, and every
+`envelope_schema_version` `1.1.0`) is the single normative shape of the `_capture` envelope, and every
 artifact in this folder points at it through `_capture.envelope_schema`. `FACT` — it exists because the
 ten captures were written by separate sessions and drifted in four ways now corrected: `tooling` was a
 string in one artifact and an object in the other nine; per-call rate-limit values were strings in three
@@ -573,6 +665,18 @@ editing raw third-party data.
 `response_body_location = null` and `PARTIAL`; `retained_verbatim` requires a location; `method` is
 fixed to `GET`; every `notes` entry must open with `FACT`, `INFERENCE` or `UNKNOWN`; and
 `tooling.nothing_installed` must be `true`.
+
+`FACT` — **version `1.1.0` adds exactly two normative constraints to `1.0.0` and changes nothing else**,
+both of them controls that a convention could not carry across a session boundary. First,
+`credential_transport_exposure` is **required**, with the three permitted values
+`in_process_client_only`, `argv_exposed` and `UNKNOWN`, so an artifact can neither omit the credential's
+transport exposure nor assert non-exposure it cannot evidence — §3.3.1 states the rule and the four
+artifacts that carry `UNKNOWN`. Second, `notes` must **contain** an entry opening
+`FACT: PUBLIC-DATA GOVERNANCE`, so the handling, retention, disposal and secondary-use contract in
+section 12 travels with the data it governs rather than living only in this manifest. `INFERENCE` — the
+version was bumped rather than the constraints being slipped into `1.0.0`; reasoning: this manifest calls
+the schema at a stated version the single normative shape, so tightening it silently under the same
+version number would make that statement false for every reader who validated against the earlier one.
 
 `FACT` — validation performed against all ten artifacts with the validator present in this container
 (`jsonschema` 4.26.0, verified rather than installed):
@@ -778,7 +882,7 @@ adjudication is attached to any of them here; that belongs to `PROGRAM-PLAN.md` 
 inferred from the other; reasoning: archiving imposes read-only status on an entire repository,
 whereas the per-pull-request `locked` flag is an independently settable conversation lock, so either
 could in principle be set without the other. `FACT` — the honest-if-divergent case did not arise
-here: both flags are set, so they agree, and `upstream-harvest/pulls.json` → `_capture.notes[4]`
+here: both flags are set, so they agree, and `upstream-harvest/pulls.json` → `_capture.notes[3]`
 records that had `locked` been `false` while `archived` was `true`, that would have been recorded as
 such rather than smoothed over.
 
@@ -1079,13 +1183,15 @@ Consequences, stated so no reader goes looking for something that is not there:
 
 | Standard | How this manifest honours it |
 | --- | --- |
-| **Evidence over assertion** | Every statement carries `FACT` with an artifact path, `file:line` or retrieved URL; `INFERENCE` with its reasoning; or `UNKNOWN`. No label is silently upgraded. The two genuinely unmeasured values in this document — the HTTP status and record count of row 31 — are labelled `UNKNOWN` rather than filled in, and every authored note in all ten sibling captures opens with its own evidence label so no authored claim can be mistaken for captured data. |
+| **Evidence over assertion** | Every statement carries `FACT` with an artifact path, `file:line` or retrieved URL; `INFERENCE` with its reasoning; or `UNKNOWN`. No label is silently upgraded. The genuinely unmeasured values in this document — the HTTP status and record count of row 31, the HTTP client of `issue-comments/53.json`, and the credential's argument-vector exposure for the four artifacts named in §3.3.1 — are labelled `UNKNOWN` rather than filled in, and every authored note in all ten sibling captures opens with its own evidence label so no authored claim can be mistaken for captured data. Three `capture_driver` values that an earlier normalisation had asserted without observing are corrected in §3.3 rather than left standing. |
 | **Honest completeness, judged on two axes** | A complete harvested payload does not make an incomplete audit record complete. §7.3 verdicts each artifact on both axes, four artifacts carry `audit_status = "PARTIAL"`, §8 lists all four omissions in full, and the earlier claims that no artifact was `PARTIAL` and that omissions were "none" are corrected rather than left standing. |
 | **One checked schema instead of ten conventions** | `upstream-harvest/capture-envelope.schema.json` fixes the envelope shape, the count convention and the retention vocabulary, and all ten artifacts validate against it with zero errors (§4.4). The schema deliberately does not constrain harvested GitHub payloads, so no schema rule can ever motivate editing raw third-party data. |
 | **No fabricated data** | Every count in sections 4, 5 and 7 was read mechanically out of the artifacts and reconciled against both `_capture.record_counts` and the real length of each data array before being written. Where an artifact recorded `null`, `null` is reproduced. |
 | **Auditable reproducibility** | Section 4 names every request with its full URL, status, record count, pagination state and rate-limit headers, in a stated reproducible order; section 7 shows the reconciliation arithmetic; section 3 records the tool versions and the exact activation command, so the audit can be re-performed against the artifacts without re-querying the archive. |
 | **Contradictions stated, never quietly corrected** | Six divergences from the supplied ground truth are reported with evidence and without smoothing: the expected count of five inline review comments on #330 is contradicted at 3 (§5.2, §6 row 14), the planning artifacts are tracked in the fork although the requirement places them outside it (§1, §11), `jq` is present (§3.3), `curl` and `python3` differ in version (§3.3), the host OS differs from two separate documented values (§3.3), and the rate-limit ceiling of 60 belongs only to a deliberate control probe (§6.2). |
 | **Secret hygiene** | No credential value, prefix, fragment or request-header text appears anywhere in this document. The credential is referred to only by role. |
+| **Credential exposure classified, never attested away** | §3.3.1 separates two claims that are easy to conflate: the credential is absent from every artifact **at rest**, which is checkable, and whether it ever entered a process argument vector, which for four artifacts is not. Those four carry `credential_transport_exposure = "UNKNOWN"`, one over-broad clause asserting non-exposure was retracted, and the schema's three-value enum makes the unprovable claim unwritable in future. The transport rule that binds any future authenticated capture is stated as a rule, because this one cannot be re-run. |
+| **Public data governed by purpose and lifetime, not by redaction** | §12 bounds purpose, access, publication, retention, disposal, deleted-upstream-content handling and secondary use for the contributor data these artifacts retain, and prohibits profiling, enrichment, outreach and model training on it. It licenses no edit to any harvested payload, and its presence is enforced per artifact by the schema rather than by convention. |
 | **Read-only least privilege** | The credential carried `pull` as its only granted permission (`repository_metadata.permissions`), so write access was unavailable rather than merely forbidden. See section 11. |
 | **Verify and record, never install** | Every tool version in §3.3 was probed in this container rather than transcribed, and nothing was installed to produce either the capture or this manifest. |
 | **Scope discipline** | This manifest reports what was captured and whether it is complete. It contains no classification, no ranking, no sequencing and no adjudication; those belong to `PROGRAM-PLAN.md` Deliverable A #5. |
@@ -1137,10 +1243,19 @@ hashes that introduced them and the commands that establish it. `FACT` — they 
 merged into the fork's product branch: `origin/Developer` at
 `c79624bd286d5f08f156ccce755bc5d4fffd1909` contains no `PROGRAM-PLAN.md` and no `upstream-harvest/`
 path. `FACT` — no production, test, build or configuration file of the fork was modified in order to
-produce them, and copies exist outside the working tree at
-`/tmp/blitzy/plans/session-output-w-003/`. `FACT` — history is not rewritten to remove them, because
-AAP §0.5.2 and §0.10.5 exclude history rewriting outright; the residual placement gap is carried
-openly here instead of being attested away.
+produce them, and a copy of all thirteen paths is additionally exported outside the working tree, to a
+session export directory under the shared workspace root, refreshed as the final step of the planning
+run and checked with `diff -r`. `INFERENCE` — that path is referred to here as `<session-export>/`
+rather than quoted absolutely; reasoning: the literal path names the clone and run topology of one
+ephemeral container, it is not resolvable by any later reader, and publishing it discloses layout
+without adding evidence. **The authoritative copy is the committed branch content**, because that is
+what the platform publishes; the export exists so that the capture survives the branch being read and
+deleted. `FACT` — history is not rewritten to remove them, because AAP §0.5.2 and §0.10.5 exclude
+history rewriting outright; the residual placement gap is carried openly here instead of being attested
+away. **Recording it is not a waiver of it.** `INFERENCE` — the disclosure changes the audit position
+and nothing else; reasoning: the requirement is that these files never enter the product, and that
+outcome still depends on the human action stated below rather than on anything this document says about
+it.
 
 `FACT` — the same position stated as the commands that check it: `origin/Developer` still resolves to
 `c79624bd286d5f08f156ccce755bc5d4fffd1909`, `git diff --name-only c79624bd286d5f08f156ccce755bc5d4fffd1909`
@@ -1158,13 +1273,104 @@ only by role, and no request-header text is quoted anywhere.
 
 ---
 
-*End of manifest. Sections 1 through 11 complete, covering the **twelve**-file artifact set enumerated
+## 12. Public-data handling, retention and secondary use
+
+**What this section is, and why it constrains use rather than evidence.** These artifacts retain public
+GitHub records about identifiable people — `user.login`, profile and avatar URLs, author association,
+created and updated timestamps, and the full text of issue, review and comment bodies — verbatim,
+because fidelity to a one-time capture of an archived repository is the whole point of keeping them.
+`INFERENCE` — the correct control for that data is therefore a bound on *purpose, access, lifetime and
+onward use*, never redaction; reasoning: redacting an audit copy destroys the property that makes it
+audit evidence, and every artifact says so in its own `PUBLIC-DATA GOVERNANCE` note. Every rule below
+binds this programme's later runs and is carried into `PROGRAM-PLAN.md` so no run has to come back here
+to find it.
+
+**1. Purpose limitation.** The data may be used for exactly two purposes: building and auditing the
+backlog triage in `PROGRAM-PLAN.md` Deliverable A #5, and establishing the provenance and completeness
+of the capture itself. `FACT` — the artifacts already carry a matching `SCOPE` note stating they hold no
+classification, no ranking and no adjudication. Any other use requires a decision recorded outside this
+document by the human maintainer.
+
+**2. Access and publication boundary.** The artifacts sit in a private planning branch and are read by
+the maintainer and by the agent sessions this programme runs. No part of this data may be republished —
+not in the fork's product branches, not in release notes, not in documentation, not in the changelog,
+and not in any issue text the programme files. `INFERENCE` — where a triage entry needs to cite an
+upstream record it cites the **number** and, where fidelity requires it, the raw title, never a
+contributor's profile data; reasoning: a number and a title carry the technical content, and identity
+adds nothing a triage decision needs. **Author attribution is the single, deliberate exception**, in
+one direction only: the pull-request adoption work must preserve each contribution's author
+attribution in the commit that re-applies it, because that is a licence obligation
+(`PROGRAM-PLAN.md` §0.10.5's "do not touch" set) rather than a secondary use.
+
+**3. Retention trigger and disposal.** Retention is bounded by purpose, not by a period — this
+programme records no dates or durations anywhere. The capture is retained while any run still consumes
+the triage or the provenance record: `FACT` — that is up to and including the modernization run, which
+is where the deletion of these thirteen paths from the fork's working tree is itemized (§1 and
+`PROGRAM-PLAN.md` Deliverable A #9). At that point the copy under `<session-export>/` outside the
+working tree becomes the only live copy, and it is retained only until the maintainer confirms the
+backlog triage no longer needs re-checking, after which it is deleted. **The disposal rule has one hard
+precondition, already recorded as a blocking open question**: no deletion of any copy may proceed
+without written human confirmation that another copy exists, because the capture cannot be repeated
+against an archived repository. `INFERENCE` — deleting the last copy of unrepeatable evidence to
+satisfy a hygiene rule would be a worse outcome than retaining it; reasoning: the data is public, the
+exposure is unchanged by our copy existing, and the evidence is not recoverable.
+
+**4. Deleted or edited upstream content.** `INFERENCE` — a contributor may delete or edit an upstream
+comment after this capture, so a record here can outlive its source; reasoning: the capture is a
+point-in-time copy and the upstream repository, though archived, still permits account-level deletion.
+The rule that follows: this capture is **evidence of what the API returned at its recorded instant**,
+never a statement of what a person currently says. Where a specific record's continued retention is
+challenged, the record is removed from the `<session-export>/` copy and the removal is noted in the
+`_capture.omissions` array of a superseding artifact — the in-repository copies cannot be edited
+retroactively, because history rewriting is excluded outright, which is one more reason the branch must
+be deleted rather than merged. No run may quote a comment body into a user-facing artifact, so no such
+quotation can outlive its source.
+
+**5. Prohibited secondary uses, stated as a closed list of things not to do.** No profiling or
+inference about any individual, including activity patterns, employer, location or availability. No
+enrichment or cross-referencing of contributor identities against any other dataset, registry or
+social platform. No outreach of any kind to any contributor, maintainer, company or foundation — which
+is already an absolute programme constraint and is repeated here because contact details are precisely
+what this data would enable. No training, fine-tuning or embedding of any model on this data. No
+aggregate statistic about individuals published anywhere. `FACT` — the harvest itself issued only
+`GET` requests and wrote nothing upstream (§11), so nothing in this capture has ever been used to
+contact anyone.
+
+**6. What this section does not license.** It does not license editing, redacting, reformatting,
+truncating or "cleaning" any harvested payload. `FACT` — the envelope schema constrains the audit
+envelope only and leaves the payloads unconstrained precisely so that no rule can motivate editing
+third-party data (§4.4). A governance obligation is discharged by controlling use and lifetime; if a
+rule and the evidence appear to conflict, the evidence stands and the conflict is recorded.
+
+**7. Enforcement, so this outlives one reading.** `FACT` — every one of the ten capture artifacts
+carries a `FACT: PUBLIC-DATA GOVERNANCE` note pointing at this section, and `capture-envelope.schema.json`
+at `envelope_schema_version` `1.1.0` **requires** that note to be present, so a validator rather than a
+convention keeps the contract attached to the data:
+
+```
+python3 -c "import json,glob;fs=['upstream-harvest/issues.json','upstream-harvest/pulls.json',\
+'upstream-harvest/pr-330-reviews.json','upstream-harvest/pr-411-reviews.json']+\
+sorted(glob.glob('upstream-harvest/issue-comments/*.json'));\
+print(sum(any(n.startswith('FACT: PUBLIC-DATA GOVERNANCE') for n in \
+json.load(open(f))['_capture']['notes']) for f in fs),'of',len(fs),'artifacts carry the governance note')"
+```
+
+`FACT` — result: `10 of 10 artifacts carry the governance note`.
+
+---
+
+*End of manifest. Sections 1 through 12 complete, covering the **twelve**-file artifact set enumerated
 in §1.1. Every count above was read out of the artifacts in `upstream-harvest/` and reconciled against
-them, and section 4's endpoint table is generated from them rather than transcribed. **Three** values
-are not recorded anywhere in the evidence and are labelled `UNKNOWN`: the HTTP status and the record
-count of row 31 in section 4, and the HTTP client of `upstream-harvest/issue-comments/53.json` in §3.3.
-Of the ten data captures, **none failed** and every harvested payload is **COMPLETE**, while **four**
-carry `audit_status = "PARTIAL"` on audit metadata alone — the four recording omissions are listed in
-full in §8.2 — and all ten validate against `upstream-harvest/capture-envelope.schema.json` with zero
-errors (§4.4). The artifacts' placement, and the one human action that preserves it, are stated in
-section 1 and again in section 11.*
+them, and section 4's endpoint table is generated from them rather than transcribed; the request total
+is generated too, from `_capture.calls`, and appears in one form only (§3.2). **Four** values are not
+recorded anywhere in the evidence and are labelled `UNKNOWN`: the HTTP status and the record count of
+row 31 in section 4, the HTTP client of `upstream-harvest/issue-comments/53.json` in §3.3, and whether
+the credential entered a process argument vector for the four artifacts classified `UNKNOWN` at
+`_capture.credential_transport_exposure` in §3.3.1. Of the ten data captures, **none failed** and every
+harvested payload is **COMPLETE**, while **four** carry `audit_status = "PARTIAL"` on audit metadata
+alone — the four recording omissions are listed in full in §8.2 — and all ten validate against
+`upstream-harvest/capture-envelope.schema.json` at `envelope_schema_version` `1.1.0` with zero errors
+(§4.4). The public-data handling, retention and secondary-use contract that governs every record kept
+here is section 12, and it is enforced per artifact by the schema rather than by convention. The
+artifacts' placement, the statement that disclosing it waives nothing, and the one human action that
+preserves the position are stated in section 1 and again in section 11.*

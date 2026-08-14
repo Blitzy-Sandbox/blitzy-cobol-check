@@ -1,7 +1,8 @@
 {
   "_capture": {
     "envelope_schema": "../capture-envelope.schema.json",
-    "envelope_schema_version": "1.0.0",
+    "envelope_schema_version": "1.1.0",
+    "credential_transport_exposure": "in_process_client_only",
     "repository": "openmainframeproject/cobol-check",
     "issue_number": 220,
     "captured_at_utc": "2026-08-14T05:14:42.424156Z",
@@ -86,16 +87,13 @@
     "failures": [],
     "notes": [
       "FACT: the activation script /etc/profile.d/blitzy-cobolcheck-env.sh was present and sourced successfully as the first command of this run; this capture requires only python3 and curl, both already on PATH, so no dependent value is recorded as UNKNOWN on its account.",
-      "FACT: tool versions in _capture.tooling were observed in this container rather than carried from any document; python3 reported 'Python 3.13.7', curl reported 'curl 8.14.1 (x86_64-pc-linux-gnu) libcurl/8.14.1 OpenSSL/3.5.3 zlib/1.3.1 brotli/1.1.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.2 libssh2/1.11.1 nghttp2/1.64.0 librtmp/2.3 OpenLDAP/2.6.10', jq_present=True ('jq-1.8.1'), gh_present=False.",
-      "FACT: the capture was driven entirely by the python3 standard library module urllib.request; no software was installed and neither jq nor the gh CLI was used.",
       "FACT: every HTTP request issued by this capture is a GET, as recorded in the method field of every _capture.calls entry; no write request of any kind was issued against the archived upstream repository openmainframeproject/cobol-check.",
       "FACT: _capture.authenticated was derived solely from the rate-limit ceiling observed on GET https://api.github.com/rate_limit (x-ratelimit-limit=5000, corroborated by resources.core.limit=5000), not from the presence of a token variable.",
       "FACT: the target repository is hard-pinned to openmainframeproject/cobol-check; README.md:L38 of the working repository points its wiki link at the neopragma/cobol-check repository while README.md:L42 and README.md:L55 use openmainframeproject/cobol-check, and that neopragma form was never substituted into any endpoint requested here -- every URL in _capture.calls names openmainframeproject/cobol-check or the rate_limit endpoint.",
-      "FACT: upstream-harvest/issues.json was not present in this working tree at capture time; it is generated separately in this same planning run.",
-      "UNKNOWN: the cross-check of issue 220 against upstream-harvest/issues.json was therefore not performed, so no agreement between this capture and that harvested issue list is asserted here.",
-      "INFERENCE: the title, state and labels recorded in this file are instead taken from the upstream payload GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/220; reasoning: upstream-harvest/issues.json is itself produced by reading the same GitHub REST API for the same repository, so the per-issue endpoint is at least as authoritative as the list endpoint for these three fields, though this capture did not observe that file being produced and so cannot confirm the two agree.",
-      "FACT: GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/220 returned title \"Build cobol-check as GraalVM native-image\", state \"open\", labels [], comments count 3.",
-      "FACT: the payload from GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/220 carries no pull_request key, so number 220 is a plain issue and not a pull request."
+      "UNKNOWN: this artifact does not record a cross-check against upstream-harvest/issues.json.",
+      "FACT: the title, state and labels recorded in this file are taken from the upstream payload GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/220; no agreement with any list-endpoint capture is asserted here.",
+      "FACT: CREDENTIAL TRANSPORT — the HTTP client recorded for this artifact is python3 `urllib.request` at `_capture.tooling.capture_driver`, which runs in process: the credential was read from the environment and set as a request header inside the capture process, so it entered no process argument vector. The classification is machine-readable at `_capture.credential_transport_exposure = \"in_process_client_only\"`. No credential value, header or fragment appears anywhere in this artifact at rest, and every call in `_capture.calls` is a `GET`. The transport rule binding any future authenticated capture is fixed in `upstream-harvest/HARVEST-MANIFEST.md` section 3.3.1.",
+      "FACT: PUBLIC-DATA GOVERNANCE — this artifact retains public GitHub records verbatim, including contributor `login`, profile and avatar URLs, timestamps and comment bodies, because it is the audit copy of a one-time capture against an archived repository and fidelity is its purpose. Use of that data is bounded to backlog triage and provenance audit for this programme. The binding purpose, access and publication boundary, retention trigger, disposal rule, deleted-upstream-content handling and the prohibition on profiling, enrichment, outreach and every other secondary use are stated in `upstream-harvest/HARVEST-MANIFEST.md` section 12. Those rules constrain use and lifetime; they never license editing this evidence."
     ],
     "omissions": [],
     "audit_status": "COMPLETE"

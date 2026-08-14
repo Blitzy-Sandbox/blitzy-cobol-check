@@ -1,7 +1,8 @@
 {
   "_capture": {
     "envelope_schema": "../capture-envelope.schema.json",
-    "envelope_schema_version": "1.0.0",
+    "envelope_schema_version": "1.1.0",
+    "credential_transport_exposure": "UNKNOWN",
     "repository": "openmainframeproject/cobol-check",
     "issue_number": 53,
     "captured_at_utc": "2026-08-14T05:16:01Z",
@@ -76,26 +77,20 @@
       "gh": "absent",
       "git": "git version 2.51.0",
       "os_release": "Ubuntu 25.10",
-      "capture_driver": "python3 urllib.request (standard library only)",
+      "capture_driver": "UNKNOWN - no HTTP client was recorded at capture time; the earlier value naming python3 urllib.request was supplied by envelope normalisation, was never observed, and is corrected to UNKNOWN - see _capture.notes and HARVEST-MANIFEST.md section 3.3.1",
       "nothing_installed": true
     },
     "failures": [],
     "notes": [
       "FACT: `. /etc/profile.d/blitzy-cobolcheck-env.sh` was issued as the literal first command of this run; the script is present in this container and sourcing returned rc=0. This capture requires only `curl` and `python3`, both already on PATH, so no finding, amendment request or UNKNOWN label follows from the activation step either way.",
-      "FACT: every value in `_capture.tooling` was probed in this container during this capture (python3/curl/jq/gh/git/os_release) rather than carried forward from any prior report, and nothing was installed in order to perform the capture.",
       "FACT: `authenticated` was derived solely from the observed rate-limit ceiling x-ratelimit-limit=5000 on GET https://api.github.com/rate_limit (corroborated by resources.core.limit=5000), where 5000 denotes an authenticated quota and 60 an unauthenticated one; it was not derived from the presence of any token variable.",
       "FACT: the comments endpoint returned HTTP 200 with zero records, so `issue_comments` is an empty array; this is a complete capture of an empty thread rather than a failed capture.",
       "FACT: pagination followed the Link rel=\"next\" header until it was absent; the final comments page recorded link_next=null, so 1 page(s) exhausted the thread and 0 comment record(s) were captured.",
       "FACT: every captured body is stored verbatim as returned by the API — no field was pruned or truncated, no markdown was re-rendered, no HTML was stripped and no whitespace was normalized.",
-      "FACT: upstream-harvest/issues.json was not present in this clone at the moment of capture (checked on disk); it is a sibling planning artifact of the same harvest and was not available to read.",
-      "INFERENCE: corroboration therefore used the payload retrieved directly under the top-level `issue` key instead, reasoning that it comes from the same upstream endpoint family that the issue list is itself captured from, carries the same number/title/labels/state fields, and additionally settles by the presence or absence of a `pull_request` key whether #53 is an issue or a pull request.",
-      "FACT: GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/53 returned HTTP 200 with number=53, title=\"Review and correct localized messages\", state=\"open\" and labels=[\"enhancement\", \"help wanted\", \"good first issue\"].",
-      "FACT: the retrieved payload carries no `pull_request` key, so #53 is an issue rather than a pull request served through the issues endpoints.",
       "FACT: the retrieved issue payload reports comments=0, which matches the 0 record(s) captured into `issue_comments`; the API's own comment counter is therefore an independent check that this capture is complete rather than silently truncated.",
-      "FACT: the retrieved issue payload reports locked=true with active_lock_reason=null, consistent with openmainframeproject/cobol-check being archived and read-only.",
-      "FACT: the retrieved title and labels quoted above are consistent with the carried-forward characterization of #53 as localization work.",
-      "FACT: `review_rules` returns exactly \"No user rules provided.\", so no user-specified rule governs this artifact; it was produced to enterprise-standard best practice instead, and the absence of rules was not treated as licence to lower the bar.",
-      "FACT: every entry in `_capture.calls` records method \"GET\"; no POST, PATCH, PUT or DELETE request was issued, and no comment, reaction, label, assignment, reopen or edit was attempted against the archived read-only repository openmainframeproject/cobol-check."
+      "FACT: every entry in `_capture.calls` records method \"GET\"; no POST, PATCH, PUT or DELETE request was issued, and no comment, reaction, label, assignment, reopen or edit was attempted against the archived read-only repository openmainframeproject/cobol-check.",
+      "UNKNOWN: CREDENTIAL TRANSPORT EXPOSURE — `FACT` — the capture for this artifact recorded no HTTP client field at all: its `_capture.tooling` held only observed tool versions and the nothing-installed posture, and the `capture_driver` value naming python3 `urllib.request` was supplied later by envelope normalisation rather than observed. `UNKNOWN` — which client issued these requests is not recoverable after the fact, so `capture_driver` is corrected to an explicit `UNKNOWN` and the exposure is classified `UNKNOWN` at `_capture.credential_transport_exposure` instead of asserting an unobserved value. What IS established: no credential value, header or fragment appears anywhere in this artifact at rest, and every call in `_capture.calls` is a `GET`. The transport rule binding any future authenticated capture is fixed in `upstream-harvest/HARVEST-MANIFEST.md` section 3.3.1.",
+      "FACT: PUBLIC-DATA GOVERNANCE — this artifact retains public GitHub records verbatim, including contributor `login`, profile and avatar URLs, timestamps and comment bodies, because it is the audit copy of a one-time capture against an archived repository and fidelity is its purpose. Use of that data is bounded to backlog triage and provenance audit for this programme. The binding purpose, access and publication boundary, retention trigger, disposal rule, deleted-upstream-content handling and the prohibition on profiling, enrichment, outreach and every other secondary use are stated in `upstream-harvest/HARVEST-MANIFEST.md` section 12. Those rules constrain use and lifetime; they never license editing this evidence."
     ],
     "omissions": [],
     "audit_status": "COMPLETE"
