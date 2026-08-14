@@ -281,21 +281,48 @@ thirty-seventh is the deliberate unauthenticated control at `upstream-harvest/is
 those 36 authenticated requests the observed `x-ratelimit-remaining` never fell below `4960` and never
 exceeded `5000`.
 
-**One canonical total, generated rather than transcribed.** `FACT` — every request count in this
-manifest is the count of `_capture.calls` entries across the ten artifacts, and the command that
-produces it is the definition rather than a check of it:
+**One canonical total, generated rather than transcribed — and asserted rather than merely printed.**
+`FACT` — every request count in this manifest is the count of `_capture.calls` entries across the ten
+artifacts, and the command that produces it is the definition rather than a check of it. `FACT` — it
+also **exits non-zero if any of the five figures moves**, so the total cannot silently drift away from
+the document that quotes it:
 
-```
-python3 -c "import json,glob;fs=['upstream-harvest/issues.json','upstream-harvest/pulls.json',\
-'upstream-harvest/pr-330-reviews.json','upstream-harvest/pr-411-reviews.json']+\
-sorted(glob.glob('upstream-harvest/issue-comments/*.json'));\
-c=[k for f in fs for k in json.load(open(f))['_capture']['calls']];\
-print(len(c),'calls',sum('/rate_limit' in k['url'] for k in c),'rate_limit',\
-sum(str(k.get('x_ratelimit_limit'))=='5000' for k in c),'at the 5000 ceiling',\
-sorted({k['method'] for k in c}))"
+```bash
+# Canonical request accounting for upstream-harvest/. Run from the repository root.
+# Generates the total AND asserts the five figures this section states.
+# Exit status is the verdict: 0 the document agrees with the artifacts, 1 it does not.
+python3 - <<'PY'
+import json, glob, sys
+fs = ['upstream-harvest/issues.json', 'upstream-harvest/pulls.json',
+      'upstream-harvest/pr-330-reviews.json', 'upstream-harvest/pr-411-reviews.json'] + \
+     sorted(glob.glob('upstream-harvest/issue-comments/*.json'))
+c = [k for f in fs for k in json.load(open(f, encoding='utf-8'))['_capture']['calls']]
+gate = [k for k in c if '/rate_limit' in k['url']]
+at5000 = [k for k in c if k.get('x_ratelimit_limit') == 5000]
+at60 = [k for k in c if isinstance(k.get('x_ratelimit_limit'), int) and k['x_ratelimit_limit'] <= 60]
+methods = sorted({k['method'] for k in c})
+print(len(c), 'calls', len(gate), 'rate_limit', len(at5000), 'at the 5000 ceiling', methods)
+checks = [('artifacts', len(fs), 10), ('calls', len(c), 37), ('rate_limit rows', len(gate), 11),
+          ('rows at the 5000 ceiling', len(at5000), 36), ('rows at a 60 ceiling', len(at60), 1),
+          ('methods', methods, ['GET'])]
+rc = 0
+for label, got, want in checks:
+    if got != want:
+        print(f'DRIFT  {label}: {got!r}, this section states {want!r}')
+        rc = 1
+# the single 60-ceiling row must be the declared unauthenticated control: a gate probe that harvests nothing
+for k in at60:
+    if k['family'] != 'rate_limit' or k['records_persisted'] != 0:
+        print(f'UNAUTHENTICATED DATA REQUEST  {k["url"]} family={k["family"]} persisted={k["records_persisted"]}')
+        rc = 1
+print('VERIFIED' if rc == 0 else 'NOT VERIFIED')
+sys.exit(rc)
+PY
 ```
 
-`FACT` — result: `37 calls 11 rate_limit 36 at the 5000 ceiling ['GET']`. `INFERENCE` — a total is
+`FACT` — result: `37 calls 11 rate_limit 36 at the 5000 ceiling ['GET']`, `VERIFIED`, exit status `0`.
+`FACT` — the assertion is discriminating: the same block run against a copy whose thirty-seventh row was
+removed reports `DRIFT calls: 36, this section states 37`, `NOT VERIFIED` and exits `1`. `INFERENCE` — a total is
 quoted in exactly one form for that reason; reasoning: a request total is the accounting of every use
 of a credential, so two disagreeing figures in one document weaken the very proof the section exists
 to give, and generating the figure removes the class of error rather than the instance. `INFERENCE` — the quota therefore never approached exhaustion, so the empty-body
@@ -668,7 +695,7 @@ whose observed fields survive as quoted values, and row 37 duplicates a retained
 ### 4.4 One envelope schema, and the validation that enforces it
 
 `FACT` — `upstream-harvest/capture-envelope.schema.json` (JSON Schema draft-07,
-`envelope_schema_version` `1.1.0`) is the single normative shape of the `_capture` envelope, and every
+`envelope_schema_version` `1.2.0`) is the single normative shape of the `_capture` envelope, and every
 artifact in this folder points at it through `_capture.envelope_schema`. `FACT` — it exists because the
 ten captures were written by separate sessions and drifted in four ways now corrected: `tooling` was a
 string in one artifact and an object in the other nine; per-call rate-limit values were strings in three
@@ -687,6 +714,50 @@ editing raw third-party data.
 fixed to `GET`; every `notes` entry must open with `FACT`, `INFERENCE` or `UNKNOWN`; and
 `tooling.nothing_installed` must be `true`.
 
+`FACT` — **the schema also makes a self-contradictory envelope invalid, which through
+`envelope_schema_version` `1.1.0` it did not.** Versions `1.0.0` and `1.1.0` constrained the type, value
+and vocabulary of each field *in isolation*, so an envelope whose fields disagreed with one another
+still validated. Nine cross-field invariants close that, each carrying its own `description` in the
+schema, six on `definitions.capture` and three on `definitions.call`:
+
+| # | Invariant | What it makes unwritable |
+| --- | --- | --- |
+| **C1** | `authenticated: true` requires `rate_limit_observed.limit > 60` | An artifact claiming authentication beside a falsified 60-request ceiling. `authenticated` is *derived* from the observed ceiling (§3.2) — a fact the property's own description stated and nothing enforced |
+| **C2** | `authenticated: false` requires `limit <= 60` **and** `audit_status = "PARTIAL"` | An unauthenticated capture claiming COMPLETE. §1 records the failure mode: an exhausted unauthenticated quota returns empty bodies rather than errors, so completeness cannot be established from inside such a capture |
+| **C3** | `audit_status = "COMPLETE"` requires every call `COMPLETE` and `omissions` empty | A downgraded call record, or an added recording gap, sitting under an untouched artifact-level verdict. This is `audit_status`'s own documented definition, now checked |
+| **C4** | `audit_status = "PARTIAL"` requires at least one itemised `omission` | A blanket PARTIAL that withholds what is missing. Every PARTIAL arises from a null field, an unretained body or an unwritten call record, and the `omission` vocabulary covers exactly those |
+| **C5** | A data-family call that retained its body and returned **zero** records requires a `notes` entry opening `FACT: ZERO-RECORD CORROBORATION` or `UNKNOWN: ZERO-RECORD CORROBORATION` | A silently truncated page presented as an empty thread. The two produce byte-identical artifacts — HTTP 200, an empty array, a zero count — so the distinction cannot be read out of the shape and must be asserted with its evidence |
+| **C6** | An `UNKNOWN`-prefixed zero-record classification requires `audit_status = "PARTIAL"` | Doubt recorded in one field and contradicted by the verdict in another |
+| **K5** | `record_status = "COMPLETE"` requires a 2xx `http_status` | A record keeping its COMPLETE verdict over a `401`, `403` or `404`. Before `1.2.0`, `http_status` was typed integer-or-null and accepted any integer |
+| **K6** | `response_body_retention = "retained_verbatim"` requires a 2xx `http_status` | A payload presented as harvested data when the response that carried it was not a success. Stated separately from K5 because the two are independently falsifiable |
+| **K7** | A non-`rate_limit` family observing `x_ratelimit_limit <= 60` requires `record_status = "PARTIAL"` | A *data* request made without the credential counted as COMPLETE evidence. The `rate_limit` family is excluded deliberately: `upstream-harvest/issues.json` → `_capture.calls[1]` is the declared unauthenticated control, whose whole purpose is to observe the 60 ceiling, and it harvests nothing (§6.2) |
+
+`FACT` — **two invariants of the same family are deliberately not in the schema, and the boundary is
+stated here rather than left for a reader to assume**: reconciling `record_counts` and per-call
+`records_persisted` against the real length of each persisted data array, and comparing
+`records_persisted` against `records_returned` on the same call. `FACT` — neither is expressible in
+JSON Schema draft-07, which can compare a value against a constant but not against a sibling property
+or against the length of an array in another subtree. `INFERENCE` — they are therefore enforced by the
+validation gate below rather than dropped; reasoning: an arithmetic identity that no check performs is
+a convention, and the whole point of this section is that the envelope's claims are machine-checked —
+so the honest arrangement is a schema that carries every rule it can express and a gate that carries
+the two it cannot, with this paragraph naming which is which so nobody assumes the schema checks
+arithmetic it cannot see.
+
+**Two design decisions taken here, each recorded with the alternative rejected and the reason, because a
+conflict between two candidate designs is resolved rather than left open.** `INFERENCE` — **C5 requires
+the classification unconditionally rather than accepting `audit_status = "PARTIAL"` as a substitute.**
+Rejected alternative: allow either. Reasoning: `audit_status` is a statement about *audit metadata*,
+and four artifacts already carry `PARTIAL` for reasons that say nothing about any zero (§7.3), so a
+falsification could satisfy the rule by flipping a field that does not address the question. Requiring
+the statement, in either the `FACT` or the `UNKNOWN` form, is the same device
+`credential_transport_exposure` already uses: a three-valued classification makes an unprovable claim
+unwritable, where prose could assert it without evidence (§3.3.1). `INFERENCE` — **the version was bumped to
+`1.2.0` rather than these constraints being added under `1.1.0`.** Rejected alternative: tighten
+silently. Reasoning: this section calls the schema at a stated version the single normative shape, so
+tightening it under an unchanged version number would make that statement false for every reader who
+validated against `1.1.0` — the identical reasoning recorded for the `1.0.0` → `1.1.0` bump below.
+
 `FACT` — **version `1.1.0` adds exactly two normative constraints to `1.0.0` and changes nothing else**,
 both of them controls that a convention could not carry across a session boundary. First,
 `credential_transport_exposure` is **required**, with the three permitted values
@@ -699,18 +770,133 @@ version was bumped rather than the constraints being slipped into `1.0.0`; reaso
 the schema at a stated version the single normative shape, so tightening it silently under the same
 version number would make that statement false for every reader who validated against the earlier one.
 
-`FACT` — validation performed against all ten artifacts with the validator present in this container
-(`jsonschema` 4.26.0, verified rather than installed):
+**The validation gate, and it is a gate rather than a report.** `FACT` — validation is performed against
+all ten artifacts with the validator present in this container (`jsonschema` 4.26.0, verified rather
+than installed). `FACT` — the command below **exits non-zero on any violation**, so it composes into a
+precondition for a later run instead of merely printing a number a reader has to interpret. `INFERENCE`
+— the exit status is the load-bearing part; reasoning: an earlier revision of this section documented a
+`python3 -c "…print(…)"` form whose status reflected only interpreter success, so it reported violations
+correctly and could not fail — and a check that cannot fail is not a control, it is a comment. Run it
+from the repository root:
 
-```
-python3 -c "import json,glob;from jsonschema import Draft7Validator as V;\
-s=json.load(open('upstream-harvest/capture-envelope.schema.json'));V.check_schema(s);v=V(s);\
-fs=['upstream-harvest/issues.json','upstream-harvest/pulls.json','upstream-harvest/pr-330-reviews.json',\
-'upstream-harvest/pr-411-reviews.json']+sorted(glob.glob('upstream-harvest/issue-comments/*.json'));\
-print(sum(len(list(v.iter_errors(json.load(open(f,encoding='utf-8'))))) for f in fs),'errors across',len(fs),'artifacts')"
+```bash
+# Envelope validation gate for upstream-harvest/. Run from the repository root.
+# Layer 1: every artifact against capture-envelope.schema.json (JSON Schema draft-07).
+# Layer 2: the two cross-field identities draft-07 cannot express - counts against real
+#          array lengths, and records_persisted against records_returned on the same call.
+# Exit status is the verdict: 0 verified, 1 not. Nothing is written and nothing is installed.
+python3 - <<'PY'
+import json, glob, os, sys
+from jsonschema import Draft7Validator as V
+
+H = 'upstream-harvest'
+FILES = ['issues.json', 'pulls.json', 'pr-330-reviews.json', 'pr-411-reviews.json'] + \
+        sorted('issue-comments/' + os.path.basename(p)
+               for p in glob.glob(os.path.join(H, 'issue-comments', '*.json')))
+# record_counts keys whose name does not match the payload key they count.
+ALIAS = {'issues.json': {'entries_total': 'issues'}, 'pulls.json': {'pulls_total': 'pulls'}}
+# declared expectation -> the measured count it claims to corroborate.
+EXPECT = {'issues.json': [('aap_expected_open_issues', 'issues_excluding_pull_requests')],
+          'pulls.json': [('aap_expected_open_pulls', 'pulls_total')],
+          'pr-330-reviews.json': [('aap_expected_review_comments', 'review_comments')]}
+
+def reconcile(name, doc):
+    c, bad = doc['_capture'], []
+    rc = c['record_counts']
+    data = {k: v for k, v in doc.items() if k != '_capture'}
+    size = {k: (len(v) if isinstance(v, list) else 1) for k, v in data.items()}
+    persisted = {}
+    for i, k in enumerate(c['calls']):
+        loc = k.get('response_body_location')
+        if loc is None or loc.startswith('_capture'):
+            if k['records_persisted'] != 0:
+                bad.append(f'{name} calls[{i}] persists {k["records_persisted"]} with no in-artifact location')
+            continue
+        persisted[loc] = persisted.get(loc, 0) + k['records_persisted']
+    for loc, n in persisted.items():                      # page-loss check
+        if loc not in size:
+            bad.append(f'{name} calls claim location {loc!r}, absent from the artifact')
+        elif size[loc] != n:
+            bad.append(f'{name} {loc}: {n} record(s) claimed persisted, {size[loc]} present')
+    for k in data:                                        # no unclaimed payload
+        if k not in persisted:
+            bad.append(f'{name} payload key {k!r} is claimed by no call')
+    for i, k in enumerate(c['calls']):                    # sibling comparison
+        if isinstance(k['records_returned'], int) and k['records_persisted'] > k['records_returned']:
+            bad.append(f'{name} calls[{i}] persists {k["records_persisted"]} of {k["records_returned"]} returned')
+    for key, val in rc.items():                           # counts against measured lengths
+        if isinstance(val, bool) or not isinstance(val, int):
+            continue
+        tgt = ALIAS.get(name, {}).get(key, key if key in size else None)
+        if tgt is not None and val != size[tgt]:
+            bad.append(f'{name} record_counts.{key}={val}, {tgt} holds {size[tgt]}')
+    if name == 'issues.json':                             # the three numbers of section 5.1
+        pr = sum(1 for e in doc['issues'] if 'pull_request' in e)
+        if rc.get('entries_with_pull_request_key') != pr:
+            bad.append(f'{name} entries_with_pull_request_key={rc.get("entries_with_pull_request_key")}, measured {pr}')
+        if rc.get('issues_excluding_pull_requests') != len(doc['issues']) - pr:
+            bad.append(f'{name} issues_excluding_pull_requests={rc.get("issues_excluding_pull_requests")}, measured {len(doc["issues"]) - pr}')
+    if name == 'pr-411-reviews.json':
+        tot = sum(rc.get(k, 0) for k in ('reviews', 'review_comments', 'issue_comments'))
+        if rc.get('total') != tot:
+            bad.append(f'{name} record_counts.total={rc.get("total")}, sum is {tot}')
+    if name == 'pr-330-reviews.json' and rc.get('actual_review_comments') != size.get('review_comments'):
+        bad.append(f'{name} actual_review_comments={rc.get("actual_review_comments")}, review_comments holds {size.get("review_comments")}')
+    for exp, meas in EXPECT.get(name, []):                # declared expectation vs measurement
+        if exp in rc and meas in rc and rc.get('corroborates_expected') is not None:
+            if (rc[exp] == rc[meas]) != bool(rc['corroborates_expected']):
+                bad.append(f'{name} corroborates_expected={rc["corroborates_expected"]} but {exp}={rc[exp]} vs {meas}={rc[meas]}')
+    if c['authenticated'] != (c['rate_limit_observed']['limit'] > 60):
+        bad.append(f'{name} authenticated={c["authenticated"]} with an observed ceiling of {c["rate_limit_observed"]["limit"]}')
+    return bad
+
+schema = json.load(open(os.path.join(H, 'capture-envelope.schema.json'), encoding='utf-8'))
+V.check_schema(schema)
+v, errs, bad = V(schema), 0, []
+for f in FILES:
+    doc = json.load(open(os.path.join(H, f), encoding='utf-8'))
+    for e in v.iter_errors(doc):
+        errs += 1
+        print(f'SCHEMA  {f} {list(e.absolute_path)}: {e.message[:160]}')
+    bad += reconcile(f, doc)
+for b in bad:
+    print(f'RECONCILE  {b}')
+print(f'{errs} schema error(s) and {len(bad)} reconciliation failure(s) across {len(FILES)} artifacts '
+      f'at envelope_schema_version {schema["definitions"]["capture"]["properties"]["envelope_schema_version"]["const"]}')
+ok = (errs == 0 and not bad and len(FILES) == 10)
+print('VERIFIED' if ok else 'NOT VERIFIED')
+sys.exit(0 if ok else 1)
+PY
 ```
 
-`FACT` — result: `0 errors across 10 artifacts`, and the schema itself passes draft-07 meta-validation.
+`FACT` — result as run here: `0 schema error(s) and 0 reconciliation failure(s) across 10 artifacts at
+envelope_schema_version 1.2.0`, `VERIFIED`, exit status `0`, and the schema itself passes draft-07
+meta-validation.
+
+`FACT` — **the gate is discriminating rather than decorative, established by running it against
+deliberately falsified copies** — copies only, never these artifacts in place. Each row below was
+produced by mutating one field in a disposable copy of `upstream-harvest/` and re-running the block
+above verbatim:
+
+| Falsification | Caught by | Exit |
+| --- | --- | --- |
+| `rate_limit_observed.limit` `5000` → `60`, `authenticated` left `true` | C1 **and** the gate identity | `1` |
+| the same plus every per-call `x_ratelimit_limit` → `60` | C1, K7 and the gate identity | `1` |
+| `authenticated` → `false` with `audit_status` forced to `COMPLETE` | C2 twice — the ceiling and the status — plus C3 twice, on the now-contradicted call record and on the non-empty `omissions`, plus the gate identity | `1` |
+| a data call's `http_status` `200` → `401`, `record_status` left `COMPLETE` | K5 and K6 | `1` |
+| a payload array emptied and `record_counts` zeroed, `audit_status` untouched | **reconciliation only** — no schema rule fires | `1` |
+| the same, additionally zeroing that call's `records_returned` and `records_persisted` | C5 — the arithmetic now closes, so the missing classification is what catches it | `1` |
+| `record_counts.entries_total` `53` → `45` against an array of 53 | reconciliation | `1` |
+| the `ZERO-RECORD CORROBORATION` note removed from `issue-comments/53.json`; and the same note downgraded from `FACT` to `UNKNOWN` while `audit_status` stayed `COMPLETE` | C5 and C6 respectively | `1` |
+| `method` `GET` → `POST`; `url` → another host; `nothing_installed` → `false`; `credential_transport_exposure` removed; an invented `audit_status` value; `records_persisted` → `9999`; a non-date `captured_at_utc`; the wrong `repository`; an emptied `calls[]`; the governance note removed; an unlabelled note; `envelope_schema_version` → `1.0.0` | the pre-existing `1.1.0` constraints, unchanged | `1` |
+
+`INFERENCE` — the fifth and sixth rows are why this section documents two layers rather than one;
+reasoning: the fifth is invisible to every schema rule and visible to the arithmetic, the sixth is the
+reverse, and a falsification that survives one layer is caught by the other only because both exist.
+`FACT` — the pristine artifacts produce `VERIFIED` and exit `0`, so the gate distinguishes the delivered
+capture from all twenty-one falsifications rather than merely rejecting everything. `FACT` — the twenty-one
+are the counted contents of the table above: seven single-field falsifications, two exercising the
+zero-record classification, and the twelve grouped in the final row.
 
 ---
 
@@ -1206,11 +1392,11 @@ Consequences, stated so no reader goes looking for something that is not there:
 | --- | --- |
 | **Evidence over assertion** | Every statement carries `FACT` with an artifact path, `file:line` or retrieved URL; `INFERENCE` with its reasoning; or `UNKNOWN`. No label is silently upgraded. The genuinely unmeasured values in this document — the HTTP status and record count of row 31, the HTTP client of `issue-comments/53.json`, and the credential's argument-vector exposure for the four artifacts named in §3.3.1 — are labelled `UNKNOWN` rather than filled in, and every authored note in all ten sibling captures opens with its own evidence label so no authored claim can be mistaken for captured data. Three `capture_driver` values that an earlier normalisation had asserted without observing are corrected in §3.3 rather than left standing. |
 | **Honest completeness, judged on two axes** | A complete harvested payload does not make an incomplete audit record complete. §7.3 verdicts each artifact on both axes, four artifacts carry `audit_status = "PARTIAL"`, §8 lists all four omissions in full, and the earlier claims that no artifact was `PARTIAL` and that omissions were "none" are corrected rather than left standing. |
-| **One checked schema instead of ten conventions** | `upstream-harvest/capture-envelope.schema.json` fixes the envelope shape, the count convention and the retention vocabulary, and all ten artifacts validate against it with zero errors (§4.4). The schema deliberately does not constrain harvested GitHub payloads, so no schema rule can ever motivate editing raw third-party data. |
+| **One checked schema instead of ten conventions, and checks that can fail** | `upstream-harvest/capture-envelope.schema.json` fixes the envelope shape, the count convention and the retention vocabulary; nine cross-field invariants at `1.2.0` additionally make a self-contradictory envelope invalid, and the two identities draft-07 cannot express are carried by the validation gate beside it rather than dropped. All ten artifacts validate with zero errors and zero reconciliation failures, and **every documented check in this manifest exits non-zero on violation** — §3.2's request accounting, §4.4's envelope gate and §12's governance-note enforcement — so each composes into a precondition instead of printing a figure a reader must interpret. Nineteen falsified copies were each rejected with a non-zero exit while the delivered artifacts pass (§4.4). The schema deliberately does not constrain harvested GitHub payloads, so no schema rule can ever motivate editing raw third-party data. |
 | **No fabricated data** | Every count in sections 4, 5 and 7 was read mechanically out of the artifacts and reconciled against both `_capture.record_counts` and the real length of each data array before being written. Where an artifact recorded `null`, `null` is reproduced. |
 | **Auditable reproducibility** | Section 4 names every request with its full URL, status, record count, pagination state and rate-limit headers, in a stated reproducible order; section 7 shows the reconciliation arithmetic; section 3 records the tool versions and the exact activation command, so the audit can be re-performed against the artifacts without re-querying the archive. |
 | **Contradictions stated, never quietly corrected** | Six divergences from the supplied ground truth are reported with evidence and without smoothing: the expected count of five inline review comments on #330 is contradicted at 3 (§5.2, §6 row 14), the planning artifacts are tracked in the fork although the requirement places them outside it (§1, §11), `jq` is present (§3.3), `curl` and `python3` differ in version (§3.3), the host OS differs from two separate documented values (§3.3), and the rate-limit ceiling of 60 belongs only to a deliberate control probe (§6.2). |
-| **Secret hygiene** | No credential value, prefix, fragment or request-header text appears anywhere in this document. The credential is referred to only by role. |
+| **Secret hygiene, claimed only as far as it is checkable** | No credential **value**, prefix or fragment appears anywhere in this document, in any filename in `upstream-harvest/`, or in any artifact field, and the credential is referred to only by role. Request-header text *is* quoted — in §3.3.1's transport rule and again in §11, which restates it — always with the value elided or replaced by a conversion specifier, so no occurrence carries a credential. §11 states that as a property of every occurrence rather than as a count, carries the gate that re-derives it, and records that an earlier revision of both statements asserted the absolute form and was falsified by this document itself. |
 | **Credential exposure classified, never attested away** | §3.3.1 separates two claims that are easy to conflate: the credential is absent from every artifact **at rest**, which is checkable, and whether it ever entered a process argument vector, which for four artifacts is not. Those four carry `credential_transport_exposure = "UNKNOWN"`, one over-broad clause asserting non-exposure was retracted, and the schema's three-value enum makes the unprovable claim unwritable in future. The transport rule that binds any future authenticated capture is stated as a rule, because this one cannot be re-run. |
 | **Public data governed by purpose and lifetime, not by redaction** | §12 bounds purpose, access, publication, retention, disposal, deleted-upstream-content handling and secondary use for the contributor data these artifacts retain, and prohibits profiling, enrichment, outreach and model training on it. It licenses no edit to any harvested payload, and its presence is enforced per artifact by the schema rather than by convention. |
 | **Read-only least privilege** | The credential carried `pull` as its only granted permission (`repository_metadata.permissions`), so write access was unavailable rather than merely forbidden. See section 11. |
@@ -1293,9 +1479,65 @@ the container-local `<session-export>/` copy is not that place — then delete t
 statement, with the rejected alternatives, the mechanical cause and the run the removal is itemized
 to, is in section 1 of this manifest and in `PROGRAM-PLAN.md` Deliverable A #9.
 
-**Secret hygiene.** `FACT` — no credential value, prefix or fragment appears in this document, in any
-filename in `upstream-harvest/`, or in any field of any artifact; the credential is referred to here
-only by role, and no request-header text is quoted anywhere.
+**Secret hygiene, stated as the property that is true and checkable rather than the absolute that is
+not.** `FACT` — no credential **value**, prefix or fragment appears in this document, in any filename in
+`upstream-harvest/`, or in any field of any artifact, and the credential is referred to here only by
+role. `FACT` — request-header text **is** quoted in this document, and an earlier revision of this
+paragraph asserted that none was: §3.3.1's credential-transport rule quotes both the prohibited form,
+`curl -H 'Authorization: …'`, and the permitted one built with `printf` — the first with the value
+elided to `…`, the second with a conversion specifier standing in for it. The false clause is corrected
+here rather than quietly dropped, and the same clause is corrected in §10's standards table.
+
+`FACT` — **the claim is a property of every occurrence rather than a count of them**, and the property is
+this: wherever the header appears in this document it is either named in prose or quoted with its value
+elided or replaced by a conversion specifier, and no occurrence carries a credential. `INFERENCE` — a
+total is deliberately not quoted; reasoning: this paragraph and the command below both contain the
+header's name, so any figure would be changed by the very text that states it — which is how the
+absolute claim came to be false in the first place — and a figure its own document invalidates is worth
+less than a property the document cannot falsify by discussing itself. `FACT` — the property is
+generated rather than asserted, and the command is written out so it can be re-derived instead of
+trusted:
+
+```bash
+# Secret-hygiene gate for this manifest. Run from the repository root.
+# Asserts a property, not a count: every occurrence of the header is either named in prose
+# or quoted with its value elided, and no credential-shaped token appears anywhere in the file.
+# Exit status is the verdict: 0 the paragraph above holds, 1 it does not. Reads only.
+python3 - <<'PY'
+import re, sys
+p = 'upstream-harvest/HARVEST-MANIFEST.md'
+lines = open(p, encoding='utf-8').read().splitlines()
+HEADER = 'Auth' + 'orization'                      # split so this line is not itself an occurrence
+hits = [(i + 1, l) for i, l in enumerate(lines) if HEADER in l]
+quoted = [(n, l) for n, l in hits if re.search(r"(-H '|header = \")" + HEADER, l)]
+unredacted = [(n, l) for n, l in quoted if not ('…' in l or '%s' in l)]
+# credential shapes: GitHub token prefixes, a bearer with a literal value, basic-auth userinfo, PEM
+SHAPES = [r'gh[pousr]_[A-Za-z0-9]{10,}', r'github_pat_[A-Za-z0-9_]{10,}',
+          r'Bearer\s+(?!%s|…)[A-Za-z0-9_\-]{16,}', r'https://[^/\s]+:[A-Za-z0-9_\-]{16,}@',
+          r'-----BEGIN [A-Z ]*PRIVATE KEY-----']
+leaks = [(i + 1, s) for i, l in enumerate(lines) for s in SHAPES if re.search(s, l)]
+for n, l in hits:
+    print(f'{p}:{n}  ' + ('QUOTED, value elided' if (n, l) in quoted else 'named in prose only'))
+print(f'{len(hits)} occurrence(s); {len(quoted)} quote header text; '
+      f'{len(unredacted)} unredacted; {len(leaks)} credential-shaped token(s)')
+for n, l in unredacted:
+    print(f'UNREDACTED HEADER  {p}:{n}')
+for n, s in leaks:
+    print(f'CREDENTIAL SHAPE   {p}:{n} matched /{s}/')
+ok = not unredacted and not leaks
+print('VERIFIED' if ok else 'NOT VERIFIED')
+sys.exit(0 if ok else 1)
+PY
+```
+
+`FACT` — result as run here: every occurrence classified, `0 unredacted`, `0 credential-shaped token(s)`,
+`VERIFIED`, exit status `0`. `FACT` — the gate is discriminating: given a copy with a literal
+`Bearer` value substituted into the transport rule it reports `UNREDACTED HEADER` and
+`CREDENTIAL SHAPE`, prints `NOT VERIFIED` and exits `1`. `INFERENCE` — the narrowed claim is worth more
+than the absolute it replaces; reasoning: the security property that matters is that no credential value
+exists anywhere, which is checkable and holds, whereas the absolute form was falsified by the same
+document that asserted it — and a `FACT` label on a statement its own file contradicts weakens every
+other label in the document.
 
 ---
 
@@ -1336,14 +1578,21 @@ is where the deletion of these thirteen paths from the fork's working tree is it
 branch history, which the same section requires be discarded rather than merged, and whatever copy was
 taken off this workspace; reasoning: the `<session-export>/` directory is container-local, so it cannot
 be assumed to be one of them. Whatever copy does survive is retained only until the maintainer confirms
-the backlog triage no longer needs re-checking, after which it is deleted. **The disposal rule has two
+the backlog triage no longer needs re-checking, after which it is deleted. **The disposal rule has three
 hard preconditions that must hold together, the second already recorded as a blocking open question**:
 the equality check in `PROGRAM-PLAN.md` Deliverable A #9 must be re-run in the session performing the
 deletion and must report `VERIFIED`, **and** a human must confirm in writing that a copy exists outside
-this workspace. `INFERENCE` — neither alone suffices: a check whose target dies with the container
-proves only that a copy existed at that instant, and a confirmation resting on a sentence in a document
-proves nothing at all; reasoning: the two failure modes are independent, so only the conjunction closes
-both. A `MISSING` row, a `DIVERGED` row or an absent directory **is** the answer *no verified copy
+this workspace, **and** the envelope validation gate in §4.4 must be re-run in that session against the
+copy being preserved and must exit `0`. `INFERENCE` — no one of the three suffices: a check whose target
+dies with the container proves only that a copy existed at that instant, a confirmation resting on a
+sentence in a document proves nothing at all, and a copy that is present but internally contradictory is
+not evidence of anything; reasoning: the three failure modes are independent, so only the conjunction
+closes all of them. `INFERENCE` — the third precondition is bound here, to the deletion, rather than to
+continuous integration; reasoning: these thirteen paths are themselves deleted by the modernization run,
+so a CI job asserting over them would be a check a later run must remove and would gate the product on
+planning artifacts no product code reads — whereas the moment the in-repository copy is destroyed is
+exactly the moment the surviving copy's integrity stops being re-derivable. A `MISSING` row, a `DIVERGED`
+row, an absent directory or a `NOT VERIFIED` from the §4.4 gate **is** the answer *no verified copy
 exists*, and the deletion does not proceed. The capture cannot be repeated against an archived
 repository. `INFERENCE` — deleting the last copy of unrepeatable evidence to
 satisfy a hygiene rule would be a worse outcome than retaining it; reasoning: the data is public, the
@@ -1379,18 +1628,33 @@ rule and the evidence appear to conflict, the evidence stands and the conflict i
 
 **7. Enforcement, so this outlives one reading.** `FACT` — every one of the ten capture artifacts
 carries a `FACT: PUBLIC-DATA GOVERNANCE` note pointing at this section, and `capture-envelope.schema.json`
-at `envelope_schema_version` `1.1.0` **requires** that note to be present, so a validator rather than a
-convention keeps the contract attached to the data:
+at `envelope_schema_version` `1.2.0` **requires** that note to be present, so a validator rather than a
+convention keeps the contract attached to the data. `FACT` — the command below **names the artifacts that
+lack it and exits non-zero**, so the obligation is a gate rather than a tally:
 
-```
-python3 -c "import json,glob;fs=['upstream-harvest/issues.json','upstream-harvest/pulls.json',\
-'upstream-harvest/pr-330-reviews.json','upstream-harvest/pr-411-reviews.json']+\
-sorted(glob.glob('upstream-harvest/issue-comments/*.json'));\
-print(sum(any(n.startswith('FACT: PUBLIC-DATA GOVERNANCE') for n in \
-json.load(open(f))['_capture']['notes']) for f in fs),'of',len(fs),'artifacts carry the governance note')"
+```bash
+# Governance-note enforcement for upstream-harvest/. Run from the repository root.
+# Exit status is the verdict: 0 every artifact carries the contract, 1 one or more does not.
+python3 - <<'PY'
+import json, glob, sys
+fs = ['upstream-harvest/issues.json', 'upstream-harvest/pulls.json',
+      'upstream-harvest/pr-330-reviews.json', 'upstream-harvest/pr-411-reviews.json'] + \
+     sorted(glob.glob('upstream-harvest/issue-comments/*.json'))
+missing = [f for f in fs
+           if not any(n.startswith('FACT: PUBLIC-DATA GOVERNANCE')
+                      for n in json.load(open(f, encoding='utf-8'))['_capture']['notes'])]
+print(len(fs) - len(missing), 'of', len(fs), 'artifacts carry the governance note')
+for f in missing:
+    print(f'NO GOVERNANCE NOTE  {f}')
+ok = not missing and len(fs) == 10
+print('VERIFIED' if ok else 'NOT VERIFIED')
+sys.exit(0 if ok else 1)
+PY
 ```
 
-`FACT` — result: `10 of 10 artifacts carry the governance note`.
+`FACT` — result: `10 of 10 artifacts carry the governance note`, `VERIFIED`, exit status `0`. `FACT` — run
+against a copy with the note removed from one artifact it prints that artifact's path, `NOT VERIFIED`,
+and exits `1`.
 
 ---
 
@@ -1404,7 +1668,8 @@ the credential entered a process argument vector for the four artifacts classifi
 `_capture.credential_transport_exposure` in §3.3.1. Of the ten data captures, **none failed** and every
 harvested payload is **COMPLETE**, while **four** carry `audit_status = "PARTIAL"` on audit metadata
 alone — the four recording omissions are listed in full in §8.2 — and all ten validate against
-`upstream-harvest/capture-envelope.schema.json` at `envelope_schema_version` `1.1.0` with zero errors
+`upstream-harvest/capture-envelope.schema.json` at `envelope_schema_version` `1.2.0` with zero errors
+and zero reconciliation failures, under a gate that exits non-zero on either
 (§4.4). The public-data handling, retention and secondary-use contract that governs every record kept
 here is section 12, and it is enforced per artifact by the schema rather than by convention. The
 artifacts' placement, the statement that disclosing it waives nothing, and the one human action that
