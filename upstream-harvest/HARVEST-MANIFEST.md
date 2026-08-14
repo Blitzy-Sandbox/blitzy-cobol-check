@@ -42,15 +42,28 @@ Consequences, stated so no later session repeats work that cannot be repeated:
 - The artifacts are **planning-session output, and the delivered placement diverges from what the AAP
   requires — recorded here rather than attested away**. `FACT` — AAP §0.5.1.1 and §0.10.2 require the
   planning run's outputs to be written to the session output directory and **never committed to the
-  fork**. `FACT` — they are nevertheless tracked in this repository, added by five commits that touch
-  no path other than `PROGRAM-PLAN.md` and `upstream-harvest/**` (verified with `git show --stat` on
-  each): `0f2cfdb8f34d58325a001baf31e35151e3aa6f29`,
-  `b9a5f01a13788a6c17b62b04dd7a4dbdd1b2aad4`, `af9dfa6ec18ad3d26031319998348796d547692c`,
-  `e5d3108fcc07246dc71a739c03565b623862b399`, `a8598cc925d15807e15a0a8a7db6d4944185f493`. They sit on
-  the planning branch `blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36`.
+  fork**. `FACT` — they are nevertheless tracked in this repository, introduced by five commits that
+  touch no path other than `PROGRAM-PLAN.md` and `upstream-harvest/**`, and the count each contributes
+  is given so the attestation is arithmetic rather than assertion — `git show --name-status
+  --format='' <hash>` is the command behind every figure:
+  `0f2cfdb8f34d58325a001baf31e35151e3aa6f29` adds **8** (`pulls.json`, `pr-330-reviews.json`, the six
+  `issue-comments/*.json`); `b9a5f01a13788a6c17b62b04dd7a4dbdd1b2aad4` adds **2** (`issues.json`,
+  `pr-411-reviews.json`); `af9dfa6ec18ad3d26031319998348796d547692c` adds **1** (this manifest);
+  `e5d3108fcc07246dc71a739c03565b623862b399` adds **1** (`PROGRAM-PLAN.md`); and
+  `694cd4d37c4407ba8c7963780677244933356542` adds **1** (`capture-envelope.schema.json`). They sit on
+  the planning branch `blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36`. `FACT` — 8 + 2 + 1 + 1 + 1 = **13**,
+  the whole set and nothing else.
   `FACT` — those five are the commits that **introduced** the artifacts; later commits on the same
   branch **modify** them, including the review-remediation commit that added this very paragraph, whose
-  own hash cannot be quoted from inside itself. `git log --oneline -- PROGRAM-PLAN.md upstream-harvest/`
+  own hash cannot be quoted from inside itself. `694cd4d37c4407ba8c7963780677244933356542` appears in
+  both roles: it introduced the envelope schema and modified the other twelve in the same commit.
+  `INFERENCE` — an earlier revision of this list named `a8598cc925d15807e15a0a8a7db6d4944185f493` as the
+  fifth introducing commit, which was wrong in both directions — `git show --name-status --format=''
+  a8598cc925d15807e15a0a8a7db6d4944185f493` reports `M PROGRAM-PLAN.md` alone, so it introduced nothing,
+  and the artifact it stood in for was the envelope schema; reasoning: the list was written before the
+  schema existed and was not re-derived when it was added, which is why the figures above are now stated
+  as arithmetic with the producing command attached rather than as a bare list of hashes.
+  `git log --oneline -- PROGRAM-PLAN.md upstream-harvest/`
   lists the full set at any time and is the command to run rather than trusting this list to stay
   exhaustive.
 - `FACT` — the fork's **product** branch is clean of them: `origin/Developer` at
@@ -59,10 +72,18 @@ Consequences, stated so no later session repeats work that cannot be repeated:
   `git ls-tree origin/Developer --name-only` lists no `upstream-harvest` entry). `FACT` — no fork
   production, test, build or configuration file was modified in order to produce these artifacts, and
   no write of any kind was issued against the upstream repository. `FACT` — a copy of all thirteen paths
-  is additionally exported outside the working tree, to a session export directory under the shared
-  workspace root referred to throughout this manifest as `<session-export>/`, refreshed as the final
-  step of the planning run and checked with `diff -r`; the literal path is withheld because it names one
-  ephemeral container's clone and run topology and resolves for no later reader. `FACT` — the five
+  is additionally written outside the working tree, to the session output directory
+  `/tmp/blitzy/session-output/5cc7044b-36be-4042-9618-a49ed8c86f36/` — the location AAP §0.5.1.1 names
+  for the planning outputs, referred to throughout this manifest as `<session-export>/`. It was written
+  as the last action taken on these artifacts and each of the thirteen was compared byte-for-byte
+  against its tracked counterpart, giving `13 of 13 byte-identical`. **The sentence is not the
+  evidence; the command is**, and `PROGRAM-PLAN.md` Deliverable A #9 carries it in full together with
+  the negative control that proves it can fail — run against the stale export that preceded the refresh
+  it reported `0 of 13 byte-identical` and exited non-zero. `INFERENCE` — no sentence inside a file can
+  attest to a copy of that same file taken after the sentence was written, and the copy is deliberately
+  taken afterwards; reasoning: that is why the durable artifact is a re-runnable check rather than a
+  settled claim about a path, and why `MISSING`, `DIVERGED` or an absent directory **is** the answer *no
+  verified external copy exists* rather than a reason to assume one. `FACT` — the five
   commits are **not**
   removed from history: AAP §0.5.2 and §0.10.5 exclude history rewriting outright — no
   `git filter-repo`, no `git rebase --root`, no force-push — and the commits are already published, so
@@ -1243,19 +1264,23 @@ hashes that introduced them and the commands that establish it. `FACT` — they 
 merged into the fork's product branch: `origin/Developer` at
 `c79624bd286d5f08f156ccce755bc5d4fffd1909` contains no `PROGRAM-PLAN.md` and no `upstream-harvest/`
 path. `FACT` — no production, test, build or configuration file of the fork was modified in order to
-produce them, and a copy of all thirteen paths is additionally exported outside the working tree, to a
-session export directory under the shared workspace root, refreshed as the final step of the planning
-run and checked with `diff -r`. `INFERENCE` — that path is referred to here as `<session-export>/`
-rather than quoted absolutely; reasoning: the literal path names the clone and run topology of one
-ephemeral container, it is not resolvable by any later reader, and publishing it discloses layout
-without adding evidence. **The authoritative copy is the committed branch content**, because that is
-what the platform publishes; the export exists so that the capture survives the branch being read and
-deleted. `FACT` — history is not rewritten to remove them, because AAP §0.5.2 and §0.10.5 exclude
-history rewriting outright; the residual placement gap is carried openly here instead of being attested
-away. **Recording it is not a waiver of it.** `INFERENCE` — the disclosure changes the audit position
-and nothing else; reasoning: the requirement is that these files never enter the product, and that
-outcome still depends on the human action stated below rather than on anything this document says about
-it.
+produce them, and a copy of all thirteen paths is additionally written outside the working tree, to the
+session output directory `/tmp/blitzy/session-output/5cc7044b-36be-4042-9618-a49ed8c86f36/`, each of
+the thirteen compared byte-for-byte against its tracked counterpart at `13 of 13 byte-identical`.
+`INFERENCE` — that result is quoted as an observation rather than as a standing property, and the check
+that produces it is carried in `PROGRAM-PLAN.md` Deliverable A #9 for anyone to re-run; reasoning: the
+equality holds only until one of the thirteen is revised without the copy being refreshed, so a claim
+that cannot be re-derived is worth less than the command that re-derives it. `UNKNOWN` — whether that
+directory outlives this workspace: it is container-local, and nothing observable from inside the
+container establishes what is retained outside it. **The authoritative copy is the committed branch
+content**, because that is what the platform publishes; the external copy exists so that the capture
+survives the branch being read and deleted, and it is not a substitute for a copy kept somewhere that
+outlives the container. `FACT` — history is not rewritten to remove them, because AAP §0.5.2 and
+§0.10.5 exclude history rewriting outright; the residual placement gap is carried openly here instead
+of being attested away. **Recording it is not a waiver of it.** `INFERENCE` — the disclosure changes
+the audit position and nothing else; reasoning: the requirement is that these files never enter the
+product, and that outcome still depends on the human action stated below rather than on anything this
+document says about it.
 
 `FACT` — the same position stated as the commands that check it: `origin/Developer` still resolves to
 `c79624bd286d5f08f156ccce755bc5d4fffd1909`, `git diff --name-only c79624bd286d5f08f156ccce755bc5d4fffd1909`
@@ -1263,9 +1288,10 @@ returns only `PROGRAM-PLAN.md` and paths under `upstream-harvest/`, and the same
 `--name-status` reports those thirteen paths all at status `A` — so no planning artifact reached the fork's
 default branch and no fork production, test, build or configuration file was modified in order to
 produce them. **Human action required: do not merge the planning branch into `Developer` or `main`.**
-Read `PROGRAM-PLAN.md` out of it, keep `upstream-harvest/`, then delete the branch. The full statement,
-with the rejected alternatives, the mechanical cause and the run the removal is itemized to, is in
-section 1 of this manifest and in `PROGRAM-PLAN.md` Deliverable A #9.
+Read `PROGRAM-PLAN.md` out of it and copy `upstream-harvest/` somewhere that outlives this workspace —
+the container-local `<session-export>/` copy is not that place — then delete the branch. The full
+statement, with the rejected alternatives, the mechanical cause and the run the removal is itemized
+to, is in section 1 of this manifest and in `PROGRAM-PLAN.md` Deliverable A #9.
 
 **Secret hygiene.** `FACT` — no credential value, prefix or fragment appears in this document, in any
 filename in `upstream-harvest/`, or in any field of any artifact; the credential is referred to here
@@ -1306,12 +1332,20 @@ attribution in the commit that re-applies it, because that is a licence obligati
 programme records no dates or durations anywhere. The capture is retained while any run still consumes
 the triage or the provenance record: `FACT` — that is up to and including the modernization run, which
 is where the deletion of these thirteen paths from the fork's working tree is itemized (§1 and
-`PROGRAM-PLAN.md` Deliverable A #9). At that point the copy under `<session-export>/` outside the
-working tree becomes the only live copy, and it is retained only until the maintainer confirms the
-backlog triage no longer needs re-checking, after which it is deleted. **The disposal rule has one hard
-precondition, already recorded as a blocking open question**: no deletion of any copy may proceed
-without written human confirmation that another copy exists, because the capture cannot be repeated
-against an archived repository. `INFERENCE` — deleting the last copy of unrepeatable evidence to
+`PROGRAM-PLAN.md` Deliverable A #9). `INFERENCE` — after that deletion the surviving copies are the
+branch history, which the same section requires be discarded rather than merged, and whatever copy was
+taken off this workspace; reasoning: the `<session-export>/` directory is container-local, so it cannot
+be assumed to be one of them. Whatever copy does survive is retained only until the maintainer confirms
+the backlog triage no longer needs re-checking, after which it is deleted. **The disposal rule has two
+hard preconditions that must hold together, the second already recorded as a blocking open question**:
+the equality check in `PROGRAM-PLAN.md` Deliverable A #9 must be re-run in the session performing the
+deletion and must report `VERIFIED`, **and** a human must confirm in writing that a copy exists outside
+this workspace. `INFERENCE` — neither alone suffices: a check whose target dies with the container
+proves only that a copy existed at that instant, and a confirmation resting on a sentence in a document
+proves nothing at all; reasoning: the two failure modes are independent, so only the conjunction closes
+both. A `MISSING` row, a `DIVERGED` row or an absent directory **is** the answer *no verified copy
+exists*, and the deletion does not proceed. The capture cannot be repeated against an archived
+repository. `INFERENCE` — deleting the last copy of unrepeatable evidence to
 satisfy a hygiene rule would be a worse outcome than retaining it; reasoning: the data is public, the
 exposure is unchanged by our copy existing, and the evidence is not recoverable.
 
@@ -1320,11 +1354,12 @@ comment after this capture, so a record here can outlive its source; reasoning: 
 point-in-time copy and the upstream repository, though archived, still permits account-level deletion.
 The rule that follows: this capture is **evidence of what the API returned at its recorded instant**,
 never a statement of what a person currently says. Where a specific record's continued retention is
-challenged, the record is removed from the `<session-export>/` copy and the removal is noted in the
-`_capture.omissions` array of a superseding artifact — the in-repository copies cannot be edited
-retroactively, because history rewriting is excluded outright, which is one more reason the branch must
-be deleted rather than merged. No run may quote a comment body into a user-facing artifact, so no such
-quotation can outlive its source.
+challenged, the record is removed from every copy still under this programme's control — the
+`<session-export>/` copy while it exists, and any copy taken off this workspace — and the removal is
+noted in the `_capture.omissions` array of a superseding artifact; the in-repository copies cannot be
+edited retroactively, because history rewriting is excluded outright, which is one more reason the
+branch must be deleted rather than merged. No run may quote a comment body into a user-facing
+artifact, so no such quotation can outlive its source.
 
 **5. Prohibited secondary uses, stated as a closed list of things not to do.** No profiling or
 inference about any individual, including activity patterns, employer, location or availability. No
