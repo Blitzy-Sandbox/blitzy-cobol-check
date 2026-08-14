@@ -163,6 +163,19 @@ review or acceptance that covers only a subset cannot confirm them; the totals i
 table in §7.3 are only checkable against all ten data captures. **Neither file may be deleted to fit a
 narrower scope list.**
 
+**The set is closed in both directions, and a gate enforces it.** `FACT` — these twelve plus
+`PROGRAM-PLAN.md` are the thirteen paths of the delivered planning package, each with its authorization
+named in `PROGRAM-PLAN.md` A9.1.1, and the external package gate in `PROGRAM-PLAN.md` A9.1 exits
+non-zero on a **fourteenth** path at the export root as well as on a missing or diverged one — a stale
+nested export of an earlier session is the case that motivated the addition, since every equality check
+still passed while the package carried two candidate copies with divergent checksums. `FACT` — the
+per-directory equivalent is enforced here: §4.4's envelope validation gate enumerates an exact allowed
+relative-path set for `upstream-harvest/` and rejects any extra entry, any symlink, any non-regular or
+executable file, so neither an added file nor a removed one can pass unnoticed. `INFERENCE` — closing
+the set in both directions is what makes the arithmetic above meaningful; reasoning: an audit stating
+totals over "the directory" is only checkable if the directory's membership is itself fixed, and a
+membership fixed only in prose drifts the first time anything is copied beside it.
+
 ---
 
 ## 2. Repository identity (hard-pinned)
@@ -292,10 +305,15 @@ the document that quotes it:
 # Generates the total AND asserts the five figures this section states.
 # Exit status is the verdict: 0 the document agrees with the artifacts, 1 it does not.
 python3 - <<'PY'
-import json, glob, sys
+import json, sys
+# The ten data captures are ENUMERATED rather than globbed. A glob asks the directory only for
+# what it already expects, so an extra uppercase .JSON, a hidden entry or a binary would be
+# invisible to it; section 4.4's Layer 1 is what asserts the tree holds exactly these and the
+# two non-data files, and this list is what makes the count below a membership check.
 fs = ['upstream-harvest/issues.json', 'upstream-harvest/pulls.json',
       'upstream-harvest/pr-330-reviews.json', 'upstream-harvest/pr-411-reviews.json'] + \
-     sorted(glob.glob('upstream-harvest/issue-comments/*.json'))
+     ['upstream-harvest/issue-comments/%s.json' % n
+      for n in ('53', '93', '150', '220', '321', '323')]
 c = [k for f in fs for k in json.load(open(f, encoding='utf-8'))['_capture']['calls']]
 gate = [k for k in c if '/rate_limit' in k['url']]
 at5000 = [k for k in c if k.get('x_ratelimit_limit') == 5000]
@@ -732,17 +750,32 @@ schema, six on `definitions.capture` and three on `definitions.call`:
 | **K6** | `response_body_retention = "retained_verbatim"` requires a 2xx `http_status` | A payload presented as harvested data when the response that carried it was not a success. Stated separately from K5 because the two are independently falsifiable |
 | **K7** | A non-`rate_limit` family observing `x_ratelimit_limit <= 60` requires `record_status = "PARTIAL"` | A *data* request made without the credential counted as COMPLETE evidence. The `rate_limit` family is excluded deliberately: `upstream-harvest/issues.json` → `_capture.calls[1]` is the declared unauthenticated control, whose whole purpose is to observe the 60 ceiling, and it harvests nothing (§6.2) |
 
-`FACT` — **two invariants of the same family are deliberately not in the schema, and the boundary is
+`FACT` — **three invariants of the same family are deliberately not in the schema, and the boundary is
 stated here rather than left for a reader to assume**: reconciling `record_counts` and per-call
-`records_persisted` against the real length of each persisted data array, and comparing
-`records_persisted` against `records_returned` on the same call. `FACT` — neither is expressible in
-JSON Schema draft-07, which can compare a value against a constant but not against a sibling property
-or against the length of an array in another subtree. `INFERENCE` — they are therefore enforced by the
-validation gate below rather than dropped; reasoning: an arithmetic identity that no check performs is
-a convention, and the whole point of this section is that the envelope's claims are machine-checked —
-so the honest arrangement is a schema that carries every rule it can express and a gate that carries
-the two it cannot, with this paragraph naming which is which so nobody assumes the schema checks
-arithmetic it cannot see.
+`records_persisted` against the real length of each persisted data array; comparing
+`records_persisted` against `records_returned` on the same call; and establishing that
+`captured_at_utc` names a **calendar-valid** instant. `FACT` — none of the three is expressible in
+JSON Schema draft-07, which can compare a value against a constant but not against a sibling property,
+against the length of an array in another subtree, or against a calendar. `INFERENCE` — they are
+therefore enforced by the validation gate below rather than dropped; reasoning: an arithmetic identity
+that no check performs is a convention, and the whole point of this section is that the envelope's
+claims are machine-checked — so the honest arrangement is a schema that carries every rule it can
+express and a gate that carries the three it cannot, with this paragraph naming which is which so
+nobody assumes the schema checks arithmetic, or a calendar, it cannot see.
+
+`FACT` — the timestamp case is worth stating precisely, because the schema *looks* as though it covers
+it. `captured_at_utc` carries the pattern
+`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$`, which constrains the **shape**
+and nothing else: `2025-02-29T12:00:00Z` matches it and names a day that does not exist, and
+`2026-06-30T23:59:60Z` matches it and names a leap second, which is not a UTC instant any calendar
+library will accept. `INFERENCE` — **decision: the calendar check lives in the gate and the pattern
+stays exactly as it is.** Rejected alternative: tighten the pattern into bounded month, day, hour,
+minute and second alternations. Reasoning: that would reject a 13th month and a 60th second but still
+accept 29 February in a non-leap year, because leap-year arithmetic is not a regular-expression
+property — so it would buy a partial check at the price of a **normative** schema change, which by this
+section's own rule requires an `envelope_schema_version` bump and therefore an edit to the `const` in
+every one of the ten artifacts that declares it. A partial check bought with a version bump across ten
+files is a worse trade than a complete check in the layer that can express it.
 
 **Two design decisions taken here, each recorded with the alternative rejected and the reason, because a
 conflict between two candidate designs is resolved rather than left open.** `INFERENCE` — **C5 requires
@@ -776,29 +809,113 @@ than installed). `FACT` — the command below **exits non-zero on any violation*
 precondition for a later run instead of merely printing a number a reader has to interpret. `INFERENCE`
 — the exit status is the load-bearing part; reasoning: an earlier revision of this section documented a
 `python3 -c "…print(…)"` form whose status reflected only interpreter success, so it reported violations
-correctly and could not fail — and a check that cannot fail is not a control, it is a comment. Run it
-from the repository root:
+correctly and could not fail — and a check that cannot fail is not a control, it is a comment.
+
+`FACT` — **the gate carries five layers, and three of them were added because an earlier revision
+reported `VERIFIED` over conditions its own prose promised to reject.** Layer 1 is the *tree*: an exact
+allowed relative-path set checked in both directions, regular files only, no symlink, no executable
+bit, and nothing resolving outside the directory. Layer 2 is *strict parsing*: `json.load` accepts a
+duplicate object key last-wins and accepts the non-JSON constants `NaN`, `Infinity` and `-Infinity`, so
+both are refused by name. Layer 3 is *calendar validity* for `captured_at_utc`. Layers 4 and 5 are the
+schema and the arithmetic reconciliation that the earlier revision already carried.
+
+`INFERENCE` — the tree layer runs **first, and nothing is parsed until it passes**; reasoning: the
+earlier revision built its file list by globbing `issue-comments/*.json`, which asks the directory only
+for what it already expected and therefore could not see an extra `.JSON`, an added binary, a hidden
+entry or a canonical path replaced by a symlink pointing outside the folder — and validating the files
+you expected says nothing about the ones you did not. `INFERENCE` — a symlink is rejected rather than
+resolved-and-compared; reasoning: following it first and asking questions afterwards is the pattern that
+makes path-escape bugs, and no legitimate reason exists for a persisted capture to be anything but a
+regular file. `INFERENCE` — the executable-bit check is not hygiene theatre; reasoning: a data artifact
+that is executable is either the wrong file or an invitation, and neither is evidence.
+
+Run it from the repository root:
 
 ```bash
 # Envelope validation gate for upstream-harvest/. Run from the repository root.
-# Layer 1: every artifact against capture-envelope.schema.json (JSON Schema draft-07).
-# Layer 2: the two cross-field identities draft-07 cannot express - counts against real
+# Layer 1: the TREE - an exact allowed relative-path set, regular files only, no symlink,
+#          no executable bit, nothing resolving outside the directory. Checked BEFORE any
+#          parse, because a glob that looks only for what it expects cannot report what it
+#          did not expect.
+# Layer 2: STRICT parsing - duplicate object keys and the non-JSON constants NaN, Infinity
+#          and -Infinity are refused; json.load accepts all four by default.
+# Layer 3: CALENDAR-valid UTC instants - the schema's pattern constrains the shape, and only
+#          a calendar knows 2025-02-29 does not exist and a 60th second is not an instant.
+# Layer 4: every artifact against capture-envelope.schema.json (JSON Schema draft-07).
+# Layer 5: the two cross-field identities draft-07 cannot express - counts against real
 #          array lengths, and records_persisted against records_returned on the same call.
 # Exit status is the verdict: 0 verified, 1 not. Nothing is written and nothing is installed.
 python3 - <<'PY'
-import json, glob, os, sys
+import json, os, stat, sys
+from datetime import datetime, timezone
 from jsonschema import Draft7Validator as V
 
 H = 'upstream-harvest'
-FILES = ['issues.json', 'pulls.json', 'pr-330-reviews.json', 'pr-411-reviews.json'] + \
-        sorted('issue-comments/' + os.path.basename(p)
-               for p in glob.glob(os.path.join(H, 'issue-comments', '*.json')))
+DATA = ['issues.json', 'pulls.json', 'pr-330-reviews.json', 'pr-411-reviews.json'] + \
+       ['issue-comments/%s.json' % n for n in ('53', '93', '150', '220', '321', '323')]
+ALLOWED_FILES = set(DATA) | {'capture-envelope.schema.json', 'HARVEST-MANIFEST.md'}
+ALLOWED_DIRS = {'issue-comments'}
 # record_counts keys whose name does not match the payload key they count.
 ALIAS = {'issues.json': {'entries_total': 'issues'}, 'pulls.json': {'pulls_total': 'pulls'}}
 # declared expectation -> the measured count it claims to corroborate.
 EXPECT = {'issues.json': [('aap_expected_open_issues', 'issues_excluding_pull_requests')],
           'pulls.json': [('aap_expected_open_pulls', 'pulls_total')],
           'pr-330-reviews.json': [('aap_expected_review_comments', 'review_comments')]}
+
+# LAYER 1 - the tree, before anything is parsed. A glob that looks only for what it expects
+# cannot report what it did not expect, so the allowed set is enumerated and the walk is
+# compared against it in both directions.
+fatal, root = [], os.path.realpath(H)
+seen_files, seen_dirs = set(), set()
+for dirpath, dirnames, filenames in os.walk(H, followlinks=False):
+    for name in dirnames + filenames:
+        p = os.path.join(dirpath, name)
+        rel = os.path.relpath(p, H)
+        if os.path.islink(p):
+            fatal.append('TREE  %s: symlink - rejected without following it' % rel); continue
+        st = os.lstat(p)
+        if stat.S_ISDIR(st.st_mode):
+            seen_dirs.add(rel); continue
+        if not stat.S_ISREG(st.st_mode):
+            fatal.append('TREE  %s: not a regular file' % rel); continue
+        if st.st_mode & 0o111:
+            fatal.append('TREE  %s: executable bit set on a data artifact' % rel); continue
+        if os.path.realpath(p) != os.path.join(root, rel):
+            fatal.append('TREE  %s: resolves outside %s/' % (rel, H)); continue
+        seen_files.add(rel)
+for x in sorted(seen_files - ALLOWED_FILES):
+    fatal.append('TREE  %s: not one of the %d authorized paths' % (x, len(ALLOWED_FILES)))
+for x in sorted(ALLOWED_FILES - seen_files):
+    fatal.append('TREE  %s: authorized path absent' % x)
+for x in sorted(seen_dirs - ALLOWED_DIRS):
+    fatal.append('TREE  %s/: unexpected directory' % x)
+
+# LAYER 2 - strict parsing. json.load accepts duplicate keys last-wins and accepts NaN,
+# Infinity and -Infinity, none of which is JSON; both are refused by name here.
+def _pairs(pairs):
+    seen = set()
+    for k, _ in pairs:
+        if k in seen:
+            raise ValueError('duplicate key %r - last-wins parsing would hide it' % k)
+        seen.add(k)
+    return dict(pairs)
+
+def _const(tok):
+    raise ValueError('non-standard JSON constant %s - accepted silently by default' % tok)
+
+def load(rel):
+    with open(os.path.join(H, rel), encoding='utf-8') as fh:
+        return json.load(fh, object_pairs_hook=_pairs, parse_constant=_const)
+
+# LAYER 3 - calendar-valid UTC instants. The schema's pattern constrains the SHAPE; only a
+# calendar knows that 2025-02-29 does not exist and that a 60th second is not a UTC instant.
+def instant(s):
+    for f in ('%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%M:%S.%fZ'):
+        try:
+            return datetime.strptime(s, f).replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            pass
+    return None
 
 def reconcile(name, doc):
     c, bad = doc['_capture'], []
@@ -810,68 +927,107 @@ def reconcile(name, doc):
         loc = k.get('response_body_location')
         if loc is None or loc.startswith('_capture'):
             if k['records_persisted'] != 0:
-                bad.append(f'{name} calls[{i}] persists {k["records_persisted"]} with no in-artifact location')
+                bad.append('%s calls[%d] persists %s with no in-artifact location' % (name, i, k['records_persisted']))
             continue
         persisted[loc] = persisted.get(loc, 0) + k['records_persisted']
     for loc, n in persisted.items():                      # page-loss check
         if loc not in size:
-            bad.append(f'{name} calls claim location {loc!r}, absent from the artifact')
+            bad.append('%s calls claim location %r, absent from the artifact' % (name, loc))
         elif size[loc] != n:
-            bad.append(f'{name} {loc}: {n} record(s) claimed persisted, {size[loc]} present')
+            bad.append('%s %s: %d record(s) claimed persisted, %d present' % (name, loc, n, size[loc]))
     for k in data:                                        # no unclaimed payload
         if k not in persisted:
-            bad.append(f'{name} payload key {k!r} is claimed by no call')
+            bad.append('%s payload key %r is claimed by no call' % (name, k))
     for i, k in enumerate(c['calls']):                    # sibling comparison
         if isinstance(k['records_returned'], int) and k['records_persisted'] > k['records_returned']:
-            bad.append(f'{name} calls[{i}] persists {k["records_persisted"]} of {k["records_returned"]} returned')
-    for key, val in rc.items():                           # counts against measured lengths
+            bad.append('%s calls[%d] persists %s of %s returned' % (name, i, k['records_persisted'], k['records_returned']))
+    for k, val in rc.items():                             # counts against measured lengths
         if isinstance(val, bool) or not isinstance(val, int):
             continue
-        tgt = ALIAS.get(name, {}).get(key, key if key in size else None)
+        tgt = ALIAS.get(name, {}).get(k, k if k in size else None)
         if tgt is not None and val != size[tgt]:
-            bad.append(f'{name} record_counts.{key}={val}, {tgt} holds {size[tgt]}')
+            bad.append('%s record_counts.%s=%s, %s holds %s' % (name, k, val, tgt, size[tgt]))
     if name == 'issues.json':                             # the three numbers of section 5.1
         pr = sum(1 for e in doc['issues'] if 'pull_request' in e)
         if rc.get('entries_with_pull_request_key') != pr:
-            bad.append(f'{name} entries_with_pull_request_key={rc.get("entries_with_pull_request_key")}, measured {pr}')
+            bad.append('%s entries_with_pull_request_key=%s, measured %d' % (name, rc.get('entries_with_pull_request_key'), pr))
         if rc.get('issues_excluding_pull_requests') != len(doc['issues']) - pr:
-            bad.append(f'{name} issues_excluding_pull_requests={rc.get("issues_excluding_pull_requests")}, measured {len(doc["issues"]) - pr}')
+            bad.append('%s issues_excluding_pull_requests=%s, measured %d' % (name, rc.get('issues_excluding_pull_requests'), len(doc['issues']) - pr))
     if name == 'pr-411-reviews.json':
         tot = sum(rc.get(k, 0) for k in ('reviews', 'review_comments', 'issue_comments'))
         if rc.get('total') != tot:
-            bad.append(f'{name} record_counts.total={rc.get("total")}, sum is {tot}')
+            bad.append('%s record_counts.total=%s, sum is %d' % (name, rc.get('total'), tot))
     if name == 'pr-330-reviews.json' and rc.get('actual_review_comments') != size.get('review_comments'):
-        bad.append(f'{name} actual_review_comments={rc.get("actual_review_comments")}, review_comments holds {size.get("review_comments")}')
+        bad.append('%s actual_review_comments=%s, review_comments holds %s' % (name, rc.get('actual_review_comments'), size.get('review_comments')))
     for exp, meas in EXPECT.get(name, []):                # declared expectation vs measurement
         if exp in rc and meas in rc and rc.get('corroborates_expected') is not None:
             if (rc[exp] == rc[meas]) != bool(rc['corroborates_expected']):
-                bad.append(f'{name} corroborates_expected={rc["corroborates_expected"]} but {exp}={rc[exp]} vs {meas}={rc[meas]}')
+                bad.append('%s corroborates_expected=%s but %s=%s vs %s=%s' % (name, rc['corroborates_expected'], exp, rc[exp], meas, rc[meas]))
     if c['authenticated'] != (c['rate_limit_observed']['limit'] > 60):
-        bad.append(f'{name} authenticated={c["authenticated"]} with an observed ceiling of {c["rate_limit_observed"]["limit"]}')
+        bad.append('%s authenticated=%s with an observed ceiling of %s' % (name, c['authenticated'], c['rate_limit_observed']['limit']))
     return bad
 
-schema = json.load(open(os.path.join(H, 'capture-envelope.schema.json'), encoding='utf-8'))
-V.check_schema(schema)
-v, errs, bad = V(schema), 0, []
-for f in FILES:
-    doc = json.load(open(os.path.join(H, f), encoding='utf-8'))
+# An unverified tree is not parsed: what the files say is only evidence once the set of files
+# is known to be exactly the authorized one.
+if fatal:
+    for f in fatal:
+        print(f)
+    print('NOT VERIFIED')
+    sys.exit(1)
+try:
+    schema = load('capture-envelope.schema.json')
+    V.check_schema(schema)
+except Exception as e:
+    print('PARSE  capture-envelope.schema.json: %s' % e)
+    print('NOT VERIFIED')
+    sys.exit(1)
+v, errs, cal, bad = V(schema), 0, [], []
+for f in DATA:
+    try:
+        doc = load(f)
+    except Exception as e:
+        print('PARSE  %s: %s' % (f, e)); errs += 1; continue
+    ts = doc.get('_capture', {}).get('captured_at_utc')
+    if instant(ts) is None:
+        # Layer 3 reports under its OWN label. A finding filed under another layer's name
+        # sends the next reader to the wrong check, which is a defect in the evidence even
+        # when the exit status is right.
+        cal.append('%s captured_at_utc %r is not a calendar-valid UTC instant' % (f, ts))
     for e in v.iter_errors(doc):
         errs += 1
-        print(f'SCHEMA  {f} {list(e.absolute_path)}: {e.message[:160]}')
-    bad += reconcile(f, doc)
+        print('SCHEMA  %s %s: %s' % (f, list(e.absolute_path), e.message[:160]))
+    try:
+        bad += reconcile(f, doc)
+    except Exception as e:
+        bad.append('%s reconciliation aborted: %s: %s' % (f, type(e).__name__, e))
+for c in cal:
+    print('CALENDAR  %s' % c)
 for b in bad:
-    print(f'RECONCILE  {b}')
-print(f'{errs} schema error(s) and {len(bad)} reconciliation failure(s) across {len(FILES)} artifacts '
-      f'at envelope_schema_version {schema["definitions"]["capture"]["properties"]["envelope_schema_version"]["const"]}')
-ok = (errs == 0 and not bad and len(FILES) == 10)
+    print('RECONCILE  %s' % b)
+print('%d schema error(s), %d calendar failure(s) and %d reconciliation failure(s) across %d data '
+      'artifacts in a tree of %d authorized files at envelope_schema_version %s'
+      % (errs, len(cal), len(bad), len(DATA), len(seen_files),
+         schema['definitions']['capture']['properties']['envelope_schema_version']['const']))
+ok = (errs == 0 and not cal and not bad)
 print('VERIFIED' if ok else 'NOT VERIFIED')
 sys.exit(0 if ok else 1)
 PY
 ```
 
-`FACT` — result as run here: `0 schema error(s) and 0 reconciliation failure(s) across 10 artifacts at
-envelope_schema_version 1.2.0`, `VERIFIED`, exit status `0`, and the schema itself passes draft-07
-meta-validation.
+`FACT` — result as run here, from the block above exactly as it appears in this document: `0 schema
+error(s), 0 calendar failure(s) and 0 reconciliation failure(s) across 10 data artifacts in a tree of
+12 authorized files at envelope_schema_version 1.2.0`, `VERIFIED`, exit status `0`, and the schema
+itself passes draft-07 meta-validation and strict-parses with no duplicate key.
+
+`FACT` — Layer 3's findings print under a `CALENDAR` prefix and are counted separately in that summary
+line, rather than being folded into Layer 5's `RECONCILE` list. An earlier revision of this gate did
+fold them: it appended the calendar violation to the reconciliation list, so an impossible
+`captured_at_utc` exited `1` — correctly — but announced itself as `RECONCILE`, naming a layer that
+had not fired. `INFERENCE` — the correction matters even though the exit status was already right;
+reasoning: the exit status tells a reader that something is wrong, and the label is the only thing that
+tells them where to look — so a violation filed under the wrong layer's name costs exactly the
+debugging time this section exists to save, and it also falsifies the "Caught by" column of the second
+falsification table below, which is evidence rather than commentary.
 
 `FACT` — **the gate is discriminating rather than decorative, established by running it against
 deliberately falsified copies** — copies only, never these artifacts in place. Each row below was
@@ -890,13 +1046,42 @@ above verbatim:
 | the `ZERO-RECORD CORROBORATION` note removed from `issue-comments/53.json`; and the same note downgraded from `FACT` to `UNKNOWN` while `audit_status` stayed `COMPLETE` | C5 and C6 respectively | `1` |
 | `method` `GET` → `POST`; `url` → another host; `nothing_installed` → `false`; `credential_transport_exposure` removed; an invented `audit_status` value; `records_persisted` → `9999`; a non-date `captured_at_utc`; the wrong `repository`; an emptied `calls[]`; the governance note removed; an unlabelled note; `envelope_schema_version` → `1.0.0` | the pre-existing `1.1.0` constraints, unchanged | `1` |
 
-`INFERENCE` — the fifth and sixth rows are why this section documents two layers rather than one;
+`INFERENCE` — the fifth and sixth rows are why this section documents layers rather than one check;
 reasoning: the fifth is invisible to every schema rule and visible to the arithmetic, the sixth is the
 reverse, and a falsification that survives one layer is caught by the other only because both exist.
-`FACT` — the pristine artifacts produce `VERIFIED` and exit `0`, so the gate distinguishes the delivered
-capture from all twenty-one falsifications rather than merely rejecting everything. `FACT` — the twenty-one
-are the counted contents of the table above: seven single-field falsifications, two exercising the
-zero-record classification, and the twelve grouped in the final row.
+
+**The second falsification table, and every row in it is a case an earlier revision of this gate
+reported `VERIFIED` over.** `FACT` — each was produced independently in a disposable copy of
+`upstream-harvest/` and judged by running the block above verbatim, from the copy's own parent
+directory; each exited `1` and named its violation on the first line of output:
+
+| Falsification | Caught by | Reported as | Exit |
+| --- | --- | --- | --- |
+| `captured_at_utc` → `2025-02-29T12:00:00Z` — a day that does not exist | Layer 3 | `captured_at_utc '2025-02-29T12:00:00Z' is not a calendar-valid UTC instant` | `1` |
+| `captured_at_utc` → `2026-06-30T23:59:60Z` — a leap second | Layer 3 | the same classification, on the 60th second | `1` |
+| a **duplicate** `_capture.authenticated` key, both `true` | Layer 2 | `duplicate key 'authenticated' - last-wins parsing would hide it` | `1` |
+| a raw payload number replaced by the bare token `NaN` | Layer 2 | `non-standard JSON constant NaN - accepted silently by default` | `1` |
+| a **duplicate key inside `capture-envelope.schema.json` itself** | Layer 2 | `duplicate key '$schema'` — the schema is strict-parsed on the same terms as the data | `1` |
+| canonical `issues.json` replaced by a **symlink to a valid JSON file outside the folder** | Layer 1 | `issues.json: symlink - rejected without following it` | `1` |
+| an extra **uppercase** `issue-comments/EXTRA.JSON` | Layer 1 | `not one of the 12 authorized paths` | `1` |
+| an extra lowercase `extra.json` | Layer 1 | the same classification, by name rather than by count | `1` |
+| an extra **executable** binary `blob.bin`, mode 0755 | Layer 1 | `executable bit set on a data artifact` | `1` |
+| a **hidden** symlink `.shadow` → `/etc/hostname` | Layer 1 | `.shadow: symlink - rejected without following it` | `1` |
+| a **non-regular** file — a FIFO named `pipe.json` | Layer 1 | `pipe.json: not a regular file` | `1` |
+| an authorized path **deleted** — `issue-comments/93.json` removed | Layer 1 | `authorized path absent` | `1` |
+
+`INFERENCE` — the uppercase and lowercase rows are the pair worth reading together, because they show
+what the earlier revision actually did and did not catch; reasoning: it globbed `issue-comments/*.json`
+and then asserted the list held ten entries, so a **lowercase** extra failed on the count while an
+uppercase, hidden, binary or symlinked extra never entered the list at all and passed — the count was
+doing the work of a membership check and could only ever catch the one case that shared its spelling
+convention.
+
+`FACT` — the pristine artifacts produce `VERIFIED` and exit `0` under the same block, so the gate
+distinguishes the delivered capture from **thirty-three** falsifications rather than merely rejecting
+everything. `FACT` — the thirty-three are the counted contents of both tables: twenty-one in the first —
+seven single-field falsifications, two exercising the zero-record classification, and the twelve grouped
+in its final row — and twelve in the second.
 
 ---
 
@@ -1636,10 +1821,15 @@ lack it and exits non-zero**, so the obligation is a gate rather than a tally:
 # Governance-note enforcement for upstream-harvest/. Run from the repository root.
 # Exit status is the verdict: 0 every artifact carries the contract, 1 one or more does not.
 python3 - <<'PY'
-import json, glob, sys
+import json, sys
+# The ten data captures are ENUMERATED rather than globbed. A glob asks the directory only for
+# what it already expects, so an extra uppercase .JSON, a hidden entry or a binary would be
+# invisible to it; section 4.4's Layer 1 is what asserts the tree holds exactly these and the
+# two non-data files, and this list is what makes the count below a membership check.
 fs = ['upstream-harvest/issues.json', 'upstream-harvest/pulls.json',
       'upstream-harvest/pr-330-reviews.json', 'upstream-harvest/pr-411-reviews.json'] + \
-     sorted(glob.glob('upstream-harvest/issue-comments/*.json'))
+     ['upstream-harvest/issue-comments/%s.json' % n
+      for n in ('53', '93', '150', '220', '321', '323')]
 missing = [f for f in fs
            if not any(n.startswith('FACT: PUBLIC-DATA GOVERNANCE')
                       for n in json.load(open(f, encoding='utf-8'))['_capture']['notes'])]
