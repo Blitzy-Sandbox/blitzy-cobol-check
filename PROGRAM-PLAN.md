@@ -1,6 +1,6 @@
 # DELIVERABLE A — PROGRAM PLAN
 
-Evidence labelling used throughout: **`FACT`** carries a `[path:locator]` or a retrieved URL · **`INFERENCE`** carries its reasoning inline · **`UNKNOWN`** means unmeasured by anyone, and is never quietly upgraded. Sequencing is expressed exclusively through `BLOCKED-BY`. All line citations in this document were re-verified mechanically against the working tree at commit `c79624bd286d5f08f156ccce755bc5d4fffd1909`; 166 of 166 citation assertions passed.
+**Notation key.** **`FACT`** carries a `[path:locator]` or a retrieved URL · **`INFERENCE`** carries its reasoning inline · **`UNKNOWN`** means unmeasured by anyone, and is never quietly upgraded. Sequencing is expressed exclusively through `BLOCKED-BY`. Every citation in this document was re-verified mechanically against the working tree at commit `c79624bd286d5f08f156ccce755bc5d4fffd1909`: 166 of 166 citation-*content* assertions passed, and all 211 `[path:Lnn]` references — spanning 32 files and 287 line numbers — resolved and range-checked.
 
 ---
 
