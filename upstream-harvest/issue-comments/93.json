@@ -1,0 +1,216 @@
+{
+  "_capture": {
+    "repository": "openmainframeproject/cobol-check",
+    "issue_number": 93,
+    "captured_at_utc": "2026-08-14T05:14:22Z",
+    "authenticated": true,
+    "rate_limit_observed": {
+      "limit": 5000,
+      "remaining": 5000,
+      "reset": 1786688062
+    },
+    "calls": [
+      {
+        "url": "https://api.github.com/rate_limit",
+        "method": "GET",
+        "http_status": 200,
+        "x_ratelimit_limit": 5000,
+        "x_ratelimit_remaining": 5000,
+        "x_ratelimit_reset": 1786688062,
+        "link_next": null,
+        "records_returned": 1
+      },
+      {
+        "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93/comments?per_page=100",
+        "method": "GET",
+        "http_status": 200,
+        "x_ratelimit_limit": 5000,
+        "x_ratelimit_remaining": 4977,
+        "x_ratelimit_reset": 1786684750,
+        "link_next": null,
+        "records_returned": 0
+      },
+      {
+        "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93",
+        "method": "GET",
+        "http_status": 200,
+        "x_ratelimit_limit": 5000,
+        "x_ratelimit_remaining": 4976,
+        "x_ratelimit_reset": 1786684750,
+        "link_next": null,
+        "records_returned": 1
+      }
+    ],
+    "record_counts": {
+      "issue_comments": 0,
+      "pages_fetched": 1,
+      "issue": 1
+    },
+    "tooling": {
+      "python3": "Python 3.13.7",
+      "python3_path": "/usr/bin/python3",
+      "curl": "curl 8.14.1 (x86_64-pc-linux-gnu) libcurl/8.14.1 OpenSSL/3.5.3 zlib/1.3.1 brotli/1.1.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.2 libssh2/1.11.1 nghttp2/1.64.0 librtmp/2.3 OpenLDAP/2.6.10",
+      "curl_path": "/usr/bin/curl",
+      "jq": "present: jq-1.8.1 at /usr/bin/jq",
+      "gh": "absent",
+      "os_release_pretty_name": "Ubuntu 25.10",
+      "capture_driver": "python3 urllib.request, GET only"
+    },
+    "failures": [],
+    "notes": [
+      "FACT: `. /etc/profile.d/blitzy-cobolcheck-env.sh` was issued as the literal first command of this run, guarded by a file-existence test so that a missing script could not abort the run. The script is present in this container and sourced with exit status 0. This is recorded as an environment observation only; it is not a finding, it raises no amendment request, and no value in this capture is marked UNKNOWN on its account, the capture requiring only curl and python3, both already on PATH.",
+      "FACT: tool versions in `tooling` are read from this container at assembly time rather than transcribed. Three observations differ from the values named in the task description and are recorded as observed: python3 is Python 3.13.7 (description named 3.12.3), curl reports curl 8.14.1 (description named 8.5.0), and jq is present: jq-1.8.1 at /usr/bin/jq (description stated it was absent from the image). gh is absent. Nothing was installed; the capture is driven by python3 as instructed.",
+      "FACT: GET https://api.github.com/rate_limit returned HTTP 200 with an observed x-ratelimit-limit ceiling of 5000 and x-ratelimit-remaining of 5000. `authenticated` is derived from that observed ceiling alone (5000 means authenticated, 60 means unauthenticated) and never from the presence of a token variable.",
+      "FACT: the comments endpoint was requested with per_page=100 and paginated by traversing the Link rel=\"next\" relation to exhaustion. 1 page(s) were fetched, the final `link_next` is null, and 0 comment record(s) were returned with HTTP 200. An empty array with HTTP 200 recorded is a complete capture, not a gap.",
+      "FACT: GET /repos/openmainframeproject/cobol-check/issues/93 returned a payload with no `pull_request` key, so #93 is a genuine issue and not a pull request. Its `locked` value is true and its `state` is 'open', consistent with the repository being archived.",
+      "FACT: this capture exists because the build-numbers description flagged by description only in the carried-forward ground truth was resolved to issue number 93 by citing the harvested title verbatim 'Add autoincremented build numbers to the gradle build' with harvested labels ['enhancement', 'good first issue', 'infrastructure']. The resolution record for every description-flagged issue is held in 323.json under _capture.flagged_issue_resolution; this file carries no resolution record of its own.",
+      "FACT: the declared dependency upstream-harvest/issues.json is not resolvable from this independent clone (dest_file: lookup returns \"Item not found or does not exist yet\" and a filesystem search of the clone returns nothing), because it is produced by a sibling agent in a separate clone that is reconciled after this run. The citation basis used in its place is the identical authoritative endpoint that the plan defines issues.json to contain, retrieved by GET in this session: https://api.github.com/repos/openmainframeproject/cobol-check/issues?state=open&per_page=100 returned HTTP 200 with 53 entries. Every resolution recorded for this harvest therefore cites a harvested upstream title, not model recall, not a guess, not a web search and not an inference from the repository.",
+      "FACT: every comment object and the `issue` payload are stored exactly as returned by the API. No field was pruned, truncated, re-wrapped, re-rendered, HTML-stripped or whitespace-normalised.",
+      "FACT: every entry in `calls` carries method \"GET\"; the capture driver contains no code path capable of issuing POST, PATCH, PUT or DELETE, and no comment, reaction, label, assignment, reopen or edit was attempted. The target repository is archived and read-only.",
+      "FACT: the repository identity is hard-pinned to openmainframeproject/cobol-check. No URL in `calls` contains the string \"neopragma\"; the wiki link at README.md:L38 is a misdirection and was never used, while README.md:L42 and README.md:L55 carry the correct owner.",
+      "FACT: the API credential was read only from os.environ inside the capture process and placed only into an in-memory request header. It appears in no file, filename, log line or process argument list, and no request header was echoed."
+    ]
+  },
+  "issue_comments": [],
+  "issue": {
+    "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93",
+    "repository_url": "https://api.github.com/repos/openmainframeproject/cobol-check",
+    "labels_url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93/labels{/name}",
+    "comments_url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93/comments",
+    "events_url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93/events",
+    "html_url": "https://github.com/openmainframeproject/cobol-check/issues/93",
+    "id": 804605923,
+    "node_id": "MDU6SXNzdWU4MDQ2MDU5MjM=",
+    "number": 93,
+    "title": "Add autoincremented build numbers to the gradle build",
+    "user": {
+      "login": "neopragma",
+      "id": 3238886,
+      "node_id": "MDQ6VXNlcjMyMzg4ODY=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3238886?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/neopragma",
+      "html_url": "https://github.com/neopragma",
+      "followers_url": "https://api.github.com/users/neopragma/followers",
+      "following_url": "https://api.github.com/users/neopragma/following{/other_user}",
+      "gists_url": "https://api.github.com/users/neopragma/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/neopragma/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/neopragma/subscriptions",
+      "organizations_url": "https://api.github.com/users/neopragma/orgs",
+      "repos_url": "https://api.github.com/users/neopragma/repos",
+      "events_url": "https://api.github.com/users/neopragma/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/neopragma/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 2567274501,
+        "node_id": "MDU6TGFiZWwyNTY3Mjc0NTAx",
+        "url": "https://api.github.com/repos/openmainframeproject/cobol-check/labels/enhancement",
+        "name": "enhancement",
+        "color": "a2eeef",
+        "default": true,
+        "description": "New feature or request"
+      },
+      {
+        "id": 2567274503,
+        "node_id": "MDU6TGFiZWwyNTY3Mjc0NTAz",
+        "url": "https://api.github.com/repos/openmainframeproject/cobol-check/labels/good%20first%20issue",
+        "name": "good first issue",
+        "color": "7057ff",
+        "default": true,
+        "description": "Good for newcomers"
+      },
+      {
+        "id": 2594306399,
+        "node_id": "MDU6TGFiZWwyNTk0MzA2Mzk5",
+        "url": "https://api.github.com/repos/openmainframeproject/cobol-check/labels/infrastructure",
+        "name": "infrastructure",
+        "color": "9FD596",
+        "default": false,
+        "description": "Development infrastructure and tooling"
+      }
+    ],
+    "state": "open",
+    "locked": true,
+    "assignees": [],
+    "milestone": {
+      "url": "https://api.github.com/repos/openmainframeproject/cobol-check/milestones/12",
+      "html_url": "https://github.com/openmainframeproject/cobol-check/milestone/12",
+      "labels_url": "https://api.github.com/repos/openmainframeproject/cobol-check/milestones/12/labels",
+      "id": 9113527,
+      "node_id": "MI_kwDOEw3ZQc4Aiw-3",
+      "number": 12,
+      "title": "Bugfixes, debts, minor improvements and cleanup",
+      "description": "Milestone for bugs, and debts that should be fixed.",
+      "creator": {
+        "login": "Rune-Christensen",
+        "id": 26797797,
+        "node_id": "MDQ6VXNlcjI2Nzk3Nzk3",
+        "avatar_url": "https://avatars.githubusercontent.com/u/26797797?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/Rune-Christensen",
+        "html_url": "https://github.com/Rune-Christensen",
+        "followers_url": "https://api.github.com/users/Rune-Christensen/followers",
+        "following_url": "https://api.github.com/users/Rune-Christensen/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Rune-Christensen/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/Rune-Christensen/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Rune-Christensen/subscriptions",
+        "organizations_url": "https://api.github.com/users/Rune-Christensen/orgs",
+        "repos_url": "https://api.github.com/users/Rune-Christensen/repos",
+        "events_url": "https://api.github.com/users/Rune-Christensen/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/Rune-Christensen/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "open_issues": 3,
+      "closed_issues": 1,
+      "state": "open",
+      "created_at": "2023-03-03T12:59:58Z",
+      "updated_at": "2023-06-07T07:37:47Z",
+      "due_on": null,
+      "closed_at": null
+    },
+    "comments": 0,
+    "created_at": "2021-02-09T14:32:34Z",
+    "updated_at": "2023-03-03T13:12:07Z",
+    "closed_at": null,
+    "assignee": null,
+    "author_association": "COLLABORATOR",
+    "issue_field_values": [],
+    "type": null,
+    "active_lock_reason": null,
+    "sub_issues_summary": {
+      "total": 0,
+      "completed": 0,
+      "percent_completed": 0
+    },
+    "issue_dependencies_summary": {
+      "blocked_by": 0,
+      "total_blocked_by": 0,
+      "blocking": 0,
+      "total_blocking": 0
+    },
+    "body": "Some possible help: https://plugins.gradle.org/search?term=buildnumber ",
+    "closed_by": null,
+    "reactions": {
+      "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "timeline_url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93/timeline",
+    "performed_via_github_app": null,
+    "state_reason": null,
+    "pinned_comment": null
+  }
+}
