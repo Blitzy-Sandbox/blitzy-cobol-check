@@ -1,5 +1,7 @@
 {
   "_capture": {
+    "envelope_schema": "../capture-envelope.schema.json",
+    "envelope_schema_version": "1.0.0",
     "repository": "openmainframeproject/cobol-check",
     "issue_number": 220,
     "captured_at_utc": "2026-08-14T05:14:42.424156Z",
@@ -11,34 +13,55 @@
     },
     "calls": [
       {
+        "family": "rate_limit",
         "url": "https://api.github.com/rate_limit",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 5000,
         "x_ratelimit_reset": 1786688081,
+        "paginated": false,
         "link_next": null,
-        "records_returned": null
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue_comments",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/220/comments?per_page=100",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4973,
         "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 3
+        "records_returned": 3,
+        "records_persisted": 3,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue_comments",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/220",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4972,
         "x_ratelimit_reset": 1786684750,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 1,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       }
     ],
     "record_counts": {
@@ -56,7 +79,9 @@
       "gh_version": null,
       "http_client_used": "python3 urllib.request (standard library)",
       "env_activation_script": "/etc/profile.d/blitzy-cobolcheck-env.sh",
-      "env_activation_script_present": true
+      "env_activation_script_present": true,
+      "capture_driver": "python3 urllib.request (standard library only)",
+      "nothing_installed": true
     },
     "failures": [],
     "notes": [
@@ -71,7 +96,9 @@
       "INFERENCE: the title, state and labels recorded in this file are instead taken from the upstream payload GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/220; reasoning: upstream-harvest/issues.json is itself produced by reading the same GitHub REST API for the same repository, so the per-issue endpoint is at least as authoritative as the list endpoint for these three fields, though this capture did not observe that file being produced and so cannot confirm the two agree.",
       "FACT: GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/220 returned title \"Build cobol-check as GraalVM native-image\", state \"open\", labels [], comments count 3.",
       "FACT: the payload from GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/220 carries no pull_request key, so number 220 is a plain issue and not a pull request."
-    ]
+    ],
+    "omissions": [],
+    "audit_status": "COMPLETE"
   },
   "issue_comments": [
     {

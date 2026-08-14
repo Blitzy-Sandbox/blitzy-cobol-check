@@ -1,5 +1,7 @@
 {
   "_capture": {
+    "envelope_schema": "../capture-envelope.schema.json",
+    "envelope_schema_version": "1.0.0",
     "repository": "openmainframeproject/cobol-check",
     "issue_number": 323,
     "captured_at_utc": "2026-08-14T05:12:50Z",
@@ -11,44 +13,73 @@
     },
     "calls": [
       {
+        "family": "rate_limit",
         "url": "https://api.github.com/rate_limit",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 5000,
         "x_ratelimit_reset": 1786687969,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue_comments",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/323/comments?per_page=100",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4982,
         "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 5
+        "records_returned": 5,
+        "records_persisted": 5,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue_comments",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/323",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4981,
         "x_ratelimit_reset": 1786684750,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 1,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issues_list",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues?state=open&per_page=100",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4980,
         "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 53
+        "records_returned": 53,
+        "records_persisted": 0,
+        "response_body_retention": "not_retained",
+        "response_body_location": null,
+        "record_status": "PARTIAL",
+        "unknown_fields": [],
+        "evidence": "FACT - the response was observed (HTTP status and rate-limit headers recorded here) but its body is not persisted in this artifact; only the fields quoted in _capture.notes survive. Not reconstructed, and not substituted from any other artifact. See _capture.omissions."
       }
     ],
     "record_counts": {
@@ -64,7 +95,8 @@
       "jq": "present: jq-1.8.1 at /usr/bin/jq",
       "gh": "absent",
       "os_release_pretty_name": "Ubuntu 25.10",
-      "capture_driver": "python3 urllib.request, GET only"
+      "capture_driver": "python3 urllib.request, GET only",
+      "nothing_installed": true
     },
     "failures": [],
     "notes": [
@@ -79,7 +111,8 @@
       "FACT: every comment object and the `issue` payload are stored exactly as returned by the API. No field was pruned, truncated, re-wrapped, re-rendered, HTML-stripped or whitespace-normalised.",
       "FACT: every entry in `calls` carries method \"GET\"; the capture driver contains no code path capable of issuing POST, PATCH, PUT or DELETE, and no comment, reaction, label, assignment, reopen or edit was attempted. The target repository is archived and read-only.",
       "FACT: the repository identity is hard-pinned to openmainframeproject/cobol-check. No URL in `calls` contains the string \"neopragma\"; the wiki link at README.md:L38 is a misdirection and was never used, while README.md:L42 and README.md:L55 carry the correct owner.",
-      "FACT: the API credential was read only from os.environ inside the capture process and placed only into an in-memory request header. It appears in no file, filename, log line or process argument list, and no request header was echoed."
+      "FACT: the API credential was read only from os.environ inside the capture process and placed only into an in-memory request header. It appears in no file, filename, log line or process argument list, and no request header was echoed.",
+      "FACT - the raw response body of the second open-issues listing recorded in _capture.calls, GET https://api.github.com/repos/openmainframeproject/cobol-check/issues?state=open&per_page=100, is NOT retained in this artifact; it returned 53 entries and only the two resolution fields quoted in these notes survive. The canonical persisted capture of that same endpoint is upstream-harvest/issues.json, which is what a consumer must read; this duplicate call's body must not be reconstructed and re-querying is prohibited because the upstream repository is archived and read-only. _capture.omissions records the gap."
     ],
     "flagged_issue_resolution": [
       {
@@ -107,7 +140,19 @@
         "evidence": "FACT: issue number 93 in the harvest from https://api.github.com/repos/openmainframeproject/cobol-check/issues?state=open&per_page=100 carries the title verbatim 'Add autoincremented build numbers to the gradle build' with harvested labels ['enhancement', 'good first issue', 'infrastructure']; the title contains the literal phrase \"build numbers\", which is the citation this resolution rests on. FACT: a deliberately broad case-insensitive scan of all 45 harvested true-issue titles and labels for /build[\\s\\-_]*number|\\bversion|\\bversioning|release[\\s\\-_]*number|semver|auto[\\s\\-_]?increment|\\bnumbering/ returned two candidates, number 93 and number 343 whose harvested title is verbatim 'FreeBSD version in wiki does not make sens'; a scan narrowed to numbering of the product's builds or releases, /build[\\s\\-_]*number|release[\\s\\-_]*number|version[\\s\\-_]*number|auto[\\s\\-_]?increment/, returned only number 93. INFERENCE: number 343 is a match on the bare word \"version\" alone; its harvested title scopes it to a FreeBSD release recorded in the project wiki and contains no build-, release- or version-numbering wording for this product, so it is not a plausible second reading of the description and the ambiguity rule is not engaged. Both candidates are quoted here verbatim so the determination stays checkable. FACT: the title of number 93 agrees across two independent GET calls, the list endpoint and https://api.github.com/repos/openmainframeproject/cobol-check/issues/93.",
         "capture_file": "93.json"
       }
-    ]
+    ],
+    "omissions": [
+      {
+        "label": "FACT",
+        "kind": "response_body_not_retained",
+        "call_index": 3,
+        "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues?state=open&per_page=100",
+        "what_is_missing": "the raw 53-entry open-issues list response body of this duplicate call",
+        "consequence": "nothing is lost to the programme, because the canonical capture of the same endpoint is upstream-harvest/issues.json; this artifact's audit_status is PARTIAL nonetheless",
+        "remedy": "read upstream-harvest/issues.json instead; re-querying an archived, read-only repository is prohibited and this body must not be reconstructed"
+      }
+    ],
+    "audit_status": "PARTIAL"
   },
   "issue_comments": [
     {

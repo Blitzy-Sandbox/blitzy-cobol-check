@@ -1,0 +1,430 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://blitzy.invalid/schemas/upstream-harvest/capture-envelope-1.0.0.json",
+  "title": "Upstream harvest capture envelope",
+  "description": "The single normative shape of the `_capture` audit envelope carried by every JSON artifact in upstream-harvest/. It exists because the ten sibling captures were written by separate sessions and drifted: `tooling` was a string in one artifact and an object in the others, per-call rate-limit header values were strings in three artifacts and integers in the rest, `records_returned` on /rate_limit rows carried three different meanings (0, null and 1), and the `family` label appeared only on pull-request review calls. Every envelope in this folder validates against this schema; a capture that does not validate is a defect in the capture, not in the schema. The schema constrains the audit envelope ONLY - the harvested GitHub payloads (issues, pulls, reviews, review_comments, issue_comments, issue, pull_request, repository_metadata) are stored exactly as the API returned them and are deliberately left unconstrained so that no schema rule can ever motivate editing raw third-party data.",
+  "type": "object",
+  "required": [
+    "_capture"
+  ],
+  "properties": {
+    "_capture": {
+      "$ref": "#/definitions/capture"
+    }
+  },
+  "definitions": {
+    "capture": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "envelope_schema",
+        "envelope_schema_version",
+        "repository",
+        "captured_at_utc",
+        "authenticated",
+        "rate_limit_observed",
+        "calls",
+        "record_counts",
+        "tooling",
+        "failures",
+        "notes",
+        "audit_status",
+        "omissions"
+      ],
+      "properties": {
+        "envelope_schema": {
+          "description": "Relative path from this artifact to the schema it validates against.",
+          "type": "string",
+          "enum": [
+            "capture-envelope.schema.json",
+            "../capture-envelope.schema.json"
+          ]
+        },
+        "envelope_schema_version": {
+          "type": "string",
+          "const": "1.0.0"
+        },
+        "repository": {
+          "description": "The harvested repository, hard-pinned. A value other than this one means the wrong repository was captured.",
+          "type": "string",
+          "const": "openmainframeproject/cobol-check"
+        },
+        "captured_at_utc": {
+          "description": "ISO-8601 UTC instant, as recorded by the capture that produced the artifact.",
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+        },
+        "authenticated": {
+          "description": "Derived from the OBSERVED x-ratelimit-limit ceiling (5000 authenticated, 60 unauthenticated), never from the presence of a credential in the environment.",
+          "type": "boolean"
+        },
+        "rate_limit_observed": {
+          "description": "The authentication-gate reading. Integers only - these are numeric quantities and were serialized as strings in three of the ten artifacts before normalization.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "limit",
+            "remaining",
+            "reset"
+          ],
+          "properties": {
+            "limit": {
+              "type": "integer"
+            },
+            "remaining": {
+              "type": "integer"
+            },
+            "reset": {
+              "type": "integer"
+            }
+          }
+        },
+        "calls": {
+          "description": "Every HTTP request issued while producing the artifact, in the order issued. One entry per request, including pagination pages and the /rate_limit gate probe.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/call"
+          }
+        },
+        "record_counts": {
+          "description": "Per-artifact counts and cross-checks. Keys differ legitimately by artifact type, so only the object shape is constrained.",
+          "type": "object"
+        },
+        "tooling": {
+          "description": "Tools observed in the capture container, never assumed. An object in every artifact - one capture recorded it as a prose string, whose exact text is preserved under provenance_note.",
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "capture_driver",
+            "nothing_installed"
+          ],
+          "properties": {
+            "capture_driver": {
+              "type": "string"
+            },
+            "nothing_installed": {
+              "type": "boolean",
+              "const": true
+            },
+            "provenance_note": {
+              "type": "string"
+            }
+          }
+        },
+        "failures": {
+          "description": "Attempted-and-failed requests. Empty by observation, never by omission. A recording gap is NOT a failure and belongs in omissions.",
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "notes": {
+          "description": "Authored provenance and completeness notes. Every note must open with its evidence label so no authored claim reads as raw captured data. Raw GitHub bodies are never labelled or edited - they are not notes.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(FACT|INFERENCE|UNKNOWN)\\b"
+          }
+        },
+        "audit_status": {
+          "description": "COMPLETE only when every call in this artifact carries a COMPLETE record_status and every response body that this artifact is the home of is retained. Any PARTIAL call makes the artifact PARTIAL, regardless of how complete the harvested payload itself is.",
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "PARTIAL"
+          ]
+        },
+        "omissions": {
+          "description": "Every recording gap, stated plainly. An empty array asserts there are none.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/omission"
+          }
+        },
+        "issue_number": {
+          "type": "integer"
+        },
+        "pull_request_number": {
+          "type": "integer"
+        }
+      }
+    },
+    "call": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "family",
+        "url",
+        "method",
+        "http_status",
+        "x_ratelimit_limit",
+        "x_ratelimit_remaining",
+        "x_ratelimit_reset",
+        "paginated",
+        "link_next",
+        "records_returned",
+        "records_persisted",
+        "response_body_retention",
+        "response_body_location",
+        "record_status",
+        "unknown_fields"
+      ],
+      "properties": {
+        "family": {
+          "description": "Canonical endpoint family. Fixed vocabulary so that call counts can be aggregated across artifacts without string matching on URLs.",
+          "type": "string",
+          "enum": [
+            "rate_limit",
+            "repository",
+            "issues_list",
+            "pulls_list",
+            "pull_reviews",
+            "pull_review_comments",
+            "issue_comments",
+            "pull",
+            "issue"
+          ]
+        },
+        "family_label_as_originally_recorded": {
+          "description": "Present only where normalization changed the recorded label, so the original value stays auditable.",
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://api\\.github\\.com/"
+        },
+        "method": {
+          "description": "Read-only harvest: GET is the only method any capture in this folder may record.",
+          "type": "string",
+          "const": "GET"
+        },
+        "http_status": {
+          "description": "Observed HTTP status, or null where it was genuinely not recorded - in which case \"http_status\" must appear in unknown_fields and record_status must be PARTIAL.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "x_ratelimit_limit": {
+          "type": "integer"
+        },
+        "x_ratelimit_remaining": {
+          "type": "integer"
+        },
+        "x_ratelimit_reset": {
+          "type": "integer"
+        },
+        "paginated": {
+          "description": "True for collection endpoints, where link_next null means pagination was exhausted. False for /rate_limit and single-document endpoints, where link_next null means not applicable.",
+          "type": "boolean"
+        },
+        "link_next": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "records_returned": {
+          "description": "ONE meaning, everywhere: the number of top-level records in the response payload - the array length for a collection endpoint, and 1 for a single-document endpoint including /rate_limit. null only where the value was genuinely not recorded, which requires the field to appear in unknown_fields.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "records_persisted": {
+          "description": "How many of those records are stored in THIS artifact. 0 for a call whose body was not retained and for /rate_limit, whose payload is transport metadata rather than harvested data. Per artifact, the sum over data-family calls equals the length of the persisted data array - that identity is the page-loss check.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "response_body_retention": {
+          "description": "retained_verbatim - the payload is stored in this artifact exactly as returned. summarized_metadata_only - the payload is transport metadata (/rate_limit) whose salient triple is recorded in _capture.rate_limit_observed. not_retained - the payload was observed but not persisted anywhere; it must NOT be reconstructed, and re-querying is prohibited because the upstream repository is archived and read-only.",
+          "type": "string",
+          "enum": [
+            "retained_verbatim",
+            "summarized_metadata_only",
+            "not_retained"
+          ]
+        },
+        "response_body_location": {
+          "description": "Where the body lives in this artifact, as a top-level key path, or null when nothing is retained.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "record_status": {
+          "description": "COMPLETE when every field of this call record was observed and its body retention is accounted for; PARTIAL when any field is unknown or the body was not retained.",
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "PARTIAL"
+          ]
+        },
+        "unknown_fields": {
+          "description": "Names of the fields on this call record that were genuinely not recorded. Empty array where everything was observed. A field listed here is never filled with a plausible value.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Provenance for any value on this record that was read from elsewhere in the same artifact rather than from the response itself.",
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "description": "A null http_status must be declared unknown.",
+          "if": {
+            "properties": {
+              "http_status": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "http_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "record_status": {
+                "const": "PARTIAL"
+              },
+              "unknown_fields": {
+                "contains": {
+                  "const": "http_status"
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "A null records_returned must be declared unknown.",
+          "if": {
+            "properties": {
+              "records_returned": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "records_returned"
+            ]
+          },
+          "then": {
+            "properties": {
+              "record_status": {
+                "const": "PARTIAL"
+              },
+              "unknown_fields": {
+                "contains": {
+                  "const": "records_returned"
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "An unretained body persists nothing and has no location.",
+          "if": {
+            "properties": {
+              "response_body_retention": {
+                "const": "not_retained"
+              }
+            },
+            "required": [
+              "response_body_retention"
+            ]
+          },
+          "then": {
+            "properties": {
+              "records_persisted": {
+                "const": 0
+              },
+              "response_body_location": {
+                "type": "null"
+              },
+              "record_status": {
+                "const": "PARTIAL"
+              }
+            }
+          }
+        },
+        {
+          "description": "A retained body must say where it is.",
+          "if": {
+            "properties": {
+              "response_body_retention": {
+                "const": "retained_verbatim"
+              }
+            },
+            "required": [
+              "response_body_retention"
+            ]
+          },
+          "then": {
+            "properties": {
+              "response_body_location": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "omission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "kind",
+        "call_index",
+        "url",
+        "what_is_missing",
+        "consequence",
+        "remedy"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "FACT",
+            "INFERENCE",
+            "UNKNOWN"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "per_call_record_not_written",
+            "response_body_not_retained"
+          ]
+        },
+        "call_index": {
+          "description": "Index into _capture.calls, or null where the gap is not attributable to a single recorded call.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://api\\.github\\.com/"
+        },
+        "what_is_missing": {
+          "type": "string"
+        },
+        "consequence": {
+          "type": "string"
+        },
+        "remedy": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

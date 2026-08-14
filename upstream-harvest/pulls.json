@@ -1,5 +1,7 @@
 {
   "_capture": {
+    "envelope_schema": "capture-envelope.schema.json",
+    "envelope_schema_version": "1.0.0",
     "repository": "openmainframeproject/cobol-check",
     "captured_at_utc": "2026-08-14T05:12:55Z",
     "authenticated": true,
@@ -10,34 +12,55 @@
     },
     "calls": [
       {
+        "family": "rate_limit",
         "url": "https://api.github.com/rate_limit",
         "method": "GET",
         "http_status": 200,
-        "x_ratelimit_limit": "5000",
-        "x_ratelimit_remaining": "5000",
-        "x_ratelimit_reset": "1786687976",
+        "x_ratelimit_limit": 5000,
+        "x_ratelimit_remaining": 5000,
+        "x_ratelimit_reset": 1786687976,
+        "paginated": false,
         "link_next": null,
-        "records_returned": null
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "pulls_list",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/pulls?state=open&per_page=100",
         "method": "GET",
         "http_status": 200,
-        "x_ratelimit_limit": "5000",
-        "x_ratelimit_remaining": "4979",
-        "x_ratelimit_reset": "1786684750",
+        "x_ratelimit_limit": 5000,
+        "x_ratelimit_remaining": 4979,
+        "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 8
+        "records_returned": 8,
+        "records_persisted": 8,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "pulls",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "repository",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check",
         "method": "GET",
         "http_status": 200,
-        "x_ratelimit_limit": "5000",
-        "x_ratelimit_remaining": "4978",
-        "x_ratelimit_reset": "1786684750",
+        "x_ratelimit_limit": 5000,
+        "x_ratelimit_remaining": 4978,
+        "x_ratelimit_reset": 1786684750,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 1,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "repository_metadata",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       }
     ],
     "record_counts": {
@@ -69,26 +92,29 @@
         "GET"
       ],
       "environment_activation": ". /etc/profile.d/blitzy-cobolcheck-env.sh (sourced as the first command of the run)",
-      "os_release_observed": "Ubuntu 25.10"
+      "os_release_observed": "Ubuntu 25.10",
+      "capture_driver": "curl (HTTP) + python3 (JSON decode and serialization)"
     },
     "failures": [],
     "notes": [
-      "TARGET PINNING: owner=openmainframeproject, repo=cobol-check, pinned from in-repo attestations README.md:42, README.md:55, vs-code-extension/package.json:18 and vs-code-extension/package.json:50 (each resolving to github.com/openmainframeproject/cobol-check). The competing in-repo references at README.md:38, GOVERNANCE.md:15, SUPPORT.md:4, SUPPORT.md:8 and SUPPORT.md:12 name the former maintainer's fork neopragma/cobol-check and were deliberately NOT harvested; harvesting them would have produced a plausible-but-wrong pull-request set.",
-      "AUTHENTICATION: derived from the OBSERVED rate-limit ceiling, not from the presence of a token variable. GET /rate_limit returned HTTP 200 with resources.core.limit=5000, remaining=5000, so authenticated=true. DIVERGENCE FROM SUPPLIED REFERENCE: the folder requirements record a reference measurement for this session of an unauthenticated ceiling of 60; this capture observed 5000. The observation is authoritative and is reported rather than reconciled. The consequence is favourable: an exhausted unauthenticated quota returns empty bodies rather than errors, and no such empty body was encountered — all three calls returned HTTP 200 with non-empty payloads.",
-      "COUNT CORROBORATED: 8 open pull requests captured against the supplied ground truth of 8. Numbers captured: [330, 336, 337, 338, 408, 409, 410, 411]. No divergence.",
-      "TARGET BRANCH CORROBORATED: 8 of 8 pull requests carry base.ref=\"Developer\"; base_ref_counts records the distribution. Two independent corroborations agree: repository_metadata.default_branch is \"Developer\", and the in-repo workflow .github/workflows/VerifyAction.yml:4-5 triggers on pull_request.branches [ main,Developer ]. No divergence.",
-      "LOCK STATE CORROBORATED, WITH THE MECHANISMS KEPT DISTINCT: all 8 of 8 captured pull requests carry locked=true, and repository_metadata.archived=true. These are two different mechanisms — a repository archive imposes read-only status on the whole repository, whereas the per-pull-request locked flag is an independently settable conversation lock. Here both are set, so they happen to agree; the fields are persisted separately so that no downstream reader has to infer one from the other. Had locked been false while archived was true, that would have been recorded as such rather than smoothed over.",
-      "ORIGIN SPLIT CORROBORATED: head.repo.full_name divides the captured set exactly three ways, matching the supplied ground truth PR-for-PR — Living-Mainframe/cobol-check => [411]; generalmotors/openmainframeproject-cobol-check => [408, 409, 410]; openmainframeproject/cobol-check => [330, 336, 337, 338]. head_repo_counts records the same distribution numerically. head.repo.full_name is persisted for every record because it is what determines which third-party remotes a later session must add: the working clone carries only 'origin' and has no upstream, generalmotors or Living-Mainframe remote, which is why this metadata had to come over the REST API at all.",
-      "PR #411 head.sha CAPTURED VERBATIM: e88bc1a0b82d92c17c4c2ee73bab588f0b2d813d. It is recorded here as raw input only. Whether Living-Mainframe/cobol-check holds commits beyond this pull request is a baseline question answered in the working clone against fetched refs, and is deliberately NOT answered in this file.",
-      "AUTHOR ATTRIBUTION PRESERVED: user.login, head.label, head.ref and author_association are persisted unpruned for every record, because these third-party contributions are re-applied rather than merged and their attribution has to survive the transfer. head.sha likewise: it is the durable citable anchor for each contribution.",
-      "PAGINATION EXHAUSTED: the pulls endpoint was requested with per_page=100 and returned 8 record(s) across 1 call(s) with no Link rel=\"next\" present on the final response (link_next is null), so no page was silently truncated. The sum of records_returned over the pulls calls equals the length of the pulls array.",
-      "FIDELITY: the pulls array is the verbatim decoded API payload, concatenated in page order. No record was pruned, reordered or reformatted, and no derived field was inserted into any record. The field list named in the requirements is the minimum that must be present and verifiable, not an instruction to truncate. repository_metadata is the verbatim GET /repos/{owner}/{repo} payload.",
-      "SCOPE: raw capture only. This file contains no classification, no sequencing recommendation, no adjudication between related pull requests, and no per-pull-request patch-application verdict — those are produced elsewhere, the latter in the working clone rather than over the API. No patch files and no fetched refs are stored here.",
-      "READ-ONLY GUARANTEE: exactly three HTTP requests were issued, all GET — /rate_limit, the pulls collection, and the repository object. No POST, PATCH, PUT or DELETE was issued by any code path, so nothing was written to the archived upstream. Zero failures were recorded, so the failures array is empty by observation and not by omission.",
-      "TOOLING DIVERGENCES FROM THE SUPPLIED REFERENCE, RECORDED NOT WORKED AROUND: the folder requirements state that jq is absent in this image; jq is in fact PRESENT (jq-1.8.1) and is recorded as present-but-unused, since the mandated client pairing of curl with python3 was used exactly as directed. gh is confirmed ABSENT. The observed curl and python3 versions also differ from the quoted reference versions; the observed values are recorded in tooling. Nothing was installed to perform this capture.",
-      "ENVIRONMENT: . /etc/profile.d/blitzy-cobolcheck-env.sh was sourced as the first command of the run, before any probe. Observed OS release is Ubuntu 25.10, which differs from the Ubuntu 24.04.4 LTS value carried in the supplied environment table; recorded as a discrepancy rather than reconciled. No probe result predating the activation step is treated as a finding.",
-      "SECRET HYGIENE: the API credential was assembled in process memory from the environment and passed only as a request header. It appears in no field of this file, in no file name, and in no log line. Response headers were captured to a separate dump file rather than interleaved into the response body, so no request header was ever written to disk."
-    ]
+      "FACT: TARGET PINNING — owner=openmainframeproject, repo=cobol-check, pinned from in-repo attestations README.md:42, README.md:55, vs-code-extension/package.json:18 and vs-code-extension/package.json:50, each resolving to github.com/openmainframeproject/cobol-check. The competing in-repo references at README.md:38, GOVERNANCE.md:15, SUPPORT.md:4, SUPPORT.md:8 and SUPPORT.md:12 name the former maintainer's fork neopragma/cobol-check and were deliberately NOT harvested. INFERENCE: harvesting them would have produced a plausible-but-wrong pull-request set; reasoning: a personal fork carries its own pull requests, and nothing inside a harvested payload would reveal that the wrong repository had been read.",
+      "FACT: AUTHENTICATION is derived from the OBSERVED rate-limit ceiling, not from the presence of a token variable. Locator: `_capture.calls[0]` returned HTTP 200 with resources.core.limit=5000 and remaining=5000, recorded at `_capture.rate_limit_observed`, so `_capture.authenticated` is true. DIVERGENCE FROM SUPPLIED REFERENCE, stated rather than reconciled: the folder requirements record a reference measurement for this session of an unauthenticated ceiling of 60; this capture observed 5000, and the observation is authoritative. INFERENCE: the consequence is favourable; reasoning: an exhausted unauthenticated quota returns empty bodies rather than errors, and all three calls returned HTTP 200 with non-empty payloads, so that truncation failure mode did not apply here.",
+      "FACT: COUNT CORROBORATED — 8 open pull requests captured against the supplied ground truth of 8. Locator: `_capture.record_counts.pulls_total` = 8, and the numbers present in the top-level `pulls` array are [330, 336, 337, 338, 408, 409, 410, 411]. No divergence.",
+      "FACT: TARGET BRANCH CORROBORATED — 8 of 8 pull requests carry base.ref=\"Developer\". Locator: `_capture.record_counts.base_ref_counts` records the distribution as {\"Developer\": 8}. Two independent corroborations agree: `repository_metadata.default_branch` is \"Developer\", and the in-repo workflow .github/workflows/VerifyAction.yml:4-5 triggers on pull_request.branches [ main, Developer ]. No divergence.",
+      "FACT: LOCK STATE CORROBORATED, WITH THE MECHANISMS KEPT DISTINCT — all 8 of 8 captured pull requests carry locked=true, and `repository_metadata.archived` = true. INFERENCE: these are two different mechanisms and neither may be inferred from the other; reasoning: a repository archive imposes read-only status on the whole repository, whereas the per-pull-request `locked` flag is an independently settable conversation lock, so either could in principle be set without the other. FACT: here both are set, so they happen to agree, and the two fields are persisted separately so that no downstream reader has to infer one from the other. Had `locked` been false while `archived` was true, that would have been recorded as such rather than smoothed over.",
+      "FACT: ORIGIN SPLIT CORROBORATED — head.repo.full_name divides the captured set exactly three ways, matching the supplied ground truth pull request for pull request: Living-Mainframe/cobol-check => [411]; generalmotors/openmainframeproject-cobol-check => [408, 409, 410]; openmainframeproject/cobol-check => [330, 336, 337, 338]. Locator: `_capture.record_counts.head_repo_counts` records the same distribution numerically. INFERENCE: head.repo.full_name is persisted for every record because it is what determines which third-party remotes a later session must add; reasoning: the working clone in which this capture was taken carried only 'origin' and had no upstream, generalmotors or Living-Mainframe remote, which is why this metadata had to come over the REST API at all.",
+      "FACT: PR #411 head.sha captured verbatim as e88bc1a0b82d92c17c4c2ee73bab588f0b2d813d, recorded here as raw input only. UNKNOWN: whether Living-Mainframe/cobol-check holds commits beyond this pull request is not established by this capture and is deliberately not answered in this file. It is a baseline question to be settled in a working clone against fetched refs, anchored on that head.sha.",
+      "FACT: AUTHOR ATTRIBUTION PRESERVED — user.login, head.label, head.ref and author_association are persisted unpruned for every record in the top-level `pulls` array, as is head.sha. INFERENCE: attribution has to survive the transfer because these third-party contributions are re-applied rather than merged; reasoning: re-application creates new commits, so the only place the original author can come from is this captured metadata, and head.sha is the durable citable anchor for each contribution.",
+      "FACT - PAGINATION EXHAUSTED: the pulls endpoint was requested with per_page=100 and returned 8 record(s) across 1 call(s) with no Link rel=\"next\" present on the final response (link_next is null), so INFERENCE - no page was silently truncated; reasoning: a further page can only exist behind a Link rel=\"next\" header, and none was present. The page-loss check under the counting convention fixed by capture-envelope.schema.json is the sum of records_persisted over the pulls-family calls, which equals the length of the pulls array exactly at 8.",
+      "FACT: FIDELITY — the `pulls` array is the verbatim decoded API payload, concatenated in page order; no record was pruned, reordered or reformatted, and no derived field was inserted into any record. `repository_metadata` is the verbatim GET /repos/{owner}/{repo} payload. INFERENCE: the field list named in the requirements is the minimum that must be present and verifiable, not an instruction to truncate; reasoning: a capture that keeps only the named fields cannot answer a question the plan has not yet thought to ask, and this capture cannot be repeated.",
+      "FACT: SCOPE — this file is raw capture only. It contains no classification, no sequencing recommendation, no adjudication between related pull requests, and no per-pull-request patch-application verdict; no patch files and no fetched refs are stored here. INFERENCE: the patch-application verdict in particular belongs in a working clone rather than over the API; reasoning: apply-cleanly status is a property of a three-way merge against the fork's own head, which the API does not expose.",
+      "FACT: READ-ONLY GUARANTEE — exactly three HTTP requests were issued, all GET. Locator: `_capture.calls[0]` is /rate_limit, `_capture.calls[1]` the pulls collection and `_capture.calls[2]` the repository object; `_capture.tooling.http_methods_issued` records [\"GET\"], and `_capture.failures` is the empty array. INFERENCE: nothing was written to the archived upstream, and the empty failures array is an observation rather than an omission; reasoning: no POST, PATCH, PUT or DELETE exists in any code path that produced this file, and every call carries an explicit http_status of 200.",
+      "FACT: TOOLING DIVERGENCES FROM THE SUPPLIED REFERENCE, recorded rather than worked around — the folder requirements state that jq is absent in this image; jq is in fact PRESENT (jq-1.8.1, `_capture.tooling.jq_version_observed`) and is recorded as present-but-unused (`_capture.tooling.jq_used` = false), since the mandated client pairing of curl with python3 was used exactly as directed. gh is confirmed ABSENT (`_capture.tooling.gh_present` = false). The observed curl and python3 versions also differ from the quoted reference versions, and the observed values are recorded in `_capture.tooling`. Nothing was installed to perform this capture (`_capture.tooling.nothing_installed` = true).",
+      "FACT: ENVIRONMENT — `. /etc/profile.d/blitzy-cobolcheck-env.sh` was sourced as the first command of the run, before any probe, and is recorded at `_capture.tooling.environment_activation`. Observed OS release is Ubuntu 25.10 (`_capture.tooling.os_release_observed`), which differs from the Ubuntu 24.04.4 LTS value carried in the supplied environment table; recorded as a discrepancy rather than reconciled. INFERENCE: no probe result predating the activation step is treated as a finding; reasoning: nothing is on PATH in a non-login shell before that script runs, so a pre-activation failure measures the shell rather than the image.",
+      "FACT: SECRET HYGIENE — the API credential was assembled in process memory from the environment and passed only as a request header. It appears in no field of this file, in no file name and in no log line, and response headers were captured to a separate dump rather than interleaved into any response body. INFERENCE: no request header was therefore ever written into this artifact; reasoning: the only sink for header text was that separate dump, and the credential never appeared on a command line where /proc would expose it."
+    ],
+    "omissions": [],
+    "audit_status": "COMPLETE"
   },
   "pulls": [
     {

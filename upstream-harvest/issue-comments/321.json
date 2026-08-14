@@ -1,5 +1,7 @@
 {
   "_capture": {
+    "envelope_schema": "../capture-envelope.schema.json",
+    "envelope_schema_version": "1.0.0",
     "repository": "openmainframeproject/cobol-check",
     "issue_number": 321,
     "captured_at_utc": "2026-08-14T05:15:22Z",
@@ -9,33 +11,97 @@
       "remaining": 5000,
       "reset": 1786688052
     },
+    "provenance_envelope": {
+      "status": "PARTIAL",
+      "payload_completeness": "COMPLETE",
+      "reason": "The authentication gate request GET https://api.github.com/rate_limit was issued before harvesting - its observed values are carried in _capture.rate_limit_observed and described in _capture.notes - but its per-call record was never written into _capture.calls. This artifact therefore cannot audit that one request's HTTP status or record count. The harvested records themselves are unaffected and remain COMPLETE.",
+      "unrecorded_requests": [
+        {
+          "url": "https://api.github.com/rate_limit",
+          "method": "GET",
+          "http_status": "UNKNOWN",
+          "records_returned": "UNKNOWN",
+          "x_ratelimit_limit": 5000,
+          "x_ratelimit_remaining": 5000,
+          "x_ratelimit_reset": 1786688052,
+          "provenance": "UNKNOWN AS RECORDED - the limit/remaining/reset triple in _capture.rate_limit_observed cannot be observed without issuing this request, so the request was issued; but no field of this artifact RECORDS its HTTP status or its record count, so both are carried here as the literal string UNKNOWN, and on the itemized _capture.calls[0] entry both are null and named in its unknown_fields. INFERENCE - the request nonetheless succeeded, because _capture.notes records that resources.core.limit = 5000 was read from the response BODY, a body shape this endpoint returns only on success; the reasoning is recorded at _capture.calls[0].record_provenance and is deliberately not written into the status field, which carries observations only. UNKNOWN - the record count is genuinely unrecoverable: no value for it is entailed by anything preserved here, and none was manufactured."
+        }
+      ],
+      "recovery_action_taken": "NONE",
+      "recovery_action_refused": "Re-issuing the request to manufacture a call record is forbidden: the upstream repository is archived and this capture is one-time and non-repeatable, so a request issued now would carry a different timestamp and a different remaining count and would not be the record that is missing. Fabricating the two values is likewise refused. The omission is reported instead.",
+      "affects_record_counts": false,
+      "affects_authentication_determination": false
+    },
     "calls": [
       {
+        "family": "rate_limit",
+        "url": "https://api.github.com/rate_limit",
+        "method": "GET",
+        "http_status": null,
+        "x_ratelimit_limit": 5000,
+        "x_ratelimit_remaining": 5000,
+        "x_ratelimit_reset": 1786688052,
+        "paginated": false,
+        "link_next": null,
+        "records_returned": null,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "PARTIAL",
+        "unknown_fields": [
+          "http_status",
+          "records_returned"
+        ],
+        "purpose": "authentication gate read before harvesting",
+        "evidence": "FACT - this request was issued but no per-call record was written at capture time. The three rate-limit values here are re-recorded from _capture.rate_limit_observed and _capture.notes of this same artifact, which record them as observed at this gate probe; nothing is taken from another artifact and nothing is invented. INFERENCE - it preceded the harvesting calls, because the notes record the gate as read immediately before harvesting; UNKNOWN - its HTTP status, its record count and its exact ordinal position are recorded nowhere in the evidence.",
+        "record_provenance": "RECONSTRUCTED_FROM_PRESERVED_EVIDENCE - this entry was not written into calls[] at capture time and was reconstructed afterwards from evidence preserved inside this same artifact, without re-issuing the request. url and method: named verbatim in _capture.notes as the endpoint the authentication gate probed by GET. x_ratelimit_limit / x_ratelimit_remaining / x_ratelimit_reset: taken from _capture.rate_limit_observed, which _capture.notes records as the reading observed at that gate call. http_status: left null and named in unknown_fields, because no field of this artifact records it. INFERENCE - the request nonetheless succeeded, since _capture.notes records that resources.core.limit = 5000 was read from the response BODY and corroborated the x-ratelimit-limit header, a body shape this endpoint returns only on success; that is an inference and is deliberately not written into the http_status field, which carries observations only. link_next null: this endpoint is not paginated, matching every sibling artifact's entry for the same URL.",
+        "unrecoverable_fields": [
+          "records_returned - genuinely not recorded anywhere in this artifact and deliberately left null rather than inferred; sibling captures 53.json and 220.json record null for this same endpoint while 323.json records 1, so no single value is entailed"
+        ]
+      },
+      {
+        "family": "issue_comments",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/321/comments?per_page=100",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4965,
         "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 4
+        "records_returned": 4,
+        "records_persisted": 4,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue_comments",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/321",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4964,
         "x_ratelimit_reset": 1786684750,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 1,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       }
     ],
     "record_counts": {
       "issue_comments": 4,
       "issue_comments_reported_by_api": 4,
       "pages_fetched": 1,
-      "issue": 1
+      "issue": 1,
+      "calls_issued": 3,
+      "calls_itemised": 3,
+      "per_call_provenance": "PARTIAL - 3 of 3 issued requests are itemised in calls[], but calls[0] is reconstructed from preserved in-artifact evidence rather than recorded at capture time, and its records_returned is unrecoverable. Thread content is complete and reconciled; per-request provenance is not."
     },
     "tooling": {
       "os_release": "Ubuntu 25.10",
@@ -47,7 +113,8 @@
       "capture_driver": "python3 urllib.request (standard library only; no third-party packages)",
       "environment_activation_script": "/etc/profile.d/blitzy-cobolcheck-env.sh",
       "environment_activation_script_present": true,
-      "tools_installed_during_capture": []
+      "tools_installed_during_capture": [],
+      "nothing_installed": true
     },
     "failures": [],
     "notes": [
@@ -65,8 +132,26 @@
       "FACT - The sibling harvest artifact upstream-harvest/issues.json was not available in this working tree at capture time (absent from the filesystem, absent from `git ls-files`, and absent from every git ref reachable in this clone), so the corroboration recorded in these notes was performed against the live GET https://api.github.com/repos/openmainframeproject/cobol-check/issues/321 payload - the same upstream endpoint issues.json is itself derived from - applying the same absence-of-`pull_request`-key filter that scanning issues.json would require.",
       "UNKNOWN - Whether issue #321 is the *only* upstream issue with recent activity could not be established from within this capture, because that is a comparison across all upstream open issues and no cross-issue listing was read here. Both the comparison and its verdict belong to upstream-harvest/HARVEST-MANIFEST.md, so no ranking is asserted in this file.",
       "FACT - Every HTTP request recorded in _capture.calls[] is a GET. No write of any kind - no comment, reaction, label, assignment, reopen or edit - was attempted against the archived upstream repository openmainframeproject/cobol-check.",
-      "FACT - Comment and issue payloads are stored exactly as returned: no field was pruned and no body was truncated, reflowed, re-rendered from markdown, HTML-stripped or whitespace-normalized. Each comment retains all 14 fields GitHub returned and the issue payload retains all 34, in GitHub's own field order. The issue body contains CRLF sequences; JSON string escaping represents each as the two-character escape \\r\\n, so the serialized file holds no raw carriage-return byte while every value still round-trips byte-identically."
-    ]
+      "FACT - Comment and issue payloads are stored exactly as returned: no field was pruned and no body was truncated, reflowed, re-rendered from markdown, HTML-stripped or whitespace-normalized. Each comment retains all 14 fields GitHub returned and the issue payload retains all 34, in GitHub's own field order. The issue body contains CRLF sequences; JSON string escaping represents each as the two-character escape \\r\\n, so the serialized file holds no raw carriage-return byte while every value still round-trips byte-identically.",
+      "UNKNOWN - PROVENANCE OMISSION, reported rather than omitted. This artifact is the only one of the twelve in upstream-harvest/ whose _capture.calls array did not itemise the authentication gate request at capture time: it held exactly two entries, the comments endpoint and the issue object, and no GET https://api.github.com/rate_limit entry. That request is now carried as calls[0], reconstructed after the fact from evidence preserved inside this same artifact and marked as such in its own record_provenance field, so the request count is no longer understated - but the entry is reconstructed rather than recorded, which is why this envelope remains PARTIAL. The request was nonetheless issued - _capture.rate_limit_observed carries a limit/remaining/reset triple that cannot be observed without it, and _capture.notes[2] and [3] describe it - but its HTTP status and record count are recorded nowhere and are therefore UNKNOWN. The full statement of the omission, and the two values that are unmeasured, are carried at _capture.provenance_envelope.",
+      "FACT - Reconciliation performed after capture, recorded rather than silently corrected: the authentication gate request GET https://api.github.com/rate_limit was issued before harvesting - _capture.notes records reading its x-ratelimit-limit header and its resources.core.limit body field, and _capture.rate_limit_observed holds the limit/remaining/reset triple it returned - but its per-call record was not written into calls[] at capture time. Every sibling artifact in this folder itemises that same request as calls[0]; this file was the sole omission.",
+      "INFERENCE - The omitted entry has been reconstructed as calls[0] from evidence preserved inside this artifact alone, with no request re-issued, and is marked as reconstructed in its own record_provenance field. Reasoning: a fresh GET https://api.github.com/rate_limit would return a different remaining value at a different instant and would therefore be evidence about a new request rather than about the one this artifact describes, so re-issuing it could only weaken the record. records_returned is left null and named in unrecoverable_fields because no value for it is entailed by anything preserved here.",
+      "FACT - Consequently this artifact's per-call provenance is PARTIAL, recorded in record_counts.per_call_provenance and mirrored in upstream-harvest/HARVEST-MANIFEST.md section 7.3. The distinction is deliberate and narrow: the captured thread is complete - 4 comment records reconciled against the issue payload's own comments = 4 - while one of the three issued requests carries a reconstructed rather than a recorded envelope.",
+      "FACT - CONSEQUENT CLASSIFICATION: _capture.provenance_envelope.status is PARTIAL and payload_completeness is COMPLETE, and the two must not be collapsed. The 4 captured comments are complete and independently corroborated - _capture.record_counts.issue_comments = 4 equals issue_comments_reported_by_api = 4 equals GitHub's own issue.comments counter - and _capture.failures is empty because no request failed. INFERENCE - what is partial is the provenance envelope and nothing else; reasoning: the missing record is a record *about* a request rather than a record *of* harvested data, so it removes the ability to audit one request without removing or altering any captured comment. UNKNOWN - the missing request's http_status and records_returned. No re-harvest was performed to recover them, because a request issued now would be a different request and this capture cannot be repeated.",
+      "FACT - the authentication-gate request GET https://api.github.com/rate_limit was issued for this capture but no per-call record was written for it at capture time. It is now itemized as calls[0] with record_status PARTIAL: its rate-limit triple is re-recorded from _capture.rate_limit_observed and the notes above, which record those values as observed at that gate, while its HTTP status and record count are listed in unknown_fields because they are recorded nowhere in the evidence. UNKNOWN - the two listed fields, and the request's exact ordinal position in the sequence, are not established by anything retained; INFERENCE - it preceded calls[1] because the gate was read before harvesting began, per the notes above. Nothing on that record is reconstructed from another artifact and no value is invented. _capture.omissions records the gap."
+    ],
+    "omissions": [
+      {
+        "label": "FACT",
+        "kind": "per_call_record_not_written",
+        "call_index": 0,
+        "url": "https://api.github.com/rate_limit",
+        "what_is_missing": "the per-call record of the authentication-gate request: its HTTP status, its record count and its exact ordinal position in the sequence were not written at capture time",
+        "consequence": "the request is evidenced by _capture.rate_limit_observed and _capture.notes and is itemized as calls[0] with record_status PARTIAL and those fields in unknown_fields, so this artifact's audit_status is PARTIAL; the harvested comment payload is unaffected and remains complete, corroborated by issue.comments",
+        "remedy": "none available: re-querying an archived, read-only repository is prohibited, and the missing fields are left UNKNOWN rather than filled with plausible values"
+      }
+    ],
+    "audit_status": "PARTIAL"
   },
   "issue_comments": [
     {

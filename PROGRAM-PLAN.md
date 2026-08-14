@@ -6,9 +6,9 @@
 
 ## A1. Executive summary
 
-A maintained fork of an archived COBOL unit-test precompiler, extended until it can generate and run regression tests for enterprise COBOL at scale. Ten sequenced runs: repair the approval harness (1a); build a characterization safety net (1b); modernize build, dependencies and identity and ship the first automated release (2); correct defects and adopt the eight upstream pull requests (3); generalize the stub-emission seam into a mock dispatch point (4); add file-I/O and VSAM mocking (5), SQL/DB2 mocking (6) and CICS mocking (7); add a test generator behind a CI-enforced mutation floor (8); add a pluggable z/OS launcher shipped structurally complete and labelled unverified (9). The precompiler/source-injection model is retained throughout.
+A maintained fork of an archived COBOL unit-test precompiler, extended until it can generate and run regression tests for enterprise COBOL at scale. Ten sequenced runs: repair the approval harness (1a); build a characterization safety net (1b); modernize build, dependencies and identity, shipping the first automated release (2); correct defects and adopt seven of the eight upstream pull requests, the eighth superseded by 1a (3); generalize the stub-emission seam into a mock dispatch point (4); add file-I/O and VSAM mocking (5), SQL/DB2 mocking (6) and CICS mocking (7); add a test generator behind a CI-enforced mutation floor (8); add a pluggable z/OS launcher, structurally complete and labelled unverified (9). The precompiler/source-injection model is retained throughout.
 
-The single biggest technical risk is **false confidence**. Every `EXEC SQL`, `EXEC CICS` and batch file I/O verb is currently replaced with a literal `CONTINUE` `FACT [src/main/java/org/openmainframeproject/cobolcheck/features/interpreter/InterpreterController.java:L149-L150, L165-L166]`, so the tool can report a passing test for code it silently deleted. The build is green today only because the approval harness compares a 0-byte file `FACT` (reproduced: `actual-output.txt` 0 bytes, zero COBOL programs compiled, exit 0). Every run therefore states its executed COBOL program count, and "green" is defined mechanically rather than trusted.
+The single biggest technical risk is **false confidence**. Every `EXEC SQL`, `EXEC CICS` and batch file I/O verb is currently replaced with a literal `CONTINUE` `FACT [src/main/java/org/openmainframeproject/cobolcheck/features/interpreter/InterpreterController.java:L149-L150, L165-L166]`, so the tool can report a passing test for code it silently deleted. The build is green today only because the approval harness compares a 0-byte file `FACT` (reproduced: 0-byte output, zero programs compiled, exit 0). Every run therefore states its executed program count, and "green" is defined mechanically rather than trusted.
 
 ### A1.1 Governing constraints, and the absence of user-specified rules
 
@@ -24,7 +24,7 @@ The single biggest technical risk is **false confidence**. Every `EXEC SQL`, `EX
 | The smallest verifiable diff | Reusing the existing pseudo-text tokenizer instead of writing a parser; relocating one build helper instead of inventing a harness; rejecting the history rewrite |
 | Decide, then record the rejected alternative | Every ADR in A4 carries its alternatives and the reason each was rejected |
 | Documentation is never proof | Wiki-documented syntax verified absent from source; a third-party design document's unsourced SQLCODE values refused as authority |
-| Supply-chain and licence hygiene as shipping requirements | A real SBOM at a fixed path, removal of the redundant copyleft-adjacent artifact that actually ships, and the governance stubs filled rather than deleted |
+| Supply-chain and licence hygiene as shipping requirements | A real SBOM at a fixed path, removal of the redundant copyleft-adjacent artifact that is *declared and resolved* on the production classpath — though **not** currently packaged into any committed archive (A2.6) — and the governance stubs filled rather than deleted |
 | Automation over convention | The idempotent rename script with a mechanically checkable diff, the normalization filter with its own self-test, the coverage gate wired in, the mutation floor CI-enforced |
 
 **A provenance distinction that matters operationally.** The dense body of binding constraints this programme runs under — the backward-compatibility contract, the "do not touch" set, the two-axis change discipline, the mechanical definition of green, the evidence standard, the environment-authority rule, the four declared non-goals and the scope boundary — are **prompt-level constraints, not user-specified rules**. They are *not* retrievable through the rules mechanism, so a reader who goes looking for a rules document will find nothing. That is precisely why they are carried verbatim inside this document and inside every run prompt in Deliverable B, and why the duplication in Deliverable B must not be "optimized" away.
@@ -57,47 +57,316 @@ C version "15.2.0"
 
 `FACT` — `COB_CFLAGS` is exported as a single `-D_FORTIFY_SOURCE` value: `-std=c17 -finline-functions -pipe -Wdate-time -D_FORTIFY_SOURCE=3 -Wno-unused -fsigned-char`. This matters because `ProcessOutputWriter.writeOutPutToConsole()` prints the child's **standard error** to `System.out` `FACT [src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L111-L114]` — `System.out.println(processInput)` at `L112` and `System.out.println(processError)` at `L113`. `INFERENCE` — a duplicated fortify definition would therefore write a compiler warning into `actual-output.txt` and into every golden file captured; reasoning: the warning is emitted on stderr by the C compiler, the launcher pipes stderr into stdout, and stdout is what the harness redirects.
 
-`FACT` — `core.autocrlf` is `false`, set repository-locally.
+`FACT` — `core.autocrlf` is `false`, set repository-locally. **Session-local, not durable:** it lives in `.git/config` and is therefore absent from a fresh clone, so every run prompt must set and verify it rather than inherit it.
 
 ### A2.2 Repository identity
 
 | Datum | Value | Provenance |
 | --- | --- | --- |
-| Fork default branch | `Developer` | `FACT` — `git symbolic-ref refs/remotes/origin/HEAD` → `refs/remotes/origin/Developer`; independently corroborated by the upstream API capture's `repository_metadata.default_branch` `[upstream-harvest/pulls.json]` |
+| Fork default branch | `Developer` | `FACT` — `repository_metadata.default_branch` in the upstream API capture `[upstream-harvest/pulls.json]`, which is the **durable** source. `INFERENCE` — `git symbolic-ref refs/remotes/origin/HEAD` is **not** a reliable second source and must not be used as one downstream; reasoning: it records the branch a clone was created on, so in an agent clone it resolves to the working branch rather than to `Developer`, and a prompt that reads it would misidentify the default branch without any error |
 | HEAD SHA (pristine) | `c79624bd286d5f08f156ccce755bc5d4fffd1909`, subject "Revise README for project status and capitalization" | `FACT` — `git rev-parse` / `git log` |
 | Tracked files | **384** at `c79624bd` | `FACT` — `git ls-tree -r --name-only c79624bd \| wc -l` |
 | Divergence from `upstream/Developer` | **0 behind / 0 ahead** | `FACT` — `git rev-list --left-right --count refs/remotes/upstream/Developer...c79624bd` |
 | Local branches | `Developer`, plus the working branch for this session | `FACT` — `git branch`. **Contradicts the ground truth**, which names `Developer` and `blitzy-modernization`; no `blitzy-modernization` branch exists in this checkout |
-| Remotes | `origin`, `upstream`, `gm`, `livingmf` | `FACT` — `git remote`. The `origin` URL embeds an access credential and is deliberately not reproduced anywhere in this document |
-| Upstream refs fetched | 21 heads + **211** PR head refs under `refs/remotes/upstream/pr/*` | `FACT` — `git for-each-ref` |
+| Remotes | `origin`, `upstream`, `gm`, `livingmf` | `FACT` — `git remote`, **as observed in the planning session's clone**. The `origin` URL embeds an access credential and is deliberately not reproduced anywhere in this document. **Session-local, not durable:** remotes live in `.git/config`, so a fresh clone carries `origin` alone and every run prompt must add and verify the other three idempotently rather than assume them |
+| Upstream refs fetched | 21 heads + **211** PR head refs under `refs/remotes/upstream/pr/*` | `FACT` — `git for-each-ref`, **as observed in the planning session's clone**. **Session-local, not durable:** refs are per-clone, so a fresh clone has none and every run prompt must fetch `+refs/heads/*` and `+refs/pull/*/head` and then prove all eight open pull-request heads resolve |
 | Java sources | 110 under `src/main/java` totalling **12,131** lines, across **19** package directories | `FACT` — `git ls-files` + `wc -l` + `dirname \| sort -u`. **Contradicts the ground truth's "25 packages"**; its own package table lists 19 and measurement confirms 19 |
 | Test sources | 35 files; **34** match `*Test.java`/`*IT.java`; only **33** contain `@Test`/`@ParameterizedTest`; 5 are `*IT` | `FACT` — `git ls-files` + `grep`. The 35th is `Utilities.java`, a helper |
 | Repository size | GitHub reports 20,331 KB; local pack is 23.59 MiB | `FACT` — `repository_metadata.size` `[upstream-harvest/pulls.json]`; `git count-objects -vH` |
 
 ### A2.3 The JDK 8 / 11 / 21 build matrix — verbatim outcomes
 
-All three legs were executed in this session after sourcing the activation script, on a warm Gradle cache, with the working tree restored to pristine afterwards.
+All three legs were executed in this session after sourcing the activation script, on a warm Gradle cache, with the working tree restored to pristine afterwards. **What follows is the transcript itself rather than a summary of it, and no line is elided.** Each leg reproduces, verbatim: the whole of Gradle's own output up to and including `> Task :test`; then a complete, exhaustive accounting of the test-event stream that `> Task :test` forwards; then the whole of Gradle's own output from the end of that stream to the process exit status. Every line of every capture falls into exactly one of those three parts, and for the middle part every line falls into exactly one counted class whose form is given — the classification is asserted mechanically and its counts sum to the span length.
 
-| Leg | Command | Verbatim outcome | Test result |
-| --- | --- | --- | --- |
-| **JDK 11** (the documented gate) | `JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest` | `BUILD SUCCESSFUL in 18s`, exit 0 | `FACT` — **457 PASSED, 0 FAILED, 0 SKIPPED** |
-| **JDK 8** | `JAVA_HOME=$JDK8_HOME ./gradlew clean test` | `BUILD SUCCESSFUL in 12s`, exit 0 | `FACT` — **457 PASSED, 0 FAILED** |
-| **JDK 21** | `JAVA_HOME=$JDK21_HOME ./gradlew clean test` | `BUILD FAILED in 13s`, exit 1 | `FACT` — JUnit XML authoritative: 33 classes, **tests=457, failures=227, errors=0, skipped=0, passed=230** |
+`INFERENCE` — the middle part is presented as an exhaustive classification rather than as 7,174 further quoted lines because its information content is a per-test result list, and the same results are available in a stricter and machine-readable form from the JUnit XML quoted for each leg; reasoning: the build script sets `showStandardStreams = true` at `[build.gradle:L86]` inside the `testLogging` block opened at `[build.gradle:L85]`, and registers the result events at `[build.gradle:L87]` (`events "passed", "skipped", "failed"`), so those lines are the test framework's own forwarded logging rather than any part of Gradle's build outcome, and quoting them would multiply this document's length several-fold while adding nothing the aggregate does not already establish. Nothing is hidden by it: the class list is exhaustive, each class's exact line form is stated, and the counts are asserted to sum.
 
-`FACT` — the JDK 11 stop-and-report gate is therefore **passed**, and the programme proceeds.
+**Reproduction command for all three legs**, so any reader can regenerate these transcripts byte-for-byte on the same image:
 
-`FACT` — the JDK 21 failure signature, from the captured log: `Caused by: java.lang.IllegalArgumentException: Unsupported class file major version 65`, reached through `org.mockito.internal.creation.bytebuddy.InlineByteBuddyMockMaker.<clinit>(InlineByteBuddyMockMaker.java:117)` → `org.mockito.internal.configuration.plugins.PluginInitializer.loadImpl(PluginInitializer.java:52)` → `net.bytebuddy.agent.ByteBuddyAgent.install`.
+```bash
+. /etc/profile.d/blitzy-cobolcheck-env.sh
+rm -rf bin temp testruns actual-output.txt          # cold tree; `clean` alone does NOT remove these
+JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest ; echo "EXIT=$?"
+JAVA_HOME=$JDK8_HOME  ./gradlew clean test           ; echo "EXIT=$?"
+JAVA_HOME=$JDK21_HOME ./gradlew clean test           ; echo "EXIT=$?"
+```
 
-`INFERENCE` — the failing component is specifically the **inline** mock maker, so the remedy is to drop `org.mockito:mockito-inline` rather than bump it; reasoning: the stack originates in `InlineByteBuddyMockMaker`'s static initializer loaded as a Mockito plugin, and the inline mock maker became the default in the Mockito 5 line so the separate artifact has no successor. `FACT` — the resolved Byte Buddy is `net.bytebuddy:byte-buddy:1.10.18` and `byte-buddy-agent:1.10.18`, arriving transitively through `org.mockito:mockito-junit-jupiter:3.6.28` `[build.gradle:L105]`.
+#### Leg 1 — JDK 11, the documented gate: `JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest`
 
+`FACT` — total captured output: **2,353 lines**. Lines 1–39, verbatim and complete:
+
+```text
+Starting a Gradle Daemon, 3 incompatible and 1 stopped Daemons could not be reused, use --status for details
+
+> Configure project :
+Copied with jar version 0.2.19 to approvalTest directory
+Project: root project 'cobol-check'
+Name: defaultProperties
+Path: :defaultProperties
+Project directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667
+Build directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/build
+Version: unspecified
+Group: org.openmainframeproject
+Description: Unit testing framework for Cobol
+Linux detected
+./approvaltest: 1: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 2: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 3: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 4: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 5: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 6: ./temp/approvalTest/cobolcheck: not found
+exit from compare: 0
+./expected-output.txt matches ./actual-output.txt - PASS
+
+> Task :clean
+
+> Task :compileJava
+Note: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/src/main/java/org/openmainframeproject/cobolcheck/services/Config.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :processResources
+> Task :classes
+
+> Task :compileTestJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+
+> Task :test
+```
+
+`FACT` — lines 40–2333 are the forwarded test-event stream, **2,294 lines**, classified exhaustively (748 + 550 + 56 + 13 + 337 + 1 + 523 + 66 = 2,294):
+
+| Class | Exact line form | Count |
+| --- | --- | --- |
+| Blank | the empty string | 748 |
+| Per-test result | `<TestClass> > <method>() PASSED` \| `STANDARD_ERROR` \| `STANDARD_OUT` | **550** — of which `PASSED` 369, `STANDARD_ERROR` 156, `STANDARD_OUT` 25. **Zero** `FAILED` |
+| Parameterized result | `<TestClass> > [<n>] <display name> PASSED` | 56, all `PASSED` |
+| Class-level stream header | `<TestClass> STANDARD_ERROR` | 13 |
+| Tool log | any line containing `CobolCheck:` — the tool's own `INFO`/`WARN` records written to the forwarded stream | 337 |
+| JVM warning | `OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended` | 1 |
+| Indented detail | lines beginning with whitespace: forwarded COBOL source echoes and continuation text | 523 |
+| Unindented continuation | wrapped remainders of parameterized display names, which embed multi-line COBOL source | 66 |
+
+`FACT` — lines 2334–2353, verbatim and complete, ending with the process exit status:
+
+```text
+> Task :clearLibJar UP-TO-DATE
+
+> Task :unitTest
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :integrationTest
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :fatJar
+> Task :copyJarToBin
+> Task :copyRunScripts
+> Task :approvalTest
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 7.0.
+Use '--warning-mode all' to show the individual deprecation warnings.
+See https://docs.gradle.org/6.9.4/userguide/command_line_interface.html#sec:command_line_warnings
+
+BUILD SUCCESSFUL in 18s
+12 actionable tasks: 11 executed, 1 up-to-date
+EXIT=0
+```
+
+`FACT` — JUnit XML aggregate over `build/test-results/test/*.xml`, the authoritative test-count evidence: **33 classes, tests=457, failures=0, errors=0, skipped=0, passed=457**.
+
+`FACT` — **the JDK 11 stop-and-report gate is therefore passed, and the programme proceeds.**
+
+#### Leg 2 — JDK 8: `JAVA_HOME=$JDK8_HOME ./gradlew clean test`
+
+`FACT` — total captured output: **2,330 lines**. Lines 1–30, verbatim and complete:
+
+```text
+Starting a Gradle Daemon, 3 incompatible and 2 stopped Daemons could not be reused, use --status for details
+
+> Configure project :
+Copied with jar version 0.2.19 to approvalTest directory
+Project: root project 'cobol-check'
+Name: defaultProperties
+Path: :defaultProperties
+Project directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667
+Build directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/build
+Version: unspecified
+Group: org.openmainframeproject
+Description: Unit testing framework for Cobol
+
+> Task :clean
+
+> Task :compileJava
+Note: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/src/main/java/org/openmainframeproject/cobolcheck/services/Config.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :processResources
+> Task :classes
+
+> Task :compileTestJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+
+> Task :test
+```
+
+`FACT` — lines 31–2322 are the forwarded test-event stream, **2,292 lines**, classified exhaustively (747 + 550 + 56 + 13 + 337 + 523 + 66 = 2,292): identical class set and identical counts to leg 1 except one fewer blank line and **no** JVM sharing warning — blank 747, per-test result 550 (`PASSED` 369, `STANDARD_ERROR` 156, `STANDARD_OUT` 25, **zero** `FAILED`), parameterized 56 all `PASSED`, class-level stream header 13, tool log 337, indented detail 523, unindented continuation 66.
+
+`FACT` — lines 2323–2330, verbatim and complete:
+
+```text
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 7.0.
+Use '--warning-mode all' to show the individual deprecation warnings.
+See https://docs.gradle.org/6.9.4/userguide/command_line_interface.html#sec:command_line_warnings
+
+BUILD SUCCESSFUL in 10s
+5 actionable tasks: 5 executed
+EXIT=0
+```
+
+`FACT` — JUnit XML aggregate: **33 classes, tests=457, failures=0, errors=0, skipped=0, passed=457**.
+
+`FACT` — a second result this leg establishes independently, visible in its lines 1–30 above: there is **no** `Linux detected`, **no** `./temp/approvalTest/cobolcheck: not found`, and **no** comparison verdict. `INFERENCE` — `clean test` therefore does not realize `approvalTest` and does not run the harness at all; reasoning: the harness output that appears under `> Configure project :` in leg 1 is absent here, and the only difference between the two invocations is the requested task set.
+
+#### Leg 3 — JDK 21: `JAVA_HOME=$JDK21_HOME ./gradlew clean test`
+
+`FACT` — total captured output: **2,660 lines**. Lines 1–50, verbatim and complete — note the three JDK-21-only compiler-warning groups, absent from both other legs:
+
+```text
+Starting a Gradle Daemon, 3 incompatible and 3 stopped Daemons could not be reused, use --status for details
+
+> Configure project :
+Copied with jar version 0.2.19 to approvalTest directory
+Project: root project 'cobol-check'
+Name: defaultProperties
+Path: :defaultProperties
+Project directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667
+Build directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/build
+Version: unspecified
+Group: org.openmainframeproject
+Description: Unit testing framework for Cobol
+
+> Task :clean
+
+> Task :compileJava
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+/tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/src/main/java/org/openmainframeproject/cobolcheck/services/Config.java:389: warning: [deprecation] Locale(String) in Locale has been deprecated
+            locale = new Locale(settings.getProperty(LOCALE_LANGUAGE_CONFIG_KEY));
+                     ^
+/tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/src/main/java/org/openmainframeproject/cobolcheck/services/Config.java:391: warning: [deprecation] Locale(String,String) in Locale has been deprecated
+            locale = new Locale(
+                     ^
+/tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/src/main/java/org/openmainframeproject/cobolcheck/services/Config.java:395: warning: [deprecation] Locale(String,String,String) in Locale has been deprecated
+            locale = new Locale(settings.getProperty(LOCALE_LANGUAGE_CONFIG_KEY),
+                     ^
+Note: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/src/main/java/org/openmainframeproject/cobolcheck/services/Config.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+6 warnings
+
+> Task :processResources
+> Task :classes
+
+> Task :compileTestJava
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+/tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/src/test/java/org/openmainframeproject/cobolcheck/StringTokenizerExtractorTest.java:24: warning: [deprecation] Locale(String,String) in Locale has been deprecated
+        Locale.setDefault(new Locale("en", "US"));
+                          ^
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+4 warnings
+
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+
+> Task :test
+```
+
+`FACT` — lines 51–2638 are the forwarded test-event stream, **2,588 lines**, classified exhaustively (564 + 462 + 56 + 13 + 150 + 1 + 1306 + 36 = 2,588):
+
+| Class | Exact line form | Count |
+| --- | --- | --- |
+| Blank | the empty string | 564 |
+| Per-test result | `<TestClass> > <method>() PASSED` \| `FAILED` \| `STANDARD_ERROR` | **462** — of which `FAILED` **193**, `PASSED` 176, `STANDARD_ERROR` 93 |
+| Parameterized result | `<TestClass> > [<n>] <display name> PASSED` \| `FAILED` | 56 — `PASSED` 54, `FAILED` **2** |
+| Class-level stream header | `<TestClass> STANDARD_ERROR` | 13 |
+| Tool log | any line containing `CobolCheck:` | 150 |
+| JVM warning | `OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended` | 1 |
+| Indented detail | lines beginning with whitespace: stack frames and forwarded COBOL source echoes | 1,306 |
+| Unindented continuation | wrapped parameterized display names (33) **plus the three agent-instrumentation lines quoted immediately below** | 36 |
+
+`FACT` — those three unindented lines are the earliest appearance of the class-file-version failure, at capture lines 51, 88 and 93, verbatim:
+
+```text
+java.lang.instrument.IllegalClassFormatException: Error while instrumenting sun/util/resources/cldr/provider/CLDRLocaleDataMetaInfo.
+Caused by: java.io.IOException: Error while instrumenting sun/util/resources/cldr/provider/CLDRLocaleDataMetaInfo.
+Caused by: java.lang.IllegalArgumentException: Unsupported class file major version 65
+```
+
+`FACT` — lines 2639–2660, verbatim and complete:
+
+```text
+457 tests completed, 227 failed
+
+> Task :test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/build/reports/tests/test/index.html
+
+* Try:
+Run with --stacktrace option to get the stack trace. Run with --info or --debug option to get more log output. Run with --scan to get full insights.
+
+* Get more help at https://help.gradle.org
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 7.0.
+Use '--warning-mode all' to show the individual deprecation warnings.
+See https://docs.gradle.org/6.9.4/userguide/command_line_interface.html#sec:command_line_warnings
+
+BUILD FAILED in 16s
+5 actionable tasks: 5 executed
+EXIT=1
+```
+
+`FACT` — JUnit XML aggregate: **33 classes, tests=457, failures=227, errors=0, skipped=0, passed=230**.
+
+**The JDK 21 failure signature, measured exhaustively — and this corrects the frame chain carried into this session.** `FACT` — the 227 failing test cases decompose into exactly three `Caused by:` chains, counted over every `<failure>` element in the JUnit XML:
+
+| Cases | Chain, verbatim from the report |
+| --- | --- |
+| **183** | `Caused by: org.mockito.exceptions.base.MockitoException: Could not modify all classes` followed by the mocked type's own hierarchy, which differs per test case — for `ExpanderTest.it_inserts_code_correctly_when_call_has_different_exception_handling()` it reads verbatim `[class java.io.Reader, interface java.lang.AutoCloseable, interface java.lang.Readable, interface java.io.Closeable, class java.io.BufferedReader]` → `at net.bytebuddy.TypeCache.findOrInsert(TypeCache.java:153)` → `Caused by: java.lang.IllegalStateException: ` (message empty on that line) → `Byte Buddy could not instrument all classes within the mock's type hierarchy` → `Caused by: java.lang.IllegalArgumentException: Unsupported class file major version 65` → `at net.bytebuddy.jar.asm.ClassReader.<init>(ClassReader.java:189)` |
+| **36** | `Caused by: java.lang.IllegalStateException: Could not initialize plugin: interface org.mockito.plugins.MemberAccessor (alternate: null)` → `at org.mockito.internal.configuration.plugins.PluginLoader$1.invoke(PluginLoader.java:84)` → `Caused by: java.lang.IllegalStateException: Failed to load interface org.mockito.plugins.MemberAccessor implementation declared in java.lang.CompoundEnumeration@` followed by that object's identity hash, which differs per JVM run → `at org.mockito.internal.configuration.plugins.PluginInitializer.loadImpl(PluginInitializer.java:57)` → `Caused by: java.lang.reflect.InvocationTargetException` → `Caused by: java.lang.IllegalArgumentException: Unknown Java version: 21` → `at net.bytebuddy.ClassFileVersion.ofJavaVersion(ClassFileVersion.java:257)` |
+| **8** | no `Caused by:` chain — a bare `org.mockito.exceptions.base.MockitoException` reported at `MockitoExtension.java:153`, whose message names the field it could not read and the instance it could not read it from, e.g. verbatim for `CopybookExpanderIT.it_expands_a_simple_copybook()`: `Cannot read state from field: private static final java.lang.String org.openmainframeproject.cobolcheck.CopybookExpanderIT.applicationSourceFilenameSuffix, on instance: org.openmainframeproject.cobolcheck.CopybookExpanderIT@` followed by that instance's identity hash |
+
+**Flagged loudly — two frames carried into this session do not exist in the report.** `FACT` — a search across every `<failure>` element for `InlineByteBuddyMockMaker.<clinit>(InlineByteBuddyMockMaker.java:117)` and for `ByteBuddyAgent.install` returns **zero** occurrences. `FACT` — what does occur is `InlineByteBuddyMockMaker` at `createMock(:318)`, `createMockType(:379)`, `createStaticMock(:543)` and `doCreateMock(:339)`, and `PluginInitializer.loadImpl` at both `:52` and `:57`. `INFERENCE` — the substantive conclusion is unchanged and now rests on measured frames: the inline mock maker is the failing component, so the remedy is to **drop** `org.mockito:mockito-inline` rather than bump it; reasoning: 183 of 227 failures reach `Unsupported class file major version 65` through Byte Buddy's inline instrumentation of an existing class hierarchy, which is the inline mock maker's mechanism, and the remaining 36 fail while loading a Mockito plugin against the same Byte Buddy. `FACT` — the resolved Byte Buddy is `net.bytebuddy:byte-buddy:1.10.18` and `byte-buddy-agent:1.10.18`, arriving transitively through `org.mockito:mockito-junit-jupiter:3.6.28` `[build.gradle:L105]`.
+
+`INFERENCE` — the `BUILD SUCCESSFUL in 18s`, `BUILD SUCCESSFUL in 10s` and `BUILD FAILED in 16s` lines quoted verbatim above are wall-clock readings of these particular executions on a warm cache, not planning figures and not a performance claim; reasoning: they are part of the transcript being reproduced, and a leg re-run in another session will print a different number while the pass/fail verdict and the test counts hold.
 ### A2.4 The vacuous green — reproduced, and root-caused more precisely than the ground truth
 
-`FACT` — on a cold tree (`bin/`, `temp/`, `testruns/`, `actual-output.txt` all absent), the JDK 11 gate produced this, in this order, with the harness block appearing under `> Configure project :` and **before** `> Task :clean`:
+`FACT` — on a cold tree (`bin/`, `temp/`, `testruns/`, `actual-output.txt` all absent), the JDK 11 gate produced this, in this order, with the harness block appearing under `> Configure project :` and **before** `> Task :clean`. This is capture lines 3–23 of leg 1 in A2.3, reproduced **complete and with nothing elided** — every line between the two markers is present:
 
 ```text
 > Configure project :
 Copied with jar version 0.2.19 to approvalTest directory
-...
+Project: root project 'cobol-check'
+Name: defaultProperties
+Path: :defaultProperties
+Project directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667
+Build directory: /tmp/blitzy/blitzy-cobol-check/blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36-w-001_300667/build
+Version: unspecified
+Group: org.openmainframeproject
+Description: Unit testing framework for Cobol
 Linux detected
 ./approvaltest: 1: ./temp/approvalTest/cobolcheck: not found
 ./approvaltest: 2: ./temp/approvalTest/cobolcheck: not found
@@ -110,6 +379,8 @@ exit from compare: 0
 
 > Task :clean
 ```
+
+`FACT` — the eight lines between `Copied with jar version 0.2.19 to approvalTest directory` and `Linux detected` are the build script's own project-property dump, not omitted content: `Project:`, `Name:`, `Path:`, `Project directory:`, `Build directory:`, `Version:`, `Group:` and `Description:`. They are reproduced above because a transcript with an elision in it is not evidence.
 
 `FACT` — `actual-output.txt` was **0 bytes**, **zero** COBOL programs were compiled, and the build exited **0**.
 
@@ -164,7 +435,18 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 `FACT` — measured with Python's `zipfile`; zero entries under `javax/`, `jakarta/`, `com/sun/`, `org/glassfish/`, `org/jetbrains/` or `org/intellij/` in any of the three. **Flagged:** `unzip` **is present** in this image (`unzip` resolves on `PATH`), contradicting the ground truth's statement that it is absent; the Python route was simply retained for exact entry-level comparison.
 
-`FACT` — the committed jar's bytes are **not reproducible**. Committed blob 273,628 bytes versus rebuilt 273,558 bytes; the 200-entry name set is identical; **13 entries differ**, and the differences are timestamps (committed entries dated 2025-11-27 / 2025-11-26 / 2025-10-06 against rebuilt entries dated at build time). `INFERENCE` — Gradle 6.9.4 embeds build-time timestamps in archive entries, so a byte-identical archive oracle is unattainable on the current build; reasoning: the entry names and count match exactly and only the recorded timestamps differ. This makes Gradle 9's reproducible-archive default a genuine asset rather than an incidental one.
+`FACT` — the committed jar's bytes are **not reproducible**, and a re-measurement in this session **corrects an earlier revision of this section, which reported the difference as 13 entries differing by timestamp alone. That is wrong in both halves.** Committed blob 273,628 bytes versus rebuilt 273,558 bytes; the 200-entry name set is identical; and the 200 entries partition as follows:
+
+| Difference | Count | What differs |
+| --- | --- | --- |
+| **Content** | **13** | The six packaged copybooks and the seven message bundles — every non-`.class` resource in the jar |
+| **Timestamp only, content identical** | **187** | Everything else: 160 `.class` entries, the manifest and the directory entries |
+
+**The content difference is line endings, and it is a finding in its own right.** `FACT` — the committed jar's `CCHECKWS.CPY` entry is 7,844 bytes containing **129 CRLF** sequences and zero bare LFs; the rebuilt entry is 7,715 bytes containing **zero CRLF** and 129 LFs; the two are **equal after CRLF-to-LF normalization**, and the rebuilt entry is byte-identical to the on-disk source. The same pattern holds for all thirteen — `messages.properties`, for instance, carries 64 CRLFs in the committed jar and none in the rebuild.
+
+`INFERENCE` — the committed artifact was therefore built on a machine where line-ending translation was active, while a build here with `core.autocrlf=false` reproduces the sources as committed; reasoning: the only difference is the line terminator, the rebuilt entries match the working-tree bytes exactly, and this clone has translation disabled. **This is the strongest available evidence for the `core.autocrlf=false` mandate: it is not a theoretical hazard but an observed corruption in a shipped artifact**, and it lands specifically on `CCHECKWS.CPY` and the other copybooks, which are injected into the program under test as column-significant fixed-format COBOL. `INFERENCE` — a run that captured golden files from a translated checkout would bake the same corruption into its baseline, and the resulting diffs would be indistinguishable from real behaviour changes.
+
+`INFERENCE` — the timestamp half remains true of the other 187 entries: Gradle 6.9.4 embeds build-time timestamps in archive entries, so a byte-identical **archive** oracle is unattainable on the current build; reasoning: those entries' content matches exactly and only the recorded timestamps differ. This makes Gradle 9's reproducible-archive default a genuine asset rather than an incidental one. `INFERENCE` — but the two causes must not be conflated, because they have different fixes: the timestamps are fixed by the build-tool upgrade, whereas the line endings are fixed only by controlling the checkout, which no build-tool version can do for you.
 
 ### A2.7 Dependency closure and the vulnerability scan
 
@@ -194,7 +476,7 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 | --- | --- | --- | --- | --- | --- | --- |
 | **#330** | `openmainframeproject/cobol-check` | **CONFLICT** | 6 | +139 / −21 | `b0b39da8` | `InterpreterController.java`, `LineRepository.java`, `Generator.java`, `ExpanderTest.java` |
 | **#336** | `openmainframeproject/cobol-check` | **CONFLICT** | 10 | +157 / −8 | `2235764e` | `package-lock.json`, `vs-code-extension/Cobol-check/scripts/windows_gnucobol_run_tests.cmd`, `vs-code-extension/package.json` |
-| **#337** | `openmainframeproject/cobol-check` | **CONFLICT** | 6 | +28 / −24 | `08d3c988` | `InterpreterController.java`, `InterpreterControllerTest.java`, `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` |
+| **#337** | `openmainframeproject/cobol-check` | **CONFLICT** | 6 | +28 / −24 | `08d3c988` | `InterpreterController.java`, `InterpreterControllerTest.java`, `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar` (**delete/modify**) |
 | **#338** | `openmainframeproject/cobol-check` | **CONFLICT** | 3 | +9 / −9 | `08d3c988` | `approvaltest`, `approvaltestWin.cmd`, `build.gradle` |
 | **#408** | `generalmotors/openmainframeproject-cobol-check` | **CLEAN** | 8 | +261 | `e372dd7f` | — |
 | **#409** | `generalmotors/openmainframeproject-cobol-check` | **CLEAN** | 3 | +138 / −1 | `e372dd7f` | — |
@@ -203,9 +485,13 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 `FACT` — all eight target `Developer` and all eight carry `locked = true`; the upstream repository carries `archived = true` and the credential used held `pull` as its only permission `[upstream-harvest/pulls.json]`. `FACT` — each PR's head SHA resolves identically from two independent sources: the API capture and the locally fetched `refs/remotes/upstream/pr/<n>` (`9010b81`, `69603d7`, `8c07d40`, `11faeef`, `7d8a086`, `2d1b367`, `ab4875f`, `e88bc1a`).
 
-`INFERENCE` — a perfect inversion of the intuitive expectation: **every upstream-origin PR conflicts and every third-party PR applies cleanly**; reasoning: the four upstream branches predate five years of `Developer` movement and two of them edit committed binaries or lockfiles, whereas the four third-party branches all share the recent merge base `e372dd7f`. Two consequences that change routing:
+`INFERENCE` — a perfect inversion of the intuitive expectation: **every upstream-origin PR conflicts and every third-party PR applies cleanly**; reasoning: the four upstream branches predate five years of `Developer` movement and two of them edit committed binaries or lockfiles, whereas the four third-party branches all share the recent merge base `e372dd7f`.
 
-- `FACT` — #337 conflicts on a **committed jar**, and its own diff edits `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar`, a path that no longer exists at HEAD. `INFERENCE` — committing build outputs converts an ordinary text merge into an unresolvable binary conflict; reasoning: the conflict is reported on the jar path with three distinct blob ids and no textual merge is possible.
+**Apply-cleanly status is not a quality signal, and this table must not be read as one.** `FACT` — the apply column reports only whether a three-way merge produces conflicts. `FACT` — the cleanest-applying contribution in the set, #411, carries **no upstream review at all**: `/pulls/411/reviews`, `/pulls/411/comments` and `/issues/411/comments` each returned HTTP 200 with **zero records**, and `requested_reviewers` and `requested_teams` are both empty `[upstream-harvest/pr-411-reviews.json]`. `FACT` — the one contribution that *was* examined by a domain reviewer, #330, is the one that conflicts and was rejected. `INFERENCE` — mergeability and scrutiny are therefore anti-correlated in this set, so adoption is gated on review rather than on the apply column; reasoning: a recent branch conflicts less because it is recent, not because it is right.
+
+Two consequences that change routing:
+
+- `FACT` — #337 conflicts on a **committed jar**, and its own diff edits `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar`, a path that no longer exists at HEAD. The evidence chain, each step checkable: `FACT` — that jar existed in reachable history, last touched at `c431d60` ("minor detail") and introduced at `b40b8f0` ("New builds for 0.2.8"); `FACT` — it is absent at `c79624bd286d5f08f156ccce755bc5d4fffd1909`, where `git ls-files vs-code-extension/Cobol-check/bin/` returns only `cobol-check-0.2.19.jar`. `INFERENCE` — the fork therefore **deleted** the path while #337 **modifies** it, which is a delete/modify conflict rather than a content conflict; reasoning: a merge cannot reconcile an edit to a file one side removed. `INFERENCE` — committing build outputs is what converts an ordinary text merge into this class of conflict, and a delete/modify conflict on a binary cannot be resolved by choosing a side: keeping the deletion discards the contributor's edit, and restoring the path reintroduces a stale build output for a version the project no longer ships. `INFERENCE` — that is precisely why the disposition harvests #337's fixture and abandons its jar edit rather than attempting a merge.
 - `FACT` — #338 conflicts on exactly `build.gradle`, `approvaltest` and `approvaltestWin.cmd`. `INFERENCE` — that is the same file set the approval-harness repair must touch, so the repair supersedes #338 rather than coexisting with it.
 
 ### A2.9 Does `Living-Mainframe` hold commits beyond PR #411? — Yes, definitively
@@ -216,7 +502,7 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 `FACT` — `livingmf/add-sql-mock` adds exactly one file, `cobol-check-sql-mock.zip` (40,396 bytes, 31 entries), containing `features/sql/{SQLMockParser, SQLMockCodeGenerator, SQLMockRepository, SQLMockDefinition, SQLStatementType, SQLMockDataRow}`, two test classes, `docs/SQL_MOCK_DESIGN.md` (16,152 bytes), `docs/INTEGRATION_GUIDE.md` and `examples/CUSTMGMT.{CBL,cut}`. `FACT` — `livingmf/add-cics-mock` adds `cobol-check-cics-mock.zip` (whose entry paths contain a literal unexpanded `{src/...,src/...}` brace glob) and `cobol-check-cics-mock_1.zip` (21,679 bytes, 29 entries) containing `features/cics/{CICSMockParser, CICSCommandType, CICSResponseCode, CICSMockDataRow, CICSMockDefinition, CICSMockCodeGenerator, CICSMockRepository}`, `examples/CUSTINQ.{CBL,cut}` and `docs/CICS_MOCK_DESIGN.md`.
 
-**This is prior art, and it must be handled as design input rather than as code.** `FACT` — `SQL_MOCK_DESIGN.md` uses only the SQLCODE literals `0`, `100` and `-001`, and cites **no source at all**: a search for `IBM`, `DB2 for z/OS`, `SQL Reference`, `GnuCOBOL` and `-std=ibm` returns zero matches. `FACT` — `CICSResponseCode.java` in that archive defines **44** enum constants and does not reference `EIBResponseTable` or `EIBResponseCodes` anywhere, while the in-repo table holds **76** condition entries `[src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java:L43-L118]`. `INFERENCE` — these archives are unproposed, unreviewed, opaque binary drops whose semantics are unsourced and whose CICS condition set is both narrower than and inconsistent with the in-repo authority; reasoning: no pull request exists for either, the design document supplies values without provenance, and 44 ≠ 76 with no reference to the existing table. Disposition: **design input only, explicitly labelled unverified provenance, never adoptable code.**
+**This is prior art, and it must be handled as design input rather than as code.** `FACT` — `SQL_MOCK_DESIGN.md` uses only the SQLCODE literals `0`, `100` and `-001`, and cites **no source at all**: a search for `IBM`, `DB2 for z/OS`, `SQL Reference`, `GnuCOBOL` and `-std=ibm` returns zero matches. `FACT` — `CICSResponseCode.java` in that archive defines **44** enum constants and does not reference `EIBResponseTable` or `EIBResponseCodes` anywhere, while the in-repo table performs **76** insertions resolving to **75 unique condition names** `[src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java:L43-L118]` (see A2.11 row 5 for the duplicate). `INFERENCE` — these archives are unproposed, unreviewed, opaque binary drops whose semantics are unsourced and whose CICS condition set is both narrower than and inconsistent with the in-repo authority; reasoning: no pull request exists for either, the design document supplies values without provenance, and 44 ≠ 75 with no reference to the existing table. Disposition: **design input only, explicitly labelled unverified provenance, never adoptable code.**
 
 `FACT` — `livingmf/IMS` (`721c2f8`) is not IMS support; it is "Fix for stubbing linkage section if config is set", 4 files, +14 / −2, touching `InterpreterController.java`, `Config.java`, `Interpreter.java` and `InterpreterControllerTest.java`.
 
@@ -235,7 +521,7 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 ### A2.11 The remaining ground-truth contradictions
 
-Established by measurement in this session and flagged rather than quietly corrected. The seven that change a plan decision appear above in A2.4, A2.7, A2.8, A2.9 and A2.10, plus these:
+Established by measurement in this session and flagged rather than quietly corrected. The seven that change a plan decision appear above in A2.4, A2.7, A2.8, A2.9 and A2.10, plus these eight — of which rows 7 and 8 concern this planning run's own inputs and outputs rather than the codebase:
 
 | # | Ground-truth claim | Measured | Consequence |
 | --- | --- | --- | --- |
@@ -243,8 +529,10 @@ Established by measurement in this session and flagged rather than quietly corre
 | 2 | The z/OS copybook fall-through expands a non-SQLCA include **twice** | `FACT` — `[.../features/interpreter/InterpreterController.java:L467-L481]`: `case ZOS:` at `L468`, the SQLCA/SQLDA early `return;` at `L469-L470`, `default:` at `L471`, expansion at `L472-L480`, `break;` at `L481`. Mechanically asserted: **no `break` token between `L468` and `L471`** | **Refuted.** SQLCA/SQLDA on z/OS expands **zero** times; a non-SQLCA include falls through and expands **exactly once**, identically to every other platform. The missing `break` is real but **load-bearing** — inserting one would stop non-SQLCA z/OS expansion altogether, a regression |
 | 3 | The regex `replaceAll` is in `LineRepository` | `FACT` — `LineRepository` does hardcoded token extraction at `[.../features/interpreter/LineRepository.java:L110-L113]`; the regex substitution is at `[.../features/interpreter/CopybookExpander.java:L72]` and `[:L79]` | Both halves of the defect are real but live in different files; a repair scoped to one file would be incomplete |
 | 4 | The macOS launcher branch is **undocumented** | `FACT` — `[.../features/launcher/Launcher.java:L43]` reads `NOTE: Currently not supporting OSX or ZOS.`, naming both | It **is** documented. The real hazard is that `macos-latest` sits in the CI matrix `[.github/workflows/VerifyAction.yml:L13]` while the OSX arm returns `null` (`launcher` initialised `null` at `L46`, construction commented out at `L58`), and `[config.properties:L203]` populates `osx.process` unreachably |
-| 5 | The CICS condition table holds roughly 78 entries | `FACT` — exactly **76** `put(` entries `[.../services/cobolLogic/EIBResponseTable.java:L43-L118]` | Corrected. Additionally `lookup()` at `L130-L133` returns a **zero-filled** `EIBResponseCodes` on a miss — a silent default that is itself a false-confidence hazard |
+| 5 | The CICS condition table holds roughly 78 entries | `FACT` — exactly **76** `put(` insertions resolving to **75 unique condition names** `[.../services/cobolLogic/EIBResponseTable.java:L43-L118]` | Corrected **in both directions: neither 78 nor 76 is the number of conditions the runtime map holds.** `FACT` — `LENGERR` is inserted twice, at `[:L51]` with EIBFN `0x04` and at `[:L84]` with EIBFN `0x06`, the other three components identical (`0xE1`, `0`, `22`); `HashMap.put` replaces rather than rejects, so the `0x06` tuple survives and the map exposes 75 names. `FACT` — the class javadoc at `[:L22]` already states `File Control is assumed (EIBFN - 0x06..)`, so the surviving value matches documented intent. Additionally `lookup()` at `L130-L133` returns a **zero-filled** `EIBResponseCodes` on a miss — a silent default that is itself a false-confidence hazard |
 | 6 | Documented mock syntax exists in the keyword tables | `FACT` — `INPUT-FILE`, `ON OPEN`, `ON READ`, `DATASET` and `CONDITION` return **zero** occurrences across both `Keywords.java` and `Constants.java` | Corroborated. Documentation is not evidence |
+| 7 | Pull request #330 carries **five review comments** | `FACT` — the endpoint that serves review comments on a pull request, `GET /repos/openmainframeproject/cobol-check/pulls/330/comments`, returned **3** `[upstream-harvest/pr-330-reviews.json → _capture.record_counts.review_comments]`, corroborated by GitHub's own counter `review_comments = 3` in the captured `pull_request` payload. Two other captured families coincidentally total 5 — conversation comments `issue_comments = 5`, and `reviews` (2) + `review_comments` (3) — and neither is accepted as a substitute | **Contradicted: expected inline review comments 5, actual 3.** The adjudication in A5.1 is unaffected because it rests on the *content* of the objections rather than on their count, and both decisive objections are present in the capture. `UNKNOWN` — the fate of the two implied inline records: no deletion, resolution or hidden-record signal appears in any captured payload, and an archived repository cannot be re-read to establish one |
+| 8 | The planning run's outputs are never committed to the fork | `FACT` — thirteen planning-artifact paths are tracked at this branch's head, `git diff c79624bd286d5f08f156ccce755bc5d4fffd1909 --name-status` reporting all thirteen at status `A`. `FACT` — `origin/Developer` is still at that same baseline, so none has reached the fork's default branch | **Contradicted as delivered.** The requirement, the evidence, the mechanical cause and the run the removal is itemized to are recorded in full in A9.1, with the human confirmation it is gated on carried in A11 |
 
 `FACT` — further matters of fact, each measured: the largest classes are `TestSuiteParser.java` 60,602 B / 1,240 L, `Keywords.java` 38,427 B / 724 L, `InterpreterController.java` 26,737 B / 658 L, then `Interpreter.java` 24,484 B / 623 L and `Config.java` 18,725 B / 414 L — so the "do not make them worse" constraint attaches to the first three; two releases share the version number `0.2.19` `[CHANGELOG.md:L23, L26]`, and a **second** stale planned heading `## \[1.0.0\]` exists at `[CHANGELOG.md:L8]` alongside `## \[0.3.0\]` at `[CHANGELOG.md:L15]`; `[config.properties:L188]` holds the literal string `null` for `gnucobol.compile.options`; the README advertises two output formats that throw `[README.md:L10]`; a second Sonar surface exists in `sonar-project.properties` carrying `sonar.sources=src` and a six-entry exclusion list, while `projectKey`/`organization` live only at `[build.gradle:L19-L20]`; the rename blast radius is exactly **161** tracked text files (163 including binaries) with the highest concentrations in `Generator.java` (16), `TestSuiteConcatenator.java` (14), and `ProcessOutputWriter.java`, `InterpreterController.java` and `CopybookExpander.java` (12 each); there are **16** suite directories against 15 programs, making `src/test/cobol/FDTEST/FDTEST01.CUT` a confirmed orphan; no `doc`, `docs`, `wiki` or `adr` directory exists anywhere and no JAR release workflow exists at all — `.github/` holds exactly three files; and the npm surface is three mutually inconsistent manifests with no committed lockfile.
 
@@ -254,16 +542,187 @@ Established by measurement in this session and flagged rather than quietly corre
 
 `FACT` — observed on this container with a warm Gradle cache, single operating system, as Gradle's own reported wall clock. These are measurements of existing work, not estimates and not a schedule:
 
-| Command | Reported |
-| --- | --- |
-| `JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest` | `BUILD SUCCESSFUL in 18s` |
-| `JAVA_HOME=$JDK8_HOME ./gradlew clean test` | `BUILD SUCCESSFUL in 12s` |
-| `JAVA_HOME=$JDK21_HOME ./gradlew clean test` | `BUILD FAILED in 13s` |
-| `./gradlew clean test` with `cobc` absent from `PATH` | `BUILD SUCCESSFUL in 7s` |
+| Command | Reported, verbatim | Where the transcript is |
+| --- | --- | --- |
+| `JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest` | `BUILD SUCCESSFUL in 18s` | A2.3 leg 1, capture line 2351 |
+| `JAVA_HOME=$JDK8_HOME ./gradlew clean test` | `BUILD SUCCESSFUL in 10s` | A2.3 leg 2, capture line 2328 |
+| `JAVA_HOME=$JDK21_HOME ./gradlew clean test` | `BUILD FAILED in 16s` | A2.3 leg 3, capture line 2658 |
+| `./gradlew clean test` with `cobc` absent from `PATH` | `BUILD SUCCESSFUL in 7s` | A11.4 Q5, a separate experiment |
 
-`FACT` — the envelope's denominator, measured: the `.cut` corpus is 23 files carrying **22** `TestSuite` declarations and **159** `TestCase` declarations; the approval harness exercises 6 programs of which 5 execute, producing 11 `TESTSUITE:` blocks and 332 output lines.
+`FACT` — these readings are per-execution and they move between executions of the identical command on the identical image: an earlier execution of the JDK 8 leg in this session's environment reported `BUILD SUCCESSFUL in 12s` and an earlier JDK 21 leg reported `BUILD FAILED in 13s`, against the 10s and 16s reproduced verbatim in A2.3. `INFERENCE` — that variance is precisely why the envelope below is defined as a ratio re-measured back-to-back rather than as an absolute figure; reasoning: a criterion stated in seconds would be satisfied or violated by daemon warmth alone.
+
+`FACT` — the envelope's denominator, measured: the `.cut` corpus is 23 files carrying **25** `TestSuite` declarations and **171** `TestCase` declarations; the approval harness exercises 6 programs of which 5 execute, producing 11 `TESTSUITE:` blocks and 332 output lines.
+
+**Both declaration counts contradict an earlier revision of this plan, which recorded 22 and 159; the earlier figures were wrong and the two distinct counting errors that produced them are stated here so neither is repeated.** `FACT` — a raw case-insensitive token count over the 23 files returns 25 and **176**, not 171: the extra five are the word `Testcase` appearing inside a quoted test-case *name*, at `[src/test/cobol/MOCKTEST/BeforeAfterTest.cut:L19,L23,L27,L99,L102]`. Stripping quoted string literals before counting yields **25 / 171**, which is the authoritative measurement. `FACT` — an independent method agrees exactly: counting lines whose first non-blank token is `TESTSUITE` or `TESTCASE` also returns **25 / 171**. `INFERENCE` — the 22 / 159 figures came from a count restricted to declarations followed by a **double**-quoted name on the same line; reasoning: 8 suite declarations and 12 case declarations use single quotes or place the name on the following line, and 25 − 8 = 17 while the double-quote-only rule also drops declarations it cannot pair, which is why both figures were low. `INFERENCE` — the denominator matters beyond bookkeeping; reasoning: the performance envelope is defined as a ratio against it, and Run 8's mutation floor is measured over the same corpus, so an understated denominator would flatter both.
 
 **The envelope, stated with its measurement method.** `INFERENCE` — an envelope quoted as an absolute figure is unfalsifiable across machines, so it is defined as a **ratio against a baseline re-measured on the same machine in the same invocation**; reasoning: the measurements above vary with cache warmth and host, while a ratio measured back-to-back does not. The criterion: on the machine under test, `./gradlew clean test` is measured immediately before and after the change under assessment, and generated-suite execution is measured by a named task over a stated suite count; the reported figure is *elapsed per generated suite* and *total elapsed as a multiple of the pre-change `clean test` baseline*. A run may not report an envelope without stating the suite count, the command, and both measurements.
+
+### A2.13 Baseline evidence appendix — every claim in A2 re-openable from a command
+
+`INFERENCE` — the rest of section A2 states results; this subsection states **how each was obtained**, so a later reader can re-open any of them rather than taking them on trust. Reasoning: a baseline whose commands are not recorded is indistinguishable from a baseline that was asserted, and every oracle in A3 rests on this section. Each block below gives the command, its exit status, and either the complete output or the decisive lines of it. Every command was executed in this session, in this container, at the pristine HEAD `c79624bd286d5f08f156ccce755bc5d4fffd1909`, after sourcing the activation script named in A2.1.
+
+**A2.13.1 Toolchain anchor.** Exit status `0` on all four.
+
+```text
+$ cobc --version
+cobc (GnuCOBOL) 3.2.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Keisuke Nishida, Roger While, Ron Norman, Simon Sobisch, Edward Hart
+Built     Sep 23 2025 17:57:37
+Packaged  Jul 28 2023 17:02:56 UTC
+C version "15.2.0"
+
+$ "$JDK8_HOME/bin/java"  -version   # JDK8_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+openjdk version "1.8.0_492"
+$ "$JDK11_HOME/bin/java" -version   # JDK11_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+openjdk version "11.0.31" 2026-04-21
+$ "$JDK21_HOME/bin/java" -version   # JDK21_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+openjdk version "21.0.11" 2026-04-21
+
+$ echo "$COB_CFLAGS"
+-std=c17 -finline-functions -pipe -Wdate-time -D_FORTIFY_SOURCE=3 -Wno-unused -fsigned-char
+$ echo "$COB_CFLAGS" | grep -o _FORTIFY_SOURCE | wc -l
+1
+```
+
+`FACT` — the `cobc` block above is the **complete** version output, quoted in full because it is the golden-file reproducibility anchor and a later run must be able to compare it character for character. `FACT` — `_FORTIFY_SOURCE` appears exactly once, which is the condition under which the compiler writes nothing to stderr and therefore nothing into a golden file.
+
+**A2.13.2 The build matrix.** Three commands, three exit statuses, totals read from the generated JUnit XML rather than from the console summary.
+
+| Command | Exit | JUnit XML totals |
+| --- | --- | --- |
+| `JAVA_HOME=$JDK8_HOME ./gradlew clean test` | `0` — `BUILD SUCCESSFUL in 4s` | `classes=33 tests=457 failures=0 errors=0 skipped=0 passed=457` |
+| `JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest` | `0` — `BUILD SUCCESSFUL in 11s` | `classes=33 tests=457 failures=0 errors=0 skipped=0 passed=457` |
+| `JAVA_HOME=$JDK21_HOME ./gradlew clean test` | `1` — `BUILD FAILED in 8s` | `classes=33 tests=457 failures=227 errors=0 skipped=0 passed=230` |
+
+`FACT` — the JDK 21 failure signature, quoted from the stack trace: `Caused by: java.lang.IllegalArgumentException: Unsupported class file major version 65`, reached through `org.mockito.internal.creation.bytebuddy.InlineByteBuddyMockMaker` and `net.bytebuddy.agent.ByteBuddyAgent.install`. `INFERENCE` — this is a test-execution failure rather than a build-tool refusal, which is why the unblocker is the Mockito and Byte Buddy bump and not a Gradle version change; reasoning: the build reached test execution and failed inside the mock maker, and 227 of 457 tests — the ones that mock — are affected while the other 230 pass.
+
+`FACT` — the JDK 11 leg was run on a **cold** tree, established by `rm -rf bin temp testruns actual-output.txt` immediately beforehand. That matters: `clean` alone does not remove `bin/` or `temp/`, so a second invocation behaves differently from a first.
+
+**A2.13.3 The vacuous green, verbatim.** `FACT` — from the cold JDK 11 run above, printed under `> Configure project :`, i.e. during Gradle's **configuration** phase, before the tasks its own `dependsOn` declares have executed:
+
+```text
+Linux detected
+./approvaltest: 1: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 2: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 3: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 4: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 5: ./temp/approvalTest/cobolcheck: not found
+./approvaltest: 6: ./temp/approvalTest/cobolcheck: not found
+exit from compare: 0
+./expected-output.txt matches ./actual-output.txt - PASS
+```
+
+`FACT` — measured on the same run: `actual-output.txt` size **0 bytes**; occurrences of `About to launch process` **0**; occurrences of `not found` **6**. `INFERENCE` — the build therefore reports the approval comparison as passing having compiled and executed **zero** COBOL programs, which is precisely the condition the definition of green in the change discipline exists to exclude; reasoning: a zero-byte actual output compared against a non-empty baseline returned success, so the comparison itself cannot be distinguishing content.
+
+**A2.13.4 Dependency closure.** `FACT` — `./gradlew dependencies --configuration compile` exits `0` and reports:
+
+```text
+compile - Dependencies for source set 'main' (deprecated, use 'implementation' instead). (n)
+No dependencies
+```
+
+`INFERENCE` — that single line is the whole fat-jar defect; reasoning: the `fatJar` assembly collects `configurations.compile` at `[build.gradle:L138]`, and a configuration with no dependencies contributes no files, so the archive can only ever contain the project's own classes.
+
+`FACT` — `./gradlew dependencies --configuration runtimeClasspath` exits `0` and resolves nine coordinates:
+
+```text
++--- org.jetbrains:annotations:15.0
++--- javax.xml.bind:jaxb-api:2.3.0
++--- jakarta.xml.bind:jakarta.xml.bind-api:2.3.2
+|    \--- jakarta.activation:jakarta.activation-api:1.2.1
+\--- org.glassfish.jaxb:jaxb-runtime:2.3.2
+     +--- jakarta.xml.bind:jakarta.xml.bind-api:2.3.2 (*)
+     +--- org.glassfish.jaxb:txw2:2.3.2
+     +--- com.sun.istack:istack-commons-runtime:3.0.8
+     +--- org.jvnet.staxex:stax-ex:1.8.1
+     +--- com.sun.xml.fastinfoset:FastInfoset:1.2.16
+     \--- jakarta.activation:jakarta.activation-api:1.2.1
+```
+
+**This is where the supplied transitive list is contradicted, and the correction is now `FACT` rather than `INFERENCE`.** `FACT` — `com.sun.activation:javax.activation:1.2.0`, which the ground truth names as part of the closure, is **absent**; the activation artifact actually resolved is `jakarta.activation:jakarta.activation-api:1.2.1`. `FACT` — two coordinates the supplied list omits are present: `org.jvnet.staxex:stax-ex:1.8.1` and `com.sun.xml.fastinfoset:FastInfoset:1.2.16`. `INFERENCE` — the supplied list was partly inferred rather than resolved; reasoning: it names a plausible artifact that the build does not use and misses two that it does, which is the signature of a closure written from recall rather than read from a resolution report.
+
+`FACT` — `./gradlew dependencies --configuration testRuntimeClasspath` exits `0` and shows the two facts the modernization plan depends on: `org.junit.jupiter:junit-jupiter:5.6.1` resolves **upward** to `5.7.0` because `org.junit:junit-bom:5.7.0` arrives transitively, and `org.mockito:mockito-inline:3.6.0` pulls `mockito-core:3.6.0 -> 3.6.28`, which pulls `net.bytebuddy:byte-buddy:1.10.18`, `net.bytebuddy:byte-buddy-agent:1.10.18` and `org.objenesis:objenesis:3.1`.
+
+**A2.13.5 The vulnerability scan.** `FACT` — executed by `POST https://api.osv.dev/v1/query` with `python3` from the standard library, one request per coordinate. Query instant **`2026-08-14T09:38:28+00:00`**, which is the snapshot identifier because OSV is a live service and publishes no offline snapshot date. `FACT` — **25** Maven coordinates queried, **every response HTTP 200**, and the recorded total is `TOTAL ADVISORIES ACROSS ALL 25 COORDINATES: 0`. `FACT` — no scanner was installed; `trivy`, `grype`, `osv-scanner`, `syft` and `snyk` are all absent from this image, which is why the database was queried directly.
+
+**A2.13.6 The three committed archives.** `FACT` — inspected with Python's `zipfile`; `unzip` is present in this image (`UnZip 6.00 of 20 April 2009`) and nothing was installed for the purpose.
+
+| Archive | sha256 | Bytes | Entries | Top-level | Third-party bytecode entries |
+| --- | --- | --- | --- | --- | --- |
+| `build/libs/cobol-check-0.2.19.jar` | `46343a5ba4c1dbb1bb6584fa51c9b78b8ad34c4a74f091295e9da11b5e86fa54` | 273,628 | 200 | `META-INF`, `org` | **0** |
+| `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` | `46343a5ba4c1dbb1bb6584fa51c9b78b8ad34c4a74f091295e9da11b5e86fa54` | 273,628 | 200 | `META-INF`, `org` | **0** |
+| `build/distributions/cobol-check-0.2.19.zip` | `4e8b703e36eca4c32d3f1fc360a9ef7e991b21c31142d6b4548297483fe64b79` | 245,014 | 17 | `bin`, `config.properties`, `scripts`, `src` | **0** |
+
+`FACT` — the two jars are **byte-identical** to each other, which their equal digests establish directly. `FACT` — a rebuild is **not** byte-identical to either: `JAVA_HOME=$JDK11_HOME ./gradlew fatJar` exits `0` and yields sha256 `3d6fdfa89e405e0ddaba96327c166912e99838e334147ef5137dfc938a322217` at 273,558 bytes, differing from the committed jar in 13 entries by content and 187 by timestamp — see A2.6 for the partition and its two distinct causes. `FACT` — the third-party scan covered the prefixes `javax/`, `jakarta/`, `com/sun/`, `org/glassfish/`, `org/jetbrains/`, `org/intellij/`, `net/bytebuddy/`, `org/junit/`, `org/mockito/` and `org/jvnet/`, and matched nothing in any archive; the jars contain 160 `.class` entries and no nested archive. `FACT` — a refinement worth recording because a naive filter gets it wrong: the jar carries **six** packaged copybook entries — `CCHECKPARAGRAPHSPD.CPY`, `CCHECKRESULTPD.CPY`, `CCHECKWS.CPY`, `DATETIME`, `DFHEIBLK.CPY`, `OUTPUT` — and two of them carry **no file extension**, so an enumeration filtered on `*.CPY` reports four and undercounts. `FACT` — seven message bundles ship alongside them.
+
+**A2.13.7 Re-derivation script for the corpus, table and citation claims.** `FACT` — the following is self-contained, requires only `git` and `python3`, and reproduces the counts in A2.12, the CICS figures in A2.11 and ADR-04, and the copybook disambiguation in Deliverable C. It is quoted so the claims can be re-opened without this session's files.
+
+```bash
+#!/usr/bin/env bash
+# Run from the repository root. Prints the measured value beside each expectation.
+set -u
+echo "copy fixtures (expect 41)        : $(git ls-files 'src/main/cobol/copy/' | wc -l)"
+echo "  of which non-recursive (39)    : $(git ls-files 'src/main/cobol/copy/' | grep -c '^src/main/cobol/copy/[^/]*$')"
+# NB: a `src/main/cobol/*.CBL` pathspec would report 53 — git's pathspec `*` matches `/`
+# too, so it also captures the .CBL fixtures under copy/ and copy/Outrec/. Anchor instead.
+echo "programs (expect 15)             : $(git ls-files 'src/main/cobol/' | grep -icE '^src/main/cobol/[^/]+\.cbl$')"
+echo ".cut files (expect 23)           : $(git ls-files 'src/test/cobol/' | grep -icE '\.cut$')"
+echo "suite dirs (expect 16)           : $(git ls-files 'src/test/cobol/' | cut -d/ -f4 | sort -u | wc -l)"
+echo "testfiles/ (expect 14)           : $(git ls-files 'testfiles/' | wc -l)"
+echo "copybooks/ (expect 5)            : $(git ls-files 'copybooks/' | wc -l)"
+python3 - <<'EOF'
+import re, subprocess, hashlib
+ls = lambda p: subprocess.run(["git","ls-files",p],capture_output=True,text=True).stdout.split()
+cut=[f for f in ls('src/test/cobol/') if f.lower().endswith('.cut')]
+s=c=0
+for f in cut:
+    t=open(f,encoding='utf-8',errors='replace').read()
+    t=re.sub(r'"[^"\n]*"','""',t); t=re.sub(r"'[^'\n]*'","''",t)  # strip literals FIRST
+    s+=len(re.findall(r'testsuite',t,re.I)); c+=len(re.findall(r'testcase',t,re.I))
+print(f"TestSuite (expect 25)            : {s}")
+print(f"TestCase  (expect 171)           : {c}")
+eib="src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java"
+txt=open(eib).read()
+keys=re.findall(r'put\(\s*"([A-Z0-9]+)"',txt)
+dup=sorted({k for k in keys if keys.count(k)>1})
+print(f"EIB put( sites (expect 76)       : {len(re.findall(chr(92)+'bput'+chr(92)+'(',txt))}")
+print(f"EIB unique names (expect 75)     : {len(set(keys))}")
+print(f"EIB duplicated key (expect LENGERR): {dup}")
+print(f"  its two lines (expect 51, 84)  : "
+      f"{[i for i,l in enumerate(txt.splitlines(),1) if 'put(\"LENGERR\"' in l.replace(' ','')]}")
+for p in ["src/main/resources/org/openmainframeproject/cobolcheck/copybooks/CCHECKWS.CPY",
+          "copybooks/CCHECKWS.CPY"]:
+    b=open(p,'rb').read()
+    print(f"{p}\n    md5={hashlib.md5(b).hexdigest()}  lines={len(b.decode('utf-8','replace').splitlines())}")
+EOF
+```
+
+Expected digests, so a drifted checkout is detectable: the packaged copybook is `09dd62ab27c658e67ec5a7510e7222dc` at 129 lines and the legacy one is `1a4f5941a2ce738326e3404da516ed2a` at 116 lines. `INFERENCE` — quoting both is what makes the two files distinguishable in a citation; reasoning: they share a filename, differ in content, and an abbreviated path cannot select between them.
+
+**A2.13.8 Primary sources for the four web-research findings.** `FACT` — each finding in this plan that rests on external documentation rather than on this repository is anchored to its official source:
+
+| Finding | Primary source |
+| --- | --- |
+| Gradle 9 requires JVM 17+ for the daemon while still compiling and testing on Java 8 via toolchains, and makes archive tasks reproducible by default | `https://docs.gradle.org/current/userguide/upgrading_major_version_9.html` and `https://docs.gradle.org/current/userguide/compatibility.html` |
+| Mockito 5 requires Java 11+, drops the separate inline artifact because the inline mock maker became the default, and Mockito 4's Byte Buddy does not support Java 21 | `https://github.com/mockito/mockito/releases` (5.0.0 release notes) and `https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html` |
+| The CycloneDX Gradle plugin's 3.x line targets Gradle 9 and documents output to `build/reports/sbom/` | `https://github.com/CycloneDX/cyclonedx-gradle-plugin` |
+| GnuCOBOL claims conformance to no standard level while passing a large portion of the NIST COBOL 85 suite, which is distributed as a separate archive | `https://gnucobol.sourceforge.io/` and the `cobc --help` conformance options in this image |
+
+`INFERENCE` — these are cited as URLs rather than as `file:line` because they are the one class of claim this repository cannot establish; reasoning: the evidence rule requires a locator, and for an external tool's documented behaviour the retrieved document *is* the locator. `UNKNOWN` — the exact patch versions to pin for Mockito, the aligned JUnit release and the coverage tool are deliberately not fixed here; they are resolved against the manifest at execution time and recorded in the run's handoff, as A2.13.9 states.
+
+**A2.13.9 What this appendix does not establish, stated rather than implied.**
+
+| Claim | Status | Why |
+| --- | --- | --- |
+| The three archives are byte-reproducible across two builds | **They are not** — established in this session, not assumed | `JAVA_HOME=$JDK11_HOME ./gradlew fatJar` exits `0` and produces sha256 `3d6fdfa89e405e0ddaba96327c166912e99838e334147ef5137dfc938a322217` at 273,558 bytes against the committed `46343a5ba4c1dbb1bb6584fa51c9b78b8ad34c4a74f091295e9da11b5e86fa54` at 273,628. An entry-by-entry comparison partitions the 200 entries into **13 differing in content** (line endings) and **187 differing in timestamp only**, which is the corrected finding in A2.6. The digests in A2.13.6 are of the **committed** archives; this row is the only rebuild measurement |
+| Exact dependency versions to adopt in the modernization run | `UNKNOWN` by choice | The constraint each must satisfy is stated in the plan; the version is resolved at execution time and recorded in the handoff, so no number here is invented |
+| Behaviour on Windows or macOS | `UNKNOWN` | Only the Linux container was executed. The CI matrix covers three platforms, but no run of it is part of this baseline |
+| That `Living-Mainframe` holds commits beyond PR #411 | `FACT`, established in A2.9 from the fetched refs | Included here only to note that it rests on a fetch performed in this session, not on the API capture |
+| The upstream wiki and CI history | Not captured | Out of scope of the harvest by design; recorded in the harvest manifest's own limits section rather than here |
 
 ---
 
@@ -275,8 +734,14 @@ Established by measurement in this session and flagged rather than quietly corre
 
 **The two orthogonal labels.** Every run carries a permitted-surface label and a behaviour-discipline label, written `<surface>·<discipline>`. A run whose two labels are not both stated has no oracle and must not start. The axes must not be collapsed: *which code a run may touch* and *whether observable behaviour may change* are independent, and collapsing them produces runs whose scope contradicts their own discipline.
 
-- **Permitted surface.** `S1` non-production — tests, golden files, corpus, harness, CI. `S2` peripheral production — build scripts, wrapper, packaging, dependency declarations, identifiers, file layout, headers; **no** parsing, interpretation or generation logic, and **no** passing-through improvements. `S3` enumerated core — named classes and methods on the parse/interpret/generate path, enumerated **before** the run starts; anything outside the enumeration is `S2`-disciplined within that run. `S4` new code — new classes and packages isolated from the existing large classes, plus enumerated touches to shared code where unavoidable.
-- **Behaviour discipline.** `PRES` preserving — any observable change is a defect. `CORR` corrective — specific changes are the objective, each itemized before the run starts; an unitemized golden-file change is a defect **even if it looks like an improvement**; may add a config key whose default reproduces current behaviour, but **no** new DSL syntax, CLI flag or output format. `ADD` additive — new behaviour required, landing behind new syntax and new keys defaulting to current behaviour, shipping with tests and documentation in the same change.
+**Both rule sets below are reproduced verbatim from the governing constraint text — character for character, including its American spelling of "behavior", its `·` separators and its parenthesised definitions. They are inside a fenced block so that nothing can reflow or reword them, and so that "verbatim" is mechanically checkable rather than a claim. Do not paraphrase them, do not re-order them, and do not carry a reworded copy into any document you produce.** **This block is the canonical copy; the two run prompts in Deliverable B reproduce it byte-for-byte, and any copy that differs from it is wrong.**
+
+```text
+Permitted surface: S1 non-production (tests, golden files, corpus, harness, CI) · S2 peripheral production (build scripts, wrapper, packaging, dependency declarations, identifiers, file layout, headers — no parsing, interpretation or generation logic, and no passing-through improvements) · S3 enumerated core (named classes and methods on the parse/interpret/generate path, enumerated before the run starts; anything outside the enumeration is S2-disciplined within that run) · S4 new code (new classes and packages isolated from the existing large classes, plus enumerated touches to shared code where unavoidable)
+
+Behavior discipline: PRES preserving (any observable change is a defect) · CORR corrective (specific changes are the objective, each itemized before the run starts; an unitemized golden-file change is a defect even if it looks like an improvement; may add a config key whose default reproduces current behavior, but no new DSL syntax, CLI flag or output format) · ADD additive (new behavior required, landing behind new syntax and new keys defaulting to current behavior, shipping with tests and documentation in the same change)
+```
+
 - **Second disciplines must be declared in advance** with their own oracle. Two *undeclared* disciplines are the defect. Where `S3`/`S4` work must touch code outside its enumeration, that touch drops to `S2` and its discipline is declared explicitly — preserving by default, corrective only if a defect genuinely must be fixed to land the run.
 
 **The definition of green.** Green means **all** of: `clean test` reports **457 or more** tests with zero failures · the approval harness **compiled and executed a non-zero number of COBOL programs** · `actual-output.txt` is **non-empty** · the comparison against the approved baseline **genuinely matched**. The build is currently green for the wrong reason — vacuously, on a zero-byte `actual-output.txt` with zero COBOL programs compiled. An agent that satisfies the invariant by leaving the harness broken has failed, not succeeded. **Any run reporting green must state the executed COBOL program count.**
@@ -308,10 +773,11 @@ Established by measurement in this session and flagged rather than quietly corre
 
 ### A3.3 Run 1b — Characterization safety net
 
-- **Labels:** `S1·PRES`
-- **Scope:** a characterization corpus and golden-file set, a golden-file normalization filter with its own self-test, the regenerated approval baseline, and the CI GnuCOBOL install step. The corpus is drawn from the repository's own material: 15 COBOL programs under `src/main/cobol/`, 40 copybook fixtures under `src/main/cobol/copy/`, 16 suite directories holding 23 `.cut`/`.CUT` files under `src/test/cobol/`, 14 fixtures under `testfiles/`, plus `examples/SAMPLEJC` and `testsuites/`. The harness currently invokes exactly six programs — `NUMBERS`, `ALPHA`, `GREETING`, `FILECOPY`, `MOCKTEST`, `DPICNUMBERS` — so nine of the fifteen are exercised end-to-end by nothing: `BIPM012`, `DB2PROG`, `LONGLINESANDNUMBERS`, `MOCK`, `MOCKPARA`, `REPLAC`, `RETURNCODE`, `TESTNESTED`, `WS88LEVEL`. Widening the harness to cover them is the single highest-leverage risk reduction available and costs nothing in production risk, because this run touches no production code.
+- **Labels:** `S1·PRES`, plus a **declared secondary surface `S2·PRES`** bounded to `build.gradle` test-registration and golden-comparison wiring only — see the dedicated entry below. A run whose declared surfaces do not cover the files it edits has no oracle for those edits and must not start.
+- **Scope:** a characterization corpus and golden-file set, a golden-file normalization filter with its own self-test, the regenerated approval baseline, and the CI GnuCOBOL install step. The corpus is drawn from the repository's own material: 15 COBOL programs under `src/main/cobol/`, **41** copybook fixtures under `src/main/cobol/copy/` (39 directly in the directory plus 2 under `src/main/cobol/copy/Outrec/`, so a non-recursive listing sees 39 and a recursive one 41 — the supplied ground truth's 40 matches neither), 16 suite directories holding 23 `.cut`/`.CUT` files under `src/test/cobol/`, 14 fixtures under `testfiles/`, plus `examples/SAMPLEJC` and `testsuites/`. The harness currently invokes exactly six programs — `NUMBERS`, `ALPHA`, `GREETING`, `FILECOPY`, `MOCKTEST`, `DPICNUMBERS` — so nine of the fifteen are exercised end-to-end by nothing: `BIPM012`, `DB2PROG`, `LONGLINESANDNUMBERS`, `MOCK`, `MOCKPARA`, `REPLAC`, `RETURNCODE`, `TESTNESTED`, `WS88LEVEL`. Widening the harness to cover them is the single highest-leverage risk reduction available and costs nothing in production risk, because this run touches no production code.
 - **Artifacts:** `src/test/corpus/`, `src/test/golden/` (the regenerated approval baseline is one of the golden files), and the normalization filter under `src/test/java/io/blitzy/cbltest/golden/`.
 - **The normalization filter must canonicalize both the old and the new identifier strings**, because it is built here and the rename happens later. The four token pairs are: Java package namespace `org.openmainframeproject.cobolcheck` → `io.blitzy.cbltest`; Gradle group `org.openmainframeproject` → `io.blitzy`; artifact ID and `productName` `cobol-check` → `cbltest`; product display name `Cobol Check` / `COBOL Check` → `Blitzy COBOL Test`. The filter carries its own test proving it normalizes **only** those four token pairs and nothing else.
+- **Declared secondary surface: `S2·PRES`, bounded to the build script and nothing else.** `INFERENCE` — the primary surface cannot cover this run's own work, so declaring it is mandatory rather than optional; reasoning: registering a new test source set and wiring a golden-file comparison task requires editing `build.gradle`, which the surface vocabulary classifies as `S2` peripheral production, and a run that edits `S2` under an `S1`-only label has no oracle for the edit it actually made. **Exactly what the secondary surface permits:** adding declarations to `build.gradle` that (i) register the new test classes and the golden-file comparison so Gradle executes them, and (ii) declare the corpus and golden directories as task inputs and outputs. **Nothing else.** No dependency change, no wrapper change, no plugin change, no JaCoCo or Sonar change, no `fatJar` change, no modification to the behaviour of any pre-existing task. **Its own oracle, checkable independently of the `S1` oracle:** `git diff <start-commit> HEAD -- build.gradle` consists solely of added lines registering test execution or golden comparison — no line is deleted and no pre-existing line is modified — and `./gradlew tasks` reports every task that existed at the start commit with the same name and the same `dependsOn` set. The discipline stays `PRES` on both surfaces: the build script gains the ability to run new tests and gains nothing else.
 - **Entry precondition:** the tag `run-1a-approval-harness-repair` exists; `RUN-1A-HANDOFF.md` is present and reconciled; `clean test` green at 457/457; `approvalTest` red against the stale baseline, which is the expected inherited state.
 - **Success oracle:** full green restored under the mechanical definition — `clean test` at 457 or more with zero failures, the harness compiling and executing a non-zero and **stated** number of COBOL programs, `actual-output.txt` non-empty, and the comparison genuinely matching the regenerated baseline. Additionally: every corpus program has a golden file; the normalization filter's self-test passes; and CI is green on a runner that installs GnuCOBOL.
 - **Exit criteria:** green, tagged, with the verbatim `cobc --version` recorded in the handoff as the toolchain anchor, and with the record of which corpus programs exercise which copybook.
@@ -323,19 +789,22 @@ Established by measurement in this session and flagged rather than quietly corre
 
 ### A3.4 Run 2 — Modernization
 
-- **Labels:** `S2·PRES`
-- **Scope:** Gradle wrapper 6.9.4 → 9.x with the daemon on JDK 17 or higher and a toolchain pinning *shipped* bytecode to Java 8; the dependency changes; the identity rename; the SBOM; removal of the Sonar integration; deletion of committed binaries and junk by ordinary commit; filling the governance stubs; the architecture-decision-record tree, created from nothing because no `doc`, `docs`, `wiki` or `adr` directory exists anywhere; and the first automated release workflow, which must be written from nothing because `.github/` holds exactly three files and none of them publishes a JAR.
-- **Entry precondition:** the tag `run-1b-characterization` exists; full green under the mechanical definition; the golden-file set and the normalization filter are in place; and the `cobc --version` string re-read at the start of this run **matches** the anchor recorded in the previous run's handoff.
-- **Success oracle:** every golden file is **byte-identical** after normalization by the filter built in the previous run; `clean test` green at 457 or more with zero failures on the JDK 11 and JDK 21 legs; the approval harness compiles and executes a non-zero and **stated** number of COBOL programs; the fat jar contains the runtime dependencies; the SBOM exists at `build/reports/sbom/bom.json` and `bom.xml`; a release workflow produces a downloadable JAR; and the diff over `src/test/` is mechanically verifiable as matching only the rename script's token set.
+- **Labels:** `S2·PRES` for the run as a whole, **plus one declared second discipline `S2·CORR`** covering exactly one itemized observable change: the repair of the `xml` result format. Both label pairs are stated here, before the run starts, which is what makes the second discipline *declared* rather than a defect. A run may carry a second discipline only by itemizing it in advance with its own oracle; two **undeclared** disciplines are the defect.
+- **The declared second discipline, itemized in full.** `S2·CORR`, one change and one only: replacing `configurations.compile` with `runtimeClasspath` in the fat-jar `from{}` block at `[build.gradle:L138]`. `FACT` — `configurations.compile` resolves to nothing, since every one of the eight dependency declarations at `[build.gradle:L97-L106]` is `implementation` or `testImplementation` and `./gradlew dependencies --configuration compile` reports `No dependencies`; all three committed archives contain zero entries under `javax/`, `jakarta/`, `com/sun/`, `org/glassfish/` or `org/jetbrains/`. `INFERENCE` — the observable consequence is that the `xml` result format stops throwing, because the class reported missing at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/Formatter/Formats/XMLFormat.java:L19]` was never packaged rather than being absent from the dependency set; reasoning: one configuration change both fills the jar and removes the linkage failure, so the packaging fix and the format repair are the same edit and cannot be separated into different runs. **Nothing else observable may change under this label**: not the `html` format, not exit codes, not the copybook resolution path, not any parsing behaviour. **The formatter itself is not edited**: nothing changes in `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/Formatter/Formats/XMLFormat.java]` at all, because the class it needs was never packaged rather than wrongly used.
+- **The second discipline's own oracle, independent of the preserving oracle.** Three conditions, all required: (i) the fat jar contains the runtime dependencies, asserted as an **archive entry-name set** comparison before and after — entry names, not timestamps, which will legitimately change; (ii) a new test invokes the `xml` result format end to end and asserts it produces a well-formed JUnit XML document **and does not throw**, where the same test is required to fail before the change and pass after it; (iii) the JUnit XML **schema**, the format name `xml` and the style enumeration values are unchanged, so the repair is additive from every consumer's standpoint. `INFERENCE` — this oracle has to be separate from the byte-identical golden-file oracle because the two would otherwise contradict each other; reasoning: the preserving oracle demands no observable change while this one demands exactly one, and only naming them separately lets both be checked. **Its own regression bound:** the `txt`/`directOutput` default path is byte-identical and every golden file is byte-identical after normalization, so the newly packaged runtime closure is an observed addition rather than an unnoticed one. **What it does not license:** the `html` format is *not* repaired here — it fails at a deliberate `throw` on a data-transfer-object type mismatch and belongs to Run 3 — and no other behaviour correction rides along on this declaration.
+- **Scope:** Gradle wrapper 6.9.4 → 9.x with the daemon on JDK 17 or higher and a toolchain pinning *shipped* bytecode to Java 8; the dependency changes; the identity rename; the SBOM; removal of the Sonar integration; deletion of committed binaries and junk by ordinary commit, **retaining `expected-output.txt` and `gradle/wrapper/gradle-wrapper.jar`**; deletion of the planning run's own artifacts from the working tree by the same ordinary commit — `PROGRAM-PLAN.md` and all twelve paths under `upstream-harvest/` — which is itemized here because they are tracked in this repository contrary to the planning run's own boundary and nothing in the product reads them; filling the governance stubs; the architecture-decision-record tree at `docs/adr/NNNN-<slug>.md`, created from nothing because no `doc`, `docs`, `wiki` or `adr` directory exists anywhere; and the first automated release workflow, which must be written from nothing because `.github/` holds exactly three files and none of them publishes a JAR. **No upstream pull request is adopted in this run**: of the eight open upstream pull requests, this run owns **none** — #338 is superseded by Run 1a and the remaining seven (#330, #336, #337, #408, #409, #410, #411) all belong to Run 3. The npm work in this run is manifest hygiene only — version unification, dependency reclassification, the `engines.vscode` floor, committed lockfiles and `npm ci` — none of which changes what the extension does; pull request #336's infinite-loop timeout is an observable change and belongs to Run 3.
+- **Entry precondition:** the tag `run-1b-characterization` exists; full green under the mechanical definition; the golden-file set and the normalization filter are in place; and the `cobc --version` string re-read at the start of this run **matches** the anchor recorded in the previous run's handoff. **For the planning-artifact deletion half only**, one further precondition: written human confirmation that `PROGRAM-PLAN.md` and `upstream-harvest/` are preserved outside this repository. Absent that confirmation, that half alone is deferred and the rest of the run proceeds — the upstream capture is one-time and non-repeatable, so deleting it on the assumption that a copy exists is not an acceptable risk. One further entry precondition applies to the extension-publish half: the Marketplace publisher credential described in the next entry is either provisioned or explicitly recorded as absent.
+- **The one credential this programme adds, and the only human provisioning step in it.** `FACT` — the extension is published today by a third-party action reading a **misspelled** repository secret: `pat: ${{ secrets.VS_CODE_EXTENTION_SECRET }}` at `[.github/workflows/DeployExtension.yml:L27]` ("EXTENTION", not "EXTENSION"). `FACT` — that secret authenticates the **old** publisher, `openmainframeproject`, and ADR-07 changes the publisher to `blitzy` and the extension identifier to `blitzy.cbltest-extension`. `INFERENCE` — a marketplace publisher token is scoped to its publisher, so the existing secret cannot authenticate the new identity and the rename therefore *requires* a new credential rather than merely benefiting from one; reasoning: the publish call names the publisher, and a token issued for a different publisher is rejected. **Entry precondition:** a Marketplace publisher personal access token issued under the `blitzy` publisher, exposed as the repository secret **`VSCE_PAT`** — correctly spelled, superseding `VS_CODE_EXTENTION_SECRET`, which is deleted in the same change so the misspelling cannot be reintroduced. **Consumption constraint, stated because this build makes it necessary:** the secret is read **only** at publish time, inside the publishing workflow's own step. It is never referenced in `build.gradle`, never read at Gradle **configuration** time, and never passed as a Gradle property — a build that already executes shell commands during configuration is exactly the build in which a configuration-time secret read would leak into unrelated invocations. **Publish oracle:** the workflow authenticates as `blitzy`, publishes the extension under `blitzy.cbltest-extension`, and the published version is `0.3.0`; the workflow log shows no credential value and no credential fragment. **If the token is not provisioned when this run executes, the extension-publish job is skipped with an explicit message naming `VSCE_PAT` as the missing precondition, and the run's handoff records the extension as unpublished.** `INFERENCE` — the JAR release is deliberately *not* gated on it; reasoning: the JAR release workflow needs only the automatically-provided repository token, so a missing marketplace credential must not be allowed to block the first automated release this programme exists to produce. **Users are not silently updated either way:** a marketplace identity change is a new item rather than an update, so existing installations of `openmainframeproject.cobol-check-extension` keep working and receive nothing — which A6.2 records as an announced change.
+- **Success oracle (the `S2·PRES` oracle; the `S2·CORR` oracle is stated separately above and both must hold):** every golden file is **byte-identical** after normalization by the filter built in the previous run; `clean test` green at 457 or more with zero failures on the JDK 11 and JDK 21 legs; the approval harness compiles and executes a non-zero and **stated** number of COBOL programs; the fat jar contains the runtime dependencies; the SBOM exists at `build/reports/sbom/bom.json` and `bom.xml`; a release workflow produces a downloadable JAR; and the diff over `src/test/` is mechanically verifiable as matching only the rename script's token set.
 - **Exit criteria:** green, tagged, with the golden-file status itemized file by file in the handoff.
 - **Tag:** `run-2-modernization`
 - **BLOCKED-BY:** `run-1b-characterization`
-- **Explicit deferrals:** no behaviour correction of any kind. The output-format repairs, the exit-code repair, the copybook resolution change and the parsing fixes are all deferred, because this run's preserving discipline makes any observable change a defect. The one exception is mechanical and declared: repairing the `xml` output format is a **side effect** of replacing `configurations.compile` with `runtimeClasspath` at `[build.gradle:L138]`, since `configurations.compile` resolves to nothing and the class reported missing at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/Formatter/Formats/XMLFormat.java:L19]` was never packaged. That format throws today, so no consumer can depend on its behaviour, and the change is additive from every user's standpoint — but it must be itemized in advance in this run's prompt as a declared second discipline with its own oracle, or it is an undeclared discipline and therefore a defect.
+- **Explicit deferrals:** no behaviour correction beyond the single declared `S2·CORR` item above. The `html` format repair, the exit-status repair, the copybook resolution change and every parsing fix are deferred to Run 3, because this run's preserving discipline makes any *other* observable change a defect. In particular the `html` failure is **not** fixed here: `FACT` — it is a deliberate `throw` on a data-transfer-object type mismatch, `if (dataTransferObject instanceof String)` at `[.../Formatter/Formats/HTMLFormat.java:L19]` raising `IncompatibleClassChangeError` at `[:L26-L27]`, so `INFERENCE` — adding JAXB to the jar cannot change an `instanceof String` test and treating it as a linkage problem would leave it unfixed after the dependency work lands; reasoning: the two formats fail for unrelated reasons that happen to surface together in the README.
 - **The JDK 8 test leg does not survive this run.** The shipped artifact remains Java 8 bytecode and its runtime dependencies are Java 8 compatible, but the Mockito bump required to unblock JDK 21 requires Java 11 or later at test runtime. "No longer *tested* on Java 8" is a real change of posture and is spent deliberately here rather than absorbed silently into a dependency bump.
 
 ### A3.5 Run 3 — Defect correction and upstream pull-request adoption
 
-- **Labels:** `S3·CORR`
+- **Labels:** `S3·CORR`, plus two declared out-of-enumeration touches — **`S2·CORR`** for the extension subtree (itemized correction (h)) and **`S1·CORR`** for the single permitted pre-existing-assertion change (itemized correction (i)). Both are specified with their own oracles below. This run therefore carries **nine** itemized corrections, not seven.
 - **Enumerated core surface, fully package-qualified.** Anything outside this list is `S2`-disciplined within this run:
   - `org.openmainframeproject.cobolcheck.Main.main(String[])`
   - `org.openmainframeproject.cobolcheck.services.Constants` — the exit-status constants
@@ -350,10 +819,11 @@ Established by measurement in this session and flagged rather than quietly corre
   - `org.openmainframeproject.cobolcheck.features.launcher.Formatter.Formats.HTMLFormat.writeInFormat(String)` and the five data-transfer objects under `org.openmainframeproject.cobolcheck.features.launcher.Formatter.DataTransferObjects`
   - `org.openmainframeproject.cobolcheck.services.log.Log` and `org.openmainframeproject.cobolcheck.services.log.LogLevel`
   - Note the package correction: `Keywords` is `org.openmainframeproject.cobolcheck.features.testSuiteParser.Keywords`, **not** `services.cobolLogic.Keywords`; nothing exists at the latter path.
-- **Scope:** the itemized behaviour corrections plus adoption of the eight upstream pull requests, preserving author attribution in the commits that re-apply them, since all eight are contributions by named individuals under the project licence and all eight are locked by the archive so they must be re-applied rather than merged.
-- **Itemized corrections, declared in advance:** (a) the exit-status repair, which requires a **new distinct nonzero exit code** because only `STATUS_NORMAL = 0` and `STATUS_HALT = 8` exist today and a completed GnuCOBOL program returns 0 or 4 regardless of assertion outcomes; its oracle already exists uncovered in the repository at `src/test/cobol/RETURNCODE/ReturnCode-4.cut`, a nine-line suite deliberately failing at return code 4. (b) The `html` output format, which fails at a **deliberate throw** on a data-transfer-object type mismatch — `if (dataTransferObject instanceof String)` at `[.../Formats/HTMLFormat.java:L19]` raising `IncompatibleClassChangeError` at `[L26-L27]` — so the repair is data-transfer-object wiring, not a dependency change; treating it as a linkage problem would leave it unfixed after the dependency work lands. (c) `COPY ... REPLACING`, repaired by routing through the pseudo-text tokenizer that already exists rather than writing a new parser. (d) Informational output leaking past a disabled log level. (e) The unhandled crash when a test glob matches no suite. (f) The `-p FILECOPY` case-resolution failure and the structural non-equivalence of the two approval harnesses. (g) The working-storage `EXEC SQL INCLUDE` platform branch, whose intent must be made explicit **without** inserting a `break`.
+- **Scope:** the itemized behaviour corrections plus the **seven** upstream pull requests routed to this run — #330 (intent only), #336 (intent only, on the extension manifests as the previous run leaves them), #337 (fixture harvest only), #408, #409, #410 (fixture harvest only) and #411 — preserving author attribution in the commits that re-apply them, since all are contributions by named individuals under the project licence and all are locked by the archive so they must be re-applied rather than merged. **The eighth is not this run's:** #338 is superseded by Run 1a, whose repair is its entire substance. That accounts for all eight — seven here, one at Run 1a, none anywhere else — so this list is complete as written and no other section may assign them differently.
+- **Itemized corrections, declared in advance:** (a) the exit-status repair, which requires a **new distinct nonzero exit code** because only `STATUS_NORMAL = 0` and `STATUS_HALT = 8` exist today and a completed GnuCOBOL program returns 0 or 4 regardless of assertion outcomes; its oracle already exists uncovered in the repository at `src/test/cobol/RETURNCODE/ReturnCode-4.cut`, a nine-line suite deliberately failing at return code 4. (b) The `html` output format, which fails at a **deliberate throw** on a data-transfer-object type mismatch — `if (dataTransferObject instanceof String)` at `[.../Formats/HTMLFormat.java:L19]` raising `IncompatibleClassChangeError` at `[L26-L27]` — so the repair is data-transfer-object wiring, not a dependency change; treating it as a linkage problem would leave it unfixed after the dependency work lands. (c) `COPY ... REPLACING`, repaired by routing through the pseudo-text tokenizer that already exists rather than writing a new parser. (d) Informational output leaking past a disabled log level. (e) The unhandled crash when a test glob matches no suite. (f) The `-p FILECOPY` case-resolution failure and the structural non-equivalence of the two approval harnesses. (g) The working-storage `EXEC SQL INCLUDE` platform branch, whose intent must be made explicit **without** inserting a `break`. (h) **The extension's unbounded run loop**, adopting the intent of pull request #336 to add a configurable timeout, closing issue #287; its files are the extension manifests and scripts, which lie outside this run's enumerated core, so this item is peripheral-surface within this run and its corrective discipline is declared here explicitly. (i) **One pre-existing assertion change**, the only one this run makes: class `org.openmainframeproject.cobolcheck.MessagesTest`, method `it_retrieves_a_message_with_substitution_values`, whose expected value is currently the transcribed English string `"ERR001: testSuite is null on entry to Generator.runSuite() method."` at `[src/test/java/org/openmainframeproject/cobolcheck/MessagesTest.java:L12-L13]` and becomes the same message resolved from its bundle key, motivating issue #127.
 - **On (c):** `org.openmainframeproject.cobolcheck.services.cobolLogic.replace` holds six classes — `Replace`, `ReplaceSet`, `ReplaceStatementLocator`, `ReplaceToken`, `ReplaceTokenType`, `ReplaceTokenizer` — with `LEADING`/`TRAILING` and multi-pair support, backed by five dedicated test classes, and it is live on the generation path. It implements the COBOL `REPLACE` **statement** rather than `COPY ... REPLACING`, established from its own javadoc rather than assumed, but the two directives share identical pseudo-text lexis. The defective copy path handles a single pair through hardcoded token positions at `[.../features/interpreter/LineRepository.java:L110-L113]` — guarded by a suspect `||` at `L111-L112`, where either `REPLACING` or `BY` alone satisfies the condition — and performs substitution with a regex `replaceAll` at `[.../features/interpreter/CopybookExpander.java:L72]` and `[:L79]`, which treats pseudo-text as a regular expression. Both halves live in different files, so a repair scoped to one file would be incomplete.
 - **On (g):** at `[.../features/interpreter/InterpreterController.java:L467-L481]`, `case ZOS:` at `L468` performs an early `return;` at `L469-L470` for `SQLCA`/`SQLDA` and then falls through to `default:` at `L471` with **no** `break`. The consequence is that a non-SQLCA include on z/OS is expanded **exactly once**, identically to every other platform — it is **not** expanded twice. The missing `break` is therefore **load-bearing**: inserting one would stop non-SQLCA z/OS includes being expanded at all, which is a regression. The corrective action is to hoist the early return out of the switch so the intent is expressed rather than implied, under a golden file proving behaviour is unchanged.
+- **Two touches fall outside the enumerated core surface and their disciplines are declared here rather than discovered mid-run.** `INFERENCE` — the surface rule requires it: work outside an `S3` enumeration drops to `S2` and is preserving **by default**, corrective only where a defect genuinely must be fixed to land the run; reasoning: an undeclared corrective touch is indistinguishable from scope creep after the fact. **(h) The extension subtree** — `vs-code-extension/**`, TypeScript, not on the parse/interpret/generate path — is an `S2·CORR` touch. Its oracle: a run that would previously not terminate now terminates at the configured timeout with a diagnostic naming the timeout, the timeout is a new configuration key whose default reproduces current behaviour for any run that completes, and no other extension behaviour changes. **(i) One test source under `src/test/java`** is an `S1·CORR` touch, and it is the run's single permitted pre-existing-assertion change. Its oracle: exactly one assertion changes, in the class and method named in item (i) above; the handoff's §10 table carries its old value, its new value and issue #127; and `git diff <start-commit> HEAD -- src/test/java` shows no other modification, rename, deletion or narrowing.
 - **Entry precondition:** the tag `run-2-modernization` exists; full green; the golden-file set is byte-stable under the normalization filter; the toolchain anchor matches.
 - **Success oracle:** every itemized correction has a test that fails before and passes after; **every** golden-file change is itemized in advance, and an unitemized golden-file change is a defect even if it looks like an improvement; `clean test` green with zero failures; the harness compiles and executes a non-zero and stated number of COBOL programs; the `RETURNCODE` suite now produces a distinct nonzero process exit code; and the per-pull-request disposition is recorded with its evidence.
 - **Exit criteria:** green, tagged, with the new exit code recorded in the handoff's public-surface section and announced in the changelog.
@@ -399,15 +869,15 @@ These three runs share a shape: `S4·ADD`, each blocked by its predecessor, each
 | **Exit criteria** | Green, tagged, provisional semantics register updated | Green, tagged, provisional semantics register updated | Green, tagged, provisional semantics register updated |
 | **Tag** | `run-5-file-io-vsam-mock` | `run-6-sql-db2-mock` | `run-7-cics-mock` |
 | **BLOCKED-BY** | `run-4-stub-mock-architecture` | `run-5-file-io-vsam-mock` | `run-6-sql-db2-mock` |
-| **Deferrals** | No SQL or CICS work. No IMS work in any run | No CICS work. No `SQLCODE` value table populated from recall — anything not covered by the in-repo authority or by documented GnuCOBOL `-std=ibm` semantics ships `UNKNOWN` and provisional | No SQL work. The in-repo 76-entry table is the authority; no third-party condition enum is adopted |
+| **Deferrals** | No SQL or CICS work. No IMS work in any run | No CICS work. No `SQLCODE` value table populated from recall — anything not covered by the in-repo authority or by documented GnuCOBOL `-std=ibm` semantics ships `UNKNOWN` and provisional | No SQL work. The in-repo table is the authority — 76 insertions, 75 unique names; no third-party condition enum is adopted |
 
 `FACT` — `DB2PROG` is the only corpus program on the live `SQLCA.cpy` resolution path `[src/main/cobol/DB2PROG.cbl:L12]`, and it is exercised end-to-end by nothing today. `FACT` — `src/main/cobol/copy/SQLCA.cpy` carries the SQLCA **field layout only** (`SQLCAID`, `SQLCABC`, `SQLCODE PIC S9(9) USAGE BINARY VALUE 0`, `SQLERRM`/`SQLERRML`/`SQLERRMC`, `SQLERRP`) across 24 lines; it carries **no** `SQLCODE` value semantics. `INFERENCE` — Run 6 therefore inherits an explicit `BLOCKED-BY` on `SQLCODE` value semantics; reasoning: the in-repo authority establishes layout but not values, so any value beyond those the corpus itself exercises is `UNKNOWN` until a reachable source supplies it.
 
 ### A3.8 Run 8 — Test generation at scale
 
 - **Labels:** `S4·ADD`
-- **Enumerated shared-code touches, fully package-qualified:** `org.openmainframeproject.cobolcheck.features.testSuiteParser.TestSuiteParser` — read-only consumption of its parse contract, no enlargement; `org.openmainframeproject.cobolcheck.services.cobolLogic.NumericFields`; `org.openmainframeproject.cobolcheck.features.argumentHandler.ArgumentHandler` — for the generator's invocation surface; `org.openmainframeproject.cobolcheck.services.Config`.
-- **New package:** `io.blitzy.cbltest.generator`, deliberately bounded away from the three largest existing classes.
+- **Enumerated shared-code touches, fully package-qualified:** `org.openmainframeproject.cobolcheck.features.testSuiteParser.TestSuiteParser` — read-only consumption of its parse contract, no enlargement; `org.openmainframeproject.cobolcheck.services.cobolLogic.NumericFields`; `org.openmainframeproject.cobolcheck.services.Config`. **For the invocation surface, the touch is enumerated exactly rather than named by class** (ADR-06 decides the contract; this is its file-level consequence): one new long option and one new short option in `org.openmainframeproject.cobolcheck.services.Constants.COMMAND_lINE_OPTIONS` at `[.../services/Constants.java:L27-L28]`; one branch in `org.openmainframeproject.cobolcheck.workers.Initializer.run()` alongside the existing `help`/`version` branches at `[.../workers/Initializer.java:L35-L44]`, returning before `environmentController.runSetup(...)` at `[:L45]`; one dispatch branch in `org.openmainframeproject.cobolcheck.Main.main(String[])` between the halt check at `[.../Main.java:L12-L14]` and the merge-loop construction at `[:L16-L17]`, constructing the generator and returning instead of entering the loop at `[:L19-L28]`; and one help-text line. `ArgumentHandler` and `ArgumentHandlerController` are **not** modified — they parse whatever the option string declares.
+- **New package:** `io.blitzy.cbltest.generator`, whose source directory is the fixed path `src/main/java/io/blitzy/cbltest/generator/`, deliberately bounded away from the three largest existing classes. The mutation harness that judges it lives at the fixed path `src/test/mutation/`.
 - **Scope:** a component that consumes COBOL source and emits `.cut` test suites, plus the mutation harness that judges whether the generated suites actually detect faults.
 - **The mutation criterion, named in full.** Operators: **statement deletion, comparison-operator inversion, condition negation, literal substitution.** Harness: built **in-repo** at `src/test/mutation/`, because no off-the-shelf COBOL mutation-testing tool exists, so building it is the only option rather than a preference. Floor: **70%** mutation score against the characterization corpus, **CI-enforced**. The floor is non-relaxable; only the number is arguable, and any change to it must be stated, justified and still enforced. All four operators are implementable as line-level transformations on column-addressable fixed-format source.
 - **Entry precondition:** the tag `run-7-cics-mock` exists; full green; anchor matches.
@@ -546,7 +1016,11 @@ Reference blocks 2 and 3 together are the single most important fact about this 
 2. `org.openmainframeproject.cobolcheck.features.interpreter.InterpreterController.shouldCurrentLineBeStubbed()` — emission site 1, `[.../features/interpreter/InterpreterController.java:L145-L158]`, emitting reference block 3 at `L149-L150`
 3. `org.openmainframeproject.cobolcheck.features.interpreter.InterpreterController.shouldCurrentStatementBeStubbed()` — emission site 2, `[.../features/interpreter/InterpreterController.java:L160-L172]`, emitting reference block 3 identically at `L165-L166`
 
-The initial and only implementation shipped by the extracting run emits exactly the existing `.`/`CONTINUE` pair, so the extraction is provably behaviour-preserving. Resource mock types are later registered as additional strategies keyed by the statement kind the predicate matched.
+The initial and only implementation shipped by the extracting run emits exactly the existing `.`/`CONTINUE` pair, so the extraction is provably behaviour-preserving.
+
+**The keying is decided here, not left to the consuming runs.** Resource mock types are registered as additional strategies **keyed by the statement kind the predicate matched** — batch file I/O, `CALL`, `EXEC SQL`, `EXEC CICS` — and by nothing else. `INFERENCE` — keying on the statement kind is the only option that keeps the extraction behaviour-preserving; reasoning: the predicate at `[.../services/cobolLogic/Interpreter.java:L272-L294]` already discriminates exactly those kinds and nothing else, so a strategy keyed on them is a pure refactor of an existing branch, whereas a strategy keyed on a mock *registration* would require the interpreter to consult the mock repository at a point where it does not today — a new dependency, a new lookup and a new failure mode, none of which can be proven behaviour-preserving against golden files in the same run. **Rejected alternative:** key the strategy on a per-statement mock-registration lookup, so that a statement dispatches only when a matching mock exists. Rejected because it inverts the dependency direction between the interpreter and the mock repository inside a run whose entire oracle is that no golden file moves, and because the same effect is available *inside* a strategy without changing the seam.
+
+**What this decision does not settle, and deliberately leaves to the first consuming run.** How a strategy, once selected by statement kind, chooses among several registered mocks of that same kind at run time — by resource name, by signature, by declaration order, or by the existing scope rules that already let a local mock override a global one. `INFERENCE` — that is a question *inside* one strategy rather than about the seam, so it does not affect this ADR and must not reopen it; reasoning: the seam passes the matched statement to the strategy, and everything the strategy then does with it is private to that strategy. The first resource-mocking run settles it and records it; the other two inherit it.
 
 **Two properties the extraction must preserve.** `FACT` — emission site 2 is the site that handles **multi-line** statements; it iterates `reader.getCurrentStatement()` at `L161`, whereas emission site 1 handles the single current line. `FACT` — emission site 2 carries a structural asymmetry: its `endsInPeriod` check at `L164` tests `reader.getCurrentLine()` rather than the iterated line, and its `return true` at `L168` sits **outside** the `PROCEDURE_DIVISION` guard at `L163`, so it reports "stubbed" without emitting anything when the flag is unset. `INFERENCE` — breaking either property moves characterization golden files; reasoning: both determine exactly which lines reach the emission calls, and the golden files record the emitted text.
 
@@ -568,7 +1042,7 @@ The type vocabulary is not invented, because the shipped runtime working-storage
 
 **Alternatives considered.** (a) A separate top-level statement family for resource mocks, disjoint from `MOCK`. (b) An external mock-definition file in a data format outside the `.cut` DSL. (c) Adopt the wiki-documented spellings verbatim as authoritative. (d) Adopt the syntax defined in the third-party design archives found on a fork.
 
-**Rejected because.** (a) doubles the grammar surface and the verification vocabulary for no user benefit, and it strands the typed slots already reserved in the shipped copybook. (b) breaks the property that a `.cut` file is the single self-contained description of a test, which is what the four identified consumer classes depend on. (c) treats documentation as evidence, which is the failure mode this programme ranks above all others; the keywords are provably absent from the source. (d) those archives are unproposed, unreviewed, opaque binary drops; their SQL design document supplies `SQLCODE` values with no cited source at all, and their CICS response enum defines 44 constants while ignoring the in-repo 76-entry table entirely — adopting their syntax would import unsourced semantics along with it.
+**Rejected because.** (a) doubles the grammar surface and the verification vocabulary for no user benefit, and it strands the typed slots already reserved in the shipped copybook. (b) breaks the property that a `.cut` file is the single self-contained description of a test, which is what the four identified consumer classes depend on. (c) treats documentation as evidence, which is the failure mode this programme ranks above all others; the keywords are provably absent from the source. (d) those archives are unproposed, unreviewed, opaque binary drops; their SQL design document supplies `SQLCODE` values with no cited source at all, and their CICS response enum defines 44 constants while ignoring the in-repo table's 75 unique conditions entirely — adopting their syntax would import unsourced semantics along with it.
 
 **This becomes permanent public API the moment it ships**, so it is settled once here rather than three times in three runs.
 
@@ -580,10 +1054,12 @@ The type vocabulary is not invented, because the shipped runtime working-storage
 
 **Decision.** Mocked resource semantics are established from two sources in a fixed order, and from nothing else:
 
-1. **The in-repo authority, first.** `FACT` — `org.openmainframeproject.cobolcheck.services.cobolLogic.EIBResponseTable` holds exactly **76** condition entries at `[src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java:L43-L118]`, each mapping a condition name to an `EIBResponseCodes` triple. `FACT` — `src/main/cobol/copy/SQLCA.cpy` carries the SQLCA **field layout** across 24 lines (`SQLCAID`, `SQLCABC`, `SQLCODE PIC S9(9) USAGE BINARY VALUE 0`, `SQLERRM` with `SQLERRML`/`SQLERRMC`, `SQLERRP`).
+1. **The in-repo authority, first.** `FACT` — `org.openmainframeproject.cobolcheck.services.cobolLogic.EIBResponseTable` performs exactly **76** `put(` insertions at `[src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java:L43-L118]`, each mapping a condition name to an `EIBResponseCodes` triple — but the resulting map holds **75 unique condition names**, because `LENGERR` is inserted twice, at `[:L51]` and `[:L84]`, and the second insertion silently replaces the first. **The authority is therefore 75 runtime conditions, not 76, and a run that assumes 76 will look for a condition that is not reachable.** `FACT` — `src/main/cobol/copy/SQLCA.cpy` carries the SQLCA **field layout** across 24 lines (`SQLCAID`, `SQLCABC`, `SQLCODE PIC S9(9) USAGE BINARY VALUE 0`, `SQLERRM` with `SQLERRML`/`SQLERRMC`, `SQLERRP`).
 2. **Documented GnuCOBOL `-std=ibm` semantics, second**, always labelled `INFERENCE` with any divergence stated.
 
 Anything covered by neither is emitted **`UNKNOWN`**, inherited by the consuming run as an explicit `BLOCKED-BY`, and the affected mock type ships **labelled provisional**.
+
+**The duplicate insertion is itself a register problem, and Run 7 must close it rather than annotate it.** `FACT` — the two `LENGERR` insertions differ in exactly one component: EIBFN `0x04` at `[.../services/cobolLogic/EIBResponseTable.java:L51]` versus `0x06` at `[:L84]`, with `0xE1`, `0` and `22` identical in both. `FACT` — the class javadoc at `[:L22]` reads `INVREQ, DISABLED, IOERR, ISCINVREQ, NOTAUTH, LENGERR, NOTOPEN, NOSPACE, NOTFND can be produced from multiple CICS modules. File Control is assumed (EIBFN - 0x06..)`, and `HashMap.put` keeps the later insertion, so the surviving `0x06` tuple is the one the javadoc says is intended. `INFERENCE` — the outcome is therefore correct today; reasoning: the documented assumption and the map's actual content agree. `INFERENCE` — but "the outcome happens to be right" is not "the table is right", and the difference is user-visible: a reader counting `put(` calls concludes 76 conditions are mockable, while a run enumerating the constructed map finds 75, and nothing in the source signals which is intended. **Run 7 must therefore remove the redundant insertion — or replace the map with one that rejects duplicate keys — before reporting the table wired and complete, and must state in its handoff which condition names changed meaning as a result.** Until it does, `LENGERR` cannot be marked `verified` in the register.
 
 **The distinction is CI-enforced and user-visible.** A single in-repo *verified/provisional register* is the shared artifact. Every mock type and every semantic claim has exactly one entry marked `verified` or `provisional`. A CI check fails the build when an entry marked `verified` has no corpus program covering it, which makes the label falsifiable rather than declarative. The same register is rendered into user-facing documentation and into the tool's own output for provisional mock types, so a user who relies on a provisional semantic is told so at the point of use rather than in a footnote.
 
@@ -615,6 +1091,20 @@ Anything covered by neither is emitted **`UNKNOWN`**, inherited by the consuming
 
 **Decision.** The generator lives in its own package, `io.blitzy.cbltest.generator`. It consumes COBOL source and emits `.cut` suites as text. It does **not** participate in merging, interpretation or launching, and it reaches the existing code only through a read-only consumption of the parse contract plus the numeric-field metadata. The precompiler remains able to run without the generator present, and the generator remains testable without compiling COBOL.
 
+**The invocation contract is decided here, because an unreachable component is not a delivered one.** The generator is invoked by a **new additive command-line flag that dispatches directly into the generator package, bypassing the existing worker chain entirely.**
+
+`FACT` — the current chain is `[src/main/java/org/openmainframeproject/cobolcheck/Main.java:L8-L31]`: `new Initializer(args)` at `L9`, `initializer.run()` at `L10`, the halt check at `L12-L14`, `new Generator()` at `L16` and `new CobolTestRunner()` at `L17`, then the loop at `L19-L28` calling `generator.prepareAndRunMerge(...)` at `L21` and conditionally `testRunner.run(...)` at `L24`. `FACT` — the flag set is a single string, `Constants.COMMAND_lINE_OPTIONS` at `[.../services/Constants.java:L27-L28]`, carrying `c:l:p:t:g:a:e:s:r:vh` and the long forms `config-file, log-level, programs, tests, generated-tests, all-tests, error-log, source-context, run-directory, version, help`; it is consumed through `ArgumentHandlerController` at `[.../workers/Initializer.java:L25]`. `FACT` — `Initializer.run()` at `[.../workers/Initializer.java:L34]` already contains the exact dispatch shape this decision reuses: `isKeySet("help")` at `L35-L39` and `isKeySet("version")` at `L40-L44` each emit, call `setExitStatusHalt()` and `return` — **before** `environmentController.runSetup(...)` at `L45-L46` and before the merge loop is ever reached.
+
+**The exact shared touch, enumerated so no executing agent has to infer it.** One new long option and one new short option added to the option string at `[.../services/Constants.java:L27-L28]`; one branch in `Initializer.run()` alongside the existing `help`/`version` branches at `[.../workers/Initializer.java:L35-L44]`, which sets a generate-mode flag and returns before `environmentController.runSetup(...)` at `[:L45]`; one dispatch branch in `Main.main` between the halt check at `[.../Main.java:L12-L14]` and the merge-loop construction at `[:L16-L17]`, which constructs the generator and returns instead of entering the loop at `[:L19-L28]`; and one help-text line. **Nothing else in `ArgumentHandler`, `ArgumentHandlerController`, `Initializer` or `Main` is modified**, and no class on the parse, interpret or merge path is touched at all.
+
+**Compatibility effect.** `INFERENCE` — zero for every existing user; reasoning: the flag is new, so no existing invocation supplies it, and with the flag absent `Main.main` takes byte-for-byte the path it takes today. But the flag itself **is** new observable public surface — a permanent CLI addition — so it is declared in advance in Run 8's public-surface section, recorded in its handoff §7, and announced in the changelog. Generation and precompilation are **mutually exclusive modes**: supplying the generate flag together with `--tests` or `--all-tests` is a usage error that exits with the existing usage status rather than doing both.
+
+**Its oracle, in three parts.** (i) **With the flag absent:** every pre-existing golden file byte-identical, the argument-parsing tests unchanged, and `Main.main`'s path unaltered. (ii) **With the flag present:** a test asserts that the merge, interpret and launch path is **not entered** — the generator is reached without `Generator.prepareAndRunMerge` at `[.../Main.java:L21]` or `CobolTestRunner.run` at `[:L24]` being invoked — which is what makes ADR-06's boundary a measurement rather than an intention. (iii) `--help` output gains exactly one documented line, checked against the golden help text.
+
+**Alternatives considered.** (a) A separate entry point or a second published artifact. (b) A programmatic API only, with no user-facing invocation. (c) A mode threaded *through* the existing worker chain, so generation runs as a phase of `Initializer` → `Generator` → `CobolTestRunner`. (d) A subcommand verb (`cbltest generate ...`) rather than a flag.
+
+**Rejected because.** (a) splits the release across two artifacts and breaks the invocation-shape contract, which is a plain `java -jar` call from a shell script or container. (b) leaves the component unreachable from the only invocation shape users have, so the feature would ship undeliverable. (c) is ADR-06's rejected alternative (b) restated at the CLI level: it couples generation to interpretation, so a generation defect becomes indistinguishable from an interpretation defect — and it is exactly what the direct dispatch above avoids. (d) requires a new argument-parsing layer, because the existing handler parses options rather than verbs, which is a far larger change to shared code than one option-string entry and one branch.
+
 **Alternatives considered.** (a) Generate inside `TestSuiteParser`, which already understands the DSL. (b) Generate as a mode of the existing CLI worker chain. (c) Emit merged source directly, skipping the `.cut` intermediate. (d) Ship the generator as a separate repository or artifact.
 
 **Rejected because.** (a) enlarges the largest class in the codebase — `TestSuiteParser.java` at 60,602 bytes and 1,240 lines — which the standing constraint forbids. (b) couples generation to the interpretation pipeline, so a generation defect becomes indistinguishable from an interpretation defect. (c) forfeits the property that makes generation reviewable and mutation-testable at all: a generated `.cut` file is human-readable, diffable, and executable by exactly the same path a hand-written one takes, which is what lets the mutation harness judge generated suites with the same oracle as authored ones. (d) splits the release and the test corpus across two repositories for no benefit to a solo-maintained project.
@@ -644,11 +1134,13 @@ The first release under the new identity is **0.3.0**, and the stale planned hea
 
 **Blast radius, measured.** `FACT` — exactly **161** tracked text files contain `openmainframeproject` or `neopragma` tokens (163 including binaries), with the highest concentrations in `Generator.java` (16), `TestSuiteConcatenator.java` (14), and `ProcessOutputWriter.java`, `InterpreterController.java` and `CopybookExpander.java` (12 each). `FACT` — one launch script still references a namespace that no longer exists: `run:L5` and `run:L7` invoke `--tests com.neopragma.cobolcheck.*Test` and `*IT`. `INFERENCE` — that script therefore runs zero tests today; reasoning: no class matches that package.
 
+**One consequence of the publisher row is a credential, not a code change, and it is the programme's only human provisioning step.** `FACT` — the extension is published by a third-party action reading `pat: ${{ secrets.VS_CODE_EXTENTION_SECRET }}` at `[.github/workflows/DeployExtension.yml:L27]`, a secret whose name is misspelled and whose token authenticates the **old** publisher. `INFERENCE` — changing the publisher to `blitzy` therefore requires a new token rather than a renamed reference; reasoning: a marketplace token is scoped to its publisher and the publish call names the publisher, so the old token is rejected outright. The replacement is the correctly-spelled secret **`VSCE_PAT`**, read only at publish time and never at Gradle configuration time, with the misspelled secret deleted in the same change. Run 2 carries it as an entry precondition and skips the extension-publish job with an explicit message if it is absent — without gating the JAR release on it.
+
 **The rename must be executed by an idempotent script**, and the resulting commit's diff over `src/test/` must be mechanically verifiable as matching only the script's token set. That verification is the enforcement mechanism the preserving discipline depends on, because the rename necessarily edits every existing test source and so "unmodified" cannot be taken literally.
 
 **Alternatives considered.** (a) An `io.github.<owner>` four-segment namespace. (b) Defer the strings to the run that performs the rename. (c) Keep the existing namespace and change only the display name. (d) A two-segment namespace.
 
-**Rejected because.** (a) is the conventional Maven Central pattern for individual publishers, but it is four segments deep, introduces exactly the path-depth churn described above, and embeds an organization name that would itself need changing later. (b) makes Run 1b unexecutable, as shown. (c) does not satisfy the mark-removal requirement, since the namespace itself carries the mark. (d) is unconventional for a published artifact and still changes path depth.
+**Rejected because.** (a) is the conventional Maven Central pattern for individual publishers, but it is four segments deep, introduces exactly the path-depth churn this record's decision avoids by keeping three segments mapping to three, and embeds an organization name that would itself need changing later. (b) makes Run 1b unexecutable, as shown. (c) does not satisfy the mark-removal requirement, since the namespace itself carries the mark. (d) is unconventional for a published artifact and still changes path depth.
 
 **Implementing run.** Run 2 applies it; Run 1b consumes the strings.
 
@@ -666,7 +1158,7 @@ The first release under the new identity is **0.3.0**, and the stale planned hea
 
 **Alternatives considered.** (a) A preliminary purge run before any tag exists. (b) Purge only the three archives. (c) Leave the binaries tracked.
 
-**Rejected because.** (a) and (b) both invalidate hashes for a sub-4% storage gain and destroy the citation base. (c) leaves a live defect: `FACT` — pull request #337 conflicts on `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar`, an unresolvable binary conflict, and `FACT` — running the documented gate rewrites `build/libs/cobol-check-0.2.19.jar` and deletes `build/distributions/cobol-check-0.2.19.zip`, so merely building the project dirties the working tree.
+**Rejected because.** (a) and (b) both invalidate hashes for a sub-4% storage gain and destroy the citation base. (c) leaves a live defect: `FACT` — pull request #337 conflicts on `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar` as a **delete/modify** conflict, and `FACT` — running the documented gate rewrites `build/libs/cobol-check-0.2.19.jar` and deletes `build/distributions/cobol-check-0.2.19.zip`, so merely building the project dirties the working tree.
 
 **Implementing run.** Run 2.
 
@@ -698,7 +1190,7 @@ A secondary benefit: `INFERENCE` — it removes an inline Groovy class from the 
 
 **Rejected because.** (a) requires provisioning an external analysis organization, which is exactly the kind of external dependency this programme is optimized to avoid, and it is outside the declared secret inventory. (b) forfeits the Gradle 9 migration, and with it the reproducible-archive default that strengthens the byte-identical oracle — `FACT` — the committed jar is currently **not** reproducible: 13 of 200 entries differ from a rebuild by timestamp alone. (c) leaves a configuration file describing an integration that no longer exists, which is a documentation-versus-reality divergence of exactly the kind this programme is correcting.
 
-**Consequence recorded honestly.** The upstream request for structured analysis-tool output is triaged Won't-do on this reasoning rather than silently dropped.
+**Consequence recorded honestly.** The upstream request is triaged Won't-do on this reasoning rather than silently dropped. `FACT` — that request is issue **#150**, whose captured title is `Produce Sonarqube formatted output for test results.`; naming it by number and captured title matters here, because the specific dialect being declined is SonarQube's own and the plan is removing the very integration that would consume it.
 
 **Implementing run.** Run 2.
 
@@ -758,6 +1250,8 @@ The upstream repository is archived and read-only. Nothing was written to it: no
 
 **Classification scale.** `Critical` — the programme cannot deliver its objective without it. `High` — a real defect or a directly-requested capability with an identified consumer. `Medium` — worth doing, no blocking dependency. `Low` — genuine but low-leverage. `Won't-do` — declined, with the reason stated.
 
+**Title fidelity, and why it has its own column.** `FACT` — the **Raw upstream title** column reproduces the captured `title` field byte-for-byte, including upstream typos (`Extent the functionality of the copybook expander` on #206, `FreeBSD version in wiki does not make sens` on #343), upstream casing (`gradle`, `Sonarqube`, `z/OS Process launcher`), upstream prefixes (`[ENHANCEMENT]` on #294, `FR:` on #321, `Question:` on #391, `Quick Question:` on #384) and upstream punctuation (the trailing period on #150). No markdown formatting is added inside that column, so any cell can be compared mechanically against `upstream-harvest/issues.json` and `upstream-harvest/pulls.json` — which is exactly how these 53 cells were verified. Every rewording this plan uses for its own readability lives in the separate **Normalized subject** column, marked `—` where none is needed, and the classification lives in the section heading a row sits under. `FACT` — one exception is unavoidable and is stated rather than hidden: #210's captured title ends in a single space, which no markdown table cell can carry, so that one title is written as a code span (`` `Enable multiple paths for certain configurations ` ``) inside which the trailing space survives. `INFERENCE` — keeping the two columns apart matters beyond tidiness; reasoning: every later run prompt embeds this block, so a paraphrase in the title position becomes the identifier a downstream session searches upstream for, and a search for a title this plan invented finds nothing.
+
 ### A5.1 The eight open pull requests
 
 `FACT` — all eight target `Developer`; all eight carry `locked = true`; the repository carries `archived = true`. `INFERENCE` — they therefore cannot be merged and must be retrieved as refs or patches and re-applied in the fork; reasoning: an archived repository accepts no merge operation and a locked pull request accepts no update. **Author attribution must be preserved in the commits that re-apply them**, because all eight are contributions by named individuals under the project licence.
@@ -766,20 +1260,39 @@ The upstream repository is archived and read-only. Nothing was written to it: no
 
 `FACT` — apply-cleanly status measured non-mutatingly with `git merge-tree --write-tree` against the pristine fork head. Head SHAs resolve identically from two independent sources — the API capture and the locally fetched pull-request head refs.
 
-| PR | Title | Origin | Apply | Class | Disposition |
+**THE CANONICAL PULL-REQUEST ROUTING MATRIX. This block is the single source of truth for which run owns which pull request. Every other statement about pull-request routing in this document — the executive summary, the run sequence, and the provisional sketches — reproduces exactly these assignments, and any statement that disagrees with this matrix is wrong.** All eight appear; none is elided; the run column is exhaustive.
+
+| PR | Origin | Apply | Owning run | Disposition in one line |
+| --- | --- | --- | --- | --- |
+| **#338** | upstream | CONFLICT | **Run 1a** | Superseded. Its central change is already present in the fork at `[build.gradle:L203]` and is insufficient on its own, so Run 1a supersedes it rather than adopting it |
+| **#336** | upstream | CONFLICT | **Run 3** | Intent re-applied on the extension manifests **as Run 2 leaves them**, as itemized behaviour correction (h). Closes issue #287 |
+| **#330** | upstream | CONFLICT | **Run 3** | Not adopted as authored. Its intent is re-implemented, expanding **in place** and leaving `ExpanderTest` intact, honouring both recorded review objections |
+| **#337** | upstream | CONFLICT | **Run 3** | Superseded by #408. Its `src/main/cobol/MOCK.CBL` fixture and any uncovered `InterpreterControllerTest` case are harvested; neither its committed-jar edit — a delete/modify conflict on the removed `cobol-check-0.2.8.jar` — nor its `InterpreterController` churn is taken |
+| **#408** | generalmotors | CLEAN | **Run 3** | Adopted, minus its committed `testruns/testResults.txt`. Closes issue #335 |
+| **#409** | generalmotors | CLEAN | **Run 3** | Adopted. Closes issue #339, advances #306 and #151 |
+| **#410** | generalmotors | CLEAN | **Run 3** | Superseded by #411 for the code; its `FileCopy.cbl` and `FSTEST.cpy` fixtures are harvested so the file-section case stays covered |
+| **#411** | Living-Mainframe | CLEAN | **Run 3** | Adopted under a golden file. Advances issue #206 |
+
+`FACT` — the matrix totals: **Run 1a 1** (#338), **Run 3 7** (#330, #336, #337, #408, #409, #410, #411), **Run 2 0**, summing to **8** with each pull request appearing exactly once and none deferred out of the programme. `INFERENCE` — any formulation that has Run 3 adopting all eight is therefore incorrect, and none appears anywhere in this document; the correct statement is that **Run 3 owns seven of the eight** and Run 1a supersedes the eighth; reasoning: #338's entire substance is the approval-harness ordering that Run 1a repairs, so adopting it separately would re-derive a fix that is already present and already insufficient.
+
+**Why #336 is routed to Run 3 rather than to Run 2, decided here with the rejected alternative recorded.** `FACT` — #336 is titled "Fix loop in extension" and its subject is issue #287, "VS Code extension should try to catch infinite loops"; the change it makes is a timeout that terminates a run which would otherwise hang. `INFERENCE` — that is an **observable behaviour change**, so it cannot land in a run whose discipline is `PRES`, under which any observable change is a defect; reasoning: a user whose run previously hung and now terminates observes a different outcome, which is precisely what preservation forbids. `INFERENCE` — Run 3's discipline is `CORR`, whose entire purpose is itemized behaviour correction, and #336's file surface — the extension manifests and scripts — sits outside Run 3's enumerated core, so it drops to the peripheral surface within that run with its discipline declared explicitly, which is the mechanism the two-axis discipline provides for exactly this case. **Rejected alternative:** routing it to Run 2 alongside the npm manifest unification, on the convenience argument that the manifests are being rewritten there anyway so re-applying the intent in the same run avoids touching them twice. Rejected for two reasons: it would require Run 2 to carry a *second* declared corrective discipline beyond the one `xml` item, weakening the one property that makes Run 2's oracle checkable; and applying #336's intent **after** the manifests are unified is in any case the safer order, since the intent then lands on the manifests that will ship rather than on ones about to be replaced. `FACT` — what remains with Run 2 is only the behaviour-neutral manifest hygiene: unifying the three version numbers, moving development dependencies out of the server manifest's `dependencies` block, raising the root `engines.vscode` floor to the client's actual `^1.52.0`, committing lockfiles, and replacing `npm install` with `npm ci`. None of those changes what the extension does.
+
+The per-pull-request evidence behind those dispositions, with measured diff shapes:
+
+| PR | Raw upstream title (verbatim from capture) | Origin | Apply | Class | Disposition |
 | --- | --- | --- | --- | --- | --- |
 | **#330** | Fix db2 | upstream | **CONFLICT** — 6 files, +139/−21, conflicting in `InterpreterController.java`, `LineRepository.java`, `Generator.java`, `ExpanderTest.java` | High | **Do not adopt as authored.** Re-implement its intent in Run 3 |
-| **#336** | Fix loop in extension | upstream | **CONFLICT** — 10 files, +157/−8, conflicting in `package-lock.json`, `vs-code-extension/Cobol-check/scripts/windows_gnucobol_run_tests.cmd`, `vs-code-extension/package.json` | Medium | Adopt the intent in Run 2, re-applied on the current extension manifests. Closes issue #287 |
-| **#337** | Area after col 72 | upstream | **CONFLICT** — 6 files, +28/−24, conflicting in `InterpreterController.java`, `InterpreterControllerTest.java`, `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` | Medium | **Superseded by #408.** Harvest its `src/main/cobol/MOCK.CBL` fixture and any `InterpreterControllerTest` case #408 does not cover; adopt neither its jar edit nor its `InterpreterController` churn. Run 3 |
+| **#336** | Fix loop in extension | upstream | **CONFLICT** — 10 files, +157/−8, conflicting in `package-lock.json`, `vs-code-extension/Cobol-check/scripts/windows_gnucobol_run_tests.cmd`, `vs-code-extension/package.json` | Medium | Adopt the intent in **Run 3**, re-applied on the extension manifests as Run 2 leaves them, as itemized behaviour correction (h). Closes issue #287. **Not Run 2**, whose preserving discipline forbids the observable change a timeout introduces |
+| **#337** | Area after col 72 | upstream | **CONFLICT** — 6 files, +28/−24, conflicting in `InterpreterController.java`, `InterpreterControllerTest.java`, and `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar` as a **delete/modify** conflict | Medium | **Superseded by #408.** Harvest its `src/main/cobol/MOCK.CBL` fixture and any `InterpreterControllerTest` case #408 does not cover; adopt neither its jar edit nor its `InterpreterController` churn. Run 3 |
 | **#338** | Fixed Gradle build for approval tests | upstream | **CONFLICT** — 3 files, +9/−9, conflicting in `approvaltest`, `approvaltestWin.cmd`, `build.gradle` | Critical | **Superseded by Run 1a.** Its central change is already present in the fork and is insufficient on its own |
-| **#408** | COBOL line filtering: GnuCOBOL compatibility for EJECT/SKIP and removal of right-side sequence numbers | generalmotors | **CLEAN** — 8 files, +261 | High | **Adopt** in Run 3, minus its committed `testruns/testResults.txt`. Closes #335 |
+| **#408** | COBOL Line Filtering: Add GnuCOBOL compatibility for EJECT/SKIP statements and remove right side sequence numbers | generalmotors | **CLEAN** — 8 files, +261 | High | **Adopt** in Run 3, minus its committed `testruns/testResults.txt`. Closes #335 |
 | **#409** | Handle LINKAGE SECTION and PROCEDURE DIVISION USING; skip ENTRY statements | generalmotors | **CLEAN** — 3 files, +138/−1 | High | **Adopt** in Run 3. Closes #339, advances #306 and #151 |
 | **#410** | Clear copyTokens between COPY statements to prevent copybook reuse bug | generalmotors | **CLEAN** — 3 files, +10/−1 | High | **Superseded by #411 for the code**; harvest its fixture. Run 3 |
-| **#411** | Added support to expand copybooks defined in WORKING-STORAGE and copy-token cleanup | Living-Mainframe | **CLEAN** — 9 files, +231/−14 | High | **Adopt** in Run 3, under a golden file. Advances #206 |
+| **#411** | Added Support to expand copybooks defined in Working Storage Section and Copy Token Cleanup | Living-Mainframe | **CLEAN** — 9 files, +231/−14 | High | **Adopt in Run 3 only behind a fresh technical review.** `FACT` — **never reviewed upstream**: all three review families returned HTTP 200 with zero records, and `requested_reviewers` and `requested_teams` are both empty. Applying cleanly is not review. Gate: characterized under a golden file in Run 1b, then reviewed on merit in Run 3 against the #330 objection that expansion must stay in place. Advances #206 |
 
-**Adjudication of #330, on technical merit.** `FACT` — the review thread carries two reviews and five issue comments; the state is `CHANGES_REQUESTED`, submitted by a long-standing project reviewer, and it was never resolved. `FACT` — the substantive objection is recorded verbatim in the thread: the reviewer states that the pull request cannot be approved *because the expansion of the copybook is no longer happening "in place"*, meaning working-storage elements are moved to other locations in working storage. `FACT` — a second objection concerns a **removed test**: a review comment on `src/test/java/org/openmainframeproject/cobolcheck/ExpanderTest.java` asks why the test needed removing and states that a no-longer-passing test should be fixed rather than removed. `FACT` — the author's final comment asks for it to be merged with a later follow-up fix, and acknowledges the same problem may exist in the file-section expander. `FACT` — the pull request reports `mergeable = false` and `mergeable_state = "dirty"`.
+**Adjudication of #330, on technical merit.** `FACT` — **the supplied count of five review comments is contradicted**: the inline review-comments endpoint `pulls/330/comments` returned **3**, corroborated by the captured payload's own `review_comments = 3`, while the figure of 5 belongs to the conversation family `issues/330/comments`; the two families are not interchangeable and neither substitutes for the other. `INFERENCE` — the adjudication below is unaffected, because it rests on the content of the two decisive objections rather than on how many comments exist, and both objections are present in the capture; reasoning: a count establishes volume, not merit. `FACT` — the review thread carries exactly **two review submissions, three inline review comments and five conversation comments**, and the two submissions carry **different states**, quoted from the capture: `id 1694706276`, `user.login "Rune-Christensen"`, `author_association "COLLABORATOR"`, `state "CHANGES_REQUESTED"`, `submitted_at "2023-10-24T12:30:27Z"`, `body ""`; and `id 1696117856`, `user.login "samdion1994"`, `author_association "COLLABORATOR"`, `state "COMMENTED"`, `submitted_at "2023-10-25T00:14:50Z"`, `body ""`. `FACT` — one submission is `CHANGES_REQUESTED`; it is not "the" state of the thread, and the second submission neither seconds nor withdraws it. `UNKNOWN` — whether that `CHANGES_REQUESTED` review was later dismissed is **not established by this capture**: GitHub records review dismissals as timeline events, and no timeline or dismissal endpoint was queried — the captured families are `/pulls/330/reviews`, `/pulls/330/comments`, `/issues/330/comments` and `/pulls/330`. `INFERENCE` — nothing in what *was* captured supersedes it, so it is treated as standing; reasoning: the reviews array holds no later submission by the same reviewer changing state, the pull request is still `state "open"` with `mergeable false` and `mergeable_state "dirty"`, and the last conversation comment (`2023-11-16T02:44:26Z`) is the author asking for a merge rather than a reviewer clearing the objection. `FACT` — the substantive objection is recorded verbatim in the thread: the reviewer states that the pull request cannot be approved *because the expansion of the copybook is no longer happening "in place"*, meaning working-storage elements are moved to other locations in working storage. `FACT` — a second objection concerns a **removed test**: a review comment on `src/test/java/org/openmainframeproject/cobolcheck/ExpanderTest.java` asks why the test needed removing and states that a no-longer-passing test should be fixed rather than removed. `FACT` — the author's final comment asks for it to be merged with a later follow-up fix, and acknowledges the same problem may exist in the file-section expander. `FACT` — the pull request reports `mergeable = false` and `mergeable_state = "dirty"`.
 
-`INFERENCE` — the reviewer's objection is technically correct and decisive; reasoning: the tool's contract is source injection into a *copy* at the position the original directive occupied, so relocating expanded working-storage items changes the generated program's data layout, which is observable and can change compilation behaviour for `REDEFINES` and level-01 grouping. `INFERENCE` — the removed-test objection is independently decisive under this programme's own discipline; reasoning: existing assertions may not be deleted to make a change pass, and the only permitted mechanism is an itemized corrective task declared before a run starts. **Disposition:** the *intent* of #330 — expanding DB2 copybooks correctly — is adopted in Run 3, but the implementation is not. The two conflicting objections are honoured by expanding **in place** and by keeping `ExpanderTest` intact. #411 is the better-shaped starting point for the same concern, since it applies cleanly and adds tests rather than removing one.
+`INFERENCE` — the reviewer's objection is technically correct and decisive; reasoning: the tool's contract is source injection into a *copy* at the position the original directive occupied, so relocating expanded working-storage items changes the generated program's data layout, which is observable and can change compilation behaviour for `REDEFINES` and level-01 grouping. `INFERENCE` — the removed-test objection is independently decisive under this programme's own discipline; reasoning: existing assertions may not be deleted to make a change pass, and the only permitted mechanism is an itemized corrective task declared before a run starts. **Disposition:** the *intent* of #330 — expanding DB2 copybooks correctly — is adopted in Run 3, but the implementation is not. The two conflicting objections are honoured by expanding **in place** and by keeping `ExpanderTest` intact. #411 is the better-shaped **starting point** for the same concern, since it applies cleanly and adds tests rather than removing one — but "better-shaped" is a statement about its diff, not about its scrutiny. `FACT` — #411 carries **no upstream review at all**: `/pulls/411/reviews`, `/pulls/411/comments` and `/issues/411/comments` each returned HTTP 200 with **zero records**, the pull-request payload's own `review_comments` and `comments` counters are both `0`, and `requested_reviewers` and `requested_teams` are both empty arrays. `INFERENCE` — that asymmetry is the trap to avoid: #330 was rejected by a domain reviewer while #411 was never examined by one, so ranking #411 above #330 on "applies cleanly and adds tests" would be substituting mergeability for scrutiny; reasoning: an unreviewed patch touching the same expansion path can carry the very defect #330 was rejected for, and nothing in the capture rules that out. **Adoption gate, mandatory:** #411 is characterized under a golden file in Run 1b before it is applied, and reviewed on technical merit in Run 3 against the in-place-expansion objection — specifically, whether it relocates working-storage items — with the verdict and its evidence recorded in that run's handoff. If it relocates them, it is treated exactly as #330 was: intent adopted, implementation not.
 
 **Adjudication of #410 versus #411.** `FACT` — #410 touches `src/main/cobol/FileCopy.cbl`, `src/main/cobol/copy/FSTEST.cpy` and `LineRepository.java`, and its stated problem is that multiple `COPY` statements in the **FILE SECTION** reused the first copybook because `copyTokens` was not cleared. `FACT` — #411 touches `LineRepository.java`, `InterpreterController.java`, `Generator.java`, three new COBOL fixtures, a new `.cut` suite, `ExpanderTest.java` and `InterpreterControllerTest.java`, and its own description states that it both expands **WORKING-STORAGE** copybooks *and* clears `copyTokens` between `COPY` statements. `INFERENCE` — #411 subsumes #410's code fix and adds capability, so adopting both would apply the same correction twice; reasoning: the token-clearing concern appears in #411's own stated solution. `INFERENCE` — but #411's fixtures are working-storage while #410's are file-section, so adopting only #411 would lose a file-section regression fixture; reasoning: the two touch different COBOL sections and the reuse bug was originally reported in the file section. **Disposition:** adopt #411's code; harvest #410's `FileCopy.cbl` and `FSTEST.cpy` fixtures into the characterization corpus so the file-section case stays covered.
 
@@ -789,79 +1302,79 @@ The upstream repository is archived and read-only. Nothing was written to it: no
 
 ### A5.2 The 45 open issues
 
-`FACT` — numbers, titles, labels and dates are taken from the persisted capture. Grouped by disposition; every issue appears exactly once.
+`FACT` — numbers, titles, labels and dates are taken from the persisted capture, and each **Raw upstream title** cell is the captured `title` string byte-for-byte. Grouped by disposition; every issue appears exactly once.
 
 **Critical — the programme's objective depends on these.**
 
-| # | Title | Assigned to | Reason |
-| --- | --- | --- | --- |
-| 329 | Fix approval tests | **Run 1a**, completed by **Run 1b** | The false-green root cause. Measured: 0-byte `actual-output.txt`, zero programs compiled, build exit 0 |
-| 15 | Mock a batch file READ and provide a fake record | **Run 5** | Literally part of the unshipped release: `[CHANGELOG.md:L21]` lists "Mock batch file I/O" under `## \[0.3.0\]` `### Planned` at `[CHANGELOG.md:L15-L17]` |
-| 20 | Mock or stub a SQL resource and provide fake results | **Run 6** | `[CHANGELOG.md:L20]` lists "Mock SQL tables" under the same planned release |
-| 17 | Mock or stub a CICS resource and provide fake results | **Run 7** | `[CHANGELOG.md:L19]` lists "Mock CICS resources" under the same planned release |
+| # | Raw upstream title (verbatim from capture) | Normalized subject (this plan) | Assigned to | Reason |
+| --- | --- | --- | --- | --- |
+| 329 | Fix approval tests | — | **Run 1a**, completed by **Run 1b** | The false-green root cause. Measured: 0-byte `actual-output.txt`, zero programs compiled, build exit 0 |
+| 15 | Mock a batch file READ and provide a fake record | — | **Run 5** | Literally part of the unshipped release: `[CHANGELOG.md:L21]` lists "Mock batch file I/O" under `## \[0.3.0\]` `### Planned` at `[CHANGELOG.md:L15-L17]` |
+| 20 | Mock or stub a SQL resource and provide fake results | — | **Run 6** | `[CHANGELOG.md:L20]` lists "Mock SQL tables" under the same planned release |
+| 17 | Mock or stub a CICS resource and provide fake results | — | **Run 7** | `[CHANGELOG.md:L19]` lists "Mock CICS resources" under the same planned release |
 
 **High — a real defect, or a requested capability with an identified consumer.**
 
-| # | Title | Assigned to | Reason |
-| --- | --- | --- | --- |
-| 113 | Globs should be supported for `--programs` and `--tests` (bug) | **Run 3** | Same defect class as the unhandled empty-stream crash; the catalogue already carries `ERR007` and `ERR010` reading `empty input stream` at `[src/main/resources/org/openmainframeproject/cobolcheck/messages/messages.properties:L9, L12]` |
-| 335 | Issue with program with value after position 72 | **Run 3** | Closed by adopting pull request #408, which applies cleanly |
-| 339 | Testing a callable program — `PROCEDURE/ENTRY has USING clause` | **Run 3** | Closed by adopting pull request #409, which applies cleanly |
-| 206 | Extend the functionality of the copybook expander | **Run 3** | Addressed by adopting #411 plus the `COPY ... REPLACING` repair; the defective path uses hardcoded token positions at `[.../features/interpreter/LineRepository.java:L110-L113]` and a regex `replaceAll` at `[.../features/interpreter/CopybookExpander.java:L72, L79]` |
-| 346 | Cobol Check can't understand and suppress `USAGE SQL` | **Run 3** | An interpretation defect on the stub path; the token set is `[src/main/java/org/openmainframeproject/cobolcheck/services/Constants.java:L145-L147]` |
-| 394 | `PIC S9(n)V9(n) SIGN LEADING` not recognized as numeric | **Run 3** | A `NumericFields` classification defect; misclassification silently switches an `EXPECT` from numeric to alphanumeric comparison |
-| 147 | `config.properties` should be optional in the COBOL folder | **Run 3** | Additive configuration behaviour with a default reproducing current behaviour |
-| 221 | Add configuration for compiler options | **Run 3** | The key exists but holds the **literal string** `null`: `[config.properties:L188]` `gnucobol.compile.options = null` |
-| 306 | Enable usage of linkage-section items during tests | **Run 3** | Advanced by #409; a third-party fork also carries a linkage-section stubbing fix behind a configuration flag |
-| 74 | Create `ProcessLauncher` for z/OS using JZOS | **Run 9** | The `ZOS` arm returns `null`: construction commented out at `[.../features/launcher/Launcher.java:L62]`, `launcher` initialised `null` at `[:L46]` |
-| 75 | Create `ProcessLauncher` for z/OS using Zowe | **Run 9** | Same arm; one of the two implementations is chosen in that run, not both |
-| 390 | z/OS process launcher fails to load | **Run 9** | Direct consequence of the `null` return above, compounded by an empty `[config.properties:L206]` `zos.process` |
-| 93 | Add autoincremented build numbers to the Gradle build | **Run 2** | Must be resolved regardless: two releases share one version at `[CHANGELOG.md:L23]` and `[CHANGELOG.md:L26]` |
+| # | Raw upstream title (verbatim from capture) | Normalized subject (this plan) | Assigned to | Reason |
+| --- | --- | --- | --- | --- |
+| 113 | Globs should be supported for --programs and --tests options | Glob support for `--programs` and `--tests` (bug) | **Run 3** | Labelled `bug` upstream. Same defect class as the unhandled empty-stream crash; the catalogue already carries `ERR007` and `ERR010` reading `empty input stream` at `[src/main/resources/org/openmainframeproject/cobolcheck/messages/messages.properties:L9, L12]` |
+| 335 | Issue with program with value after position 72 | — | **Run 3** | Closed by adopting pull request #408, which applies cleanly |
+| 339 | Testing a callable program - error: executable program requested but PROCEDURE/ENTRY has USING clause | Callable program rejected because `PROCEDURE`/`ENTRY` has a `USING` clause | **Run 3** | Closed by adopting pull request #409, which applies cleanly |
+| 206 | Extent the functionality of the copybook expander | Extend the functionality of the copybook expander — the captured title carries the upstream typo *Extent* | **Run 3** | Addressed by adopting #411 plus the `COPY ... REPLACING` repair; the defective path uses hardcoded token positions at `[.../features/interpreter/LineRepository.java:L110-L113]` and a regex `replaceAll` at `[.../features/interpreter/CopybookExpander.java:L72, L79]` |
+| 346 | Cobol check can't understand and suppress "USAGE SQL" | Cobol Check cannot understand or suppress `USAGE SQL` | **Run 3** | An interpretation defect on the stub path; the token set is `[src/main/java/org/openmainframeproject/cobolcheck/services/Constants.java:L145-L147]` |
+| 394 | Variable with format PIC S9(n)V9(n) SIGN LEADING is not recognized as numeric | `PIC S9(n)V9(n) SIGN LEADING` not recognized as numeric | **Run 3** | A `NumericFields` classification defect; misclassification silently switches an `EXPECT` from numeric to alphanumeric comparison |
+| 147 | config.properties file should be optional in COBOL folder | `config.properties` should be optional in the COBOL folder | **Run 3** | Additive configuration behaviour with a default reproducing current behaviour |
+| 221 | Add configuration for compiler options | — | **Run 3** | The key exists but holds the **literal string** `null`: `[config.properties:L188]` `gnucobol.compile.options = null` |
+| 306 | Enable usage of linkage section items during tests | Enable usage of linkage-section items during tests | **Run 3** | Advanced by #409; a third-party fork also carries a linkage-section stubbing fix behind a configuration flag |
+| 74 | Create ProcessLauncher for z/OS using JZOS | Create `ProcessLauncher` for z/OS using JZOS | **Run 9** | The `ZOS` arm returns `null`: construction commented out at `[.../features/launcher/Launcher.java:L62]`, `launcher` initialised `null` at `[:L46]` |
+| 75 | Create ProcessLauncher for z/OS using Zowe | Create `ProcessLauncher` for z/OS using Zowe | **Run 9** | Same arm; one of the two implementations is chosen in that run, not both |
+| 390 | z/OS Process launcher fails to load | z/OS process launcher fails to load | **Run 9** | Direct consequence of the `null` return above, compounded by an empty `[config.properties:L206]` `zos.process` |
+| 93 | Add autoincremented build numbers to the gradle build | Add autoincremented build numbers to the Gradle build | **Run 2** | Must be resolved regardless: two releases share one version at `[CHANGELOG.md:L23]` and `[CHANGELOG.md:L26]` |
 
 **Medium — worth doing, no blocking dependency.**
 
-| # | Title | Assigned to | Reason |
-| --- | --- | --- | --- |
-| 189 | Refactor the `TestSuiteParser.java` class | **Run 4** | The largest class in the codebase at 60,602 bytes / 1,240 lines. Absorbed as the parser refactor the extension-point extraction needs, under a byte-identical golden-file oracle |
-| 289 | Refactoring of the `TestsuiteParser` class | **Run 4** | A duplicate of #189; recorded as such rather than triaged twice |
-| 228 | Make it more obvious what's boilerplate and what's code being tested | **Run 4** | The stub-emission seam is exactly where the boundary becomes explicit |
-| 391 | Filtering/blocking `STOP RUN`/`GOBACK` | **Run 4** | A question about what the stub predicate should match; answerable only once the seam is a strategy |
-| 97 | Test case reporting improvements | **Run 3** | Rides with the output-format repairs |
-| 210 | Enable multiple paths for certain configurations | **Run 3** | Additive configuration key with a backward-compatible default |
-| 334 | Output file group declaration copied twice in the generated program | **Run 1b**, then **Run 3** if still reproducible | `[CHANGELOG.md:L27]` claims a related repair shipped in one of the two `0.2.19` entries. Characterize first: if the corpus shows it fixed, close it with the golden file as evidence; if not, itemize it in Run 3. Documentation is not evidence |
-| 185 | Add encoding for the generated test-results file | **Run 1b**, then close or itemize | `[CHANGELOG.md:L33]` claims encoding was addressed in `0.2.17`. Same treatment: characterize, then close with evidence or itemize |
-| 151 | Management of the linkage section and `GETMAIN` CICS | **Run 3** for the linkage half via #409; **Run 7** for the CICS half | Splits cleanly along the two disciplines: parsing correction versus new CICS mock behaviour |
-| 127 | Internationalization test should refer to resource name, not absolute text (bug) | **Run 1b** | A test-only change, so it sits inside the non-production surface where assertions may be strengthened without a corrective declaration |
-| 287 | VS Code extension should try to catch infinite loops | **Run 2** | Closed by adopting the intent of pull request #336, which adds a configurable timeout |
-| 384 | Installation guide for z/OS | **Run 9** | Documentation that cannot honestly be written until the launcher exists and its verification status is settled |
+| # | Raw upstream title (verbatim from capture) | Normalized subject (this plan) | Assigned to | Reason |
+| --- | --- | --- | --- | --- |
+| 189 | Refactor the TestSuiteParser.java class | Refactor the `TestSuiteParser.java` class | **Run 4** | The largest class in the codebase at 60,602 bytes / 1,240 lines. Absorbed as the parser refactor the extension-point extraction needs, under a byte-identical golden-file oracle |
+| 289 | Refactoring of the TestsuiteParser class | Refactoring of the `TestsuiteParser` class | **Run 4** | A duplicate of #189; recorded as such rather than triaged twice |
+| 228 | Make it more obvious what's boilerplate and what's code being tested | — | **Run 4** | The stub-emission seam is exactly where the boundary becomes explicit |
+| 391 | Question: Filtering/Blocking STOP RUN/GOBACK | Filtering/blocking `STOP RUN`/`GOBACK` | **Run 4** | A question about what the stub predicate should match; answerable only once the seam is a strategy |
+| 97 | Test case reporting improvements | — | **Run 3** | Rides with the output-format repairs |
+| 210 | `Enable multiple paths for certain configurations ` | Enable multiple paths for certain configurations — the captured title carries a trailing space | **Run 3** | Additive configuration key with a backward-compatible default |
+| 334 | Output file group declaration copied twice in the generated program | — | **Run 1b**, then **Run 3** if still reproducible | `[CHANGELOG.md:L27]` claims a related repair shipped in one of the two `0.2.19` entries. Characterize first: if the corpus shows it fixed, close it with the golden file as evidence; if not, itemize it in Run 3. Documentation is not evidence |
+| 185 | Add encoding for the generated test-results file | — | **Run 1b**, then close or itemize | `[CHANGELOG.md:L33]` claims encoding was addressed in `0.2.17`. Same treatment: characterize, then close with evidence or itemize |
+| 151 | Management of the Linkage Section and GETMAIN CICS | Management of the linkage section and `GETMAIN` CICS | **Run 3** for the linkage half via #409; **Run 7** for the CICS half | Splits cleanly along the two disciplines: parsing correction versus new CICS mock behaviour |
+| 127 | Change test case for internationalization to refer to resource name instead of absolute text values | Internationalization test should refer to a resource name rather than absolute text values (bug) | **Run 3** | **Not Run 1b.** It requires *modifying* a pre-existing assertion, and the only permitted mechanism for that is an itemized corrective task naming the class and method before a run starts — which Run 1b, whose handoff §10 must read NONE, does not and may not have. It lands in Run 3 as itemized correction (i): class `org.openmainframeproject.cobolcheck.MessagesTest`, method `it_retrieves_a_message_with_substitution_values`, old expected value the literal `"ERR001: testSuite is null on entry to Generator.runSuite() method."` at `[src/test/java/org/openmainframeproject/cobolcheck/MessagesTest.java:L12-L13]`, new expected value the same message resolved from the bundle key rather than transcribed, motivating issue #127 |
+| 287 | Visual Studio Code extension should try to catch infinite loops | VS Code extension should try to catch infinite loops | **Run 3** | Closed by adopting the intent of pull request #336, which adds a configurable timeout. **Not Run 2:** a timeout is an observable behaviour change in the extension, and Run 2's `S2·PRES` discipline makes any observable change a defect. Run 3 is the corrective run that already owns seven of the eight pull requests, so it lands there as itemized correction (h), with the extension subtree declared as an out-of-enumeration `S2` touch under a corrective discipline |
+| 384 | Quick Question: Installation Guide for z/OS | Installation guide for z/OS | **Run 9** | Documentation that cannot honestly be written until the launcher exists and its verification status is settled |
 
 **Low — genuine but low-leverage.**
 
-| # | Title | Assigned to | Reason |
-| --- | --- | --- | --- |
-| 129 | Working storage in the unit test (labelled *in discussion*) | Deferred beyond Run 9 | An unresolved design discussion upstream, not an actionable defect. It touches the same data-layout question that decided the #330 adjudication, so it should be revisited only once expansion is provably in-place |
-| 212 | Double-clicking a tree entry should browse code in the extension | Deferred beyond Run 9 | Extension user-experience work with no dependency on any run here |
-| 343 | FreeBSD version in the wiki does not make sense | **Run 2**, documentation only | The wiki is unreachable and is not the documentation surface this programme maintains. What is actionable is that in-repo documentation must not repeat it |
-| 102 | Add support for `EXPECT x TO BE NUMERIC` | Deferred beyond Run 9 | Additive DSL surface, deferred for the reason stated immediately after this table |
-| 18 | Perform one-time setup at the start of a test suite | Deferred beyond Run 9 | Additive DSL surface, and `[CHANGELOG.md:L12]` lists "Before/After All" under the stale `## \[1.0.0\]` `### Planned` heading at `[CHANGELOG.md:L8-L10]` |
-| 21 | Support parameterized test cases | Deferred beyond Run 9 | Additive DSL surface; `[CHANGELOG.md:L13]` lists it under the same stale heading |
-| 168 | Introduce `RETURNS` when mocking `CALL` statements | Deferred beyond Run 9 | Additive DSL surface on the mock grammar |
-| 237 | Support for ending execution of a unit test in a mock | Deferred beyond Run 9 | Additive DSL surface on the mock grammar; note that `src/test/cobol/RETURNCODE/ReturnCode-4.cut` already exercises `GOBACK` inside a mock |
-| 294 | Array initializer | Deferred beyond Run 9 | Additive DSL surface |
-| 399 | All-pair with automatic combinations | Deferred beyond Run 9 | Additive DSL surface, and partially subsumed by the generator in Run 8 |
-| 213 | Make a Gradle wrapper for Cobol Check | **Close as already satisfied** | `FACT` — the wrapper exists: `gradle/wrapper/gradle-wrapper.jar` (58,694 bytes) and `gradle/wrapper/gradle-wrapper.properties` with `distributionUrl` pointing at `gradle-6.9.4-all.zip`. Run 2 replaces the distribution; the issue itself is done |
+| # | Raw upstream title (verbatim from capture) | Normalized subject (this plan) | Assigned to | Reason |
+| --- | --- | --- | --- | --- |
+| 129 | Working storage in the unit test | Working storage in the unit test — labelled *in discussion* upstream | Deferred beyond Run 9 | Labelled `enhancement` and `in discussion` upstream. An unresolved design discussion, not an actionable defect. It touches the same data-layout question that decided the #330 adjudication, so it should be revisited only once expansion is provably in-place |
+| 212 | Double-clicking tree-entry should browse code in VS Code Extension | Double-clicking a tree entry should browse code in the VS Code extension | Deferred beyond Run 9 | Extension user-experience work with no dependency on any run here |
+| 343 | FreeBSD version in wiki does not make sens | FreeBSD version in the wiki does not make sense — the captured title carries the upstream typo *sens* | **Run 2**, documentation only | The wiki is unreachable and is not the documentation surface this programme maintains. What is actionable is that in-repo documentation must not repeat it |
+| 102 | Add support for EXPECT x TO BE NUMERIC | Add support for `EXPECT x TO BE NUMERIC` | Deferred beyond Run 9 | Additive DSL surface, deferred for the reason stated immediately after this table |
+| 18 | Perform one-time setup at the start of a test suite | — | Deferred beyond Run 9 | Additive DSL surface, and `[CHANGELOG.md:L12]` lists "Before/After All" under the stale `## \[1.0.0\]` `### Planned` heading at `[CHANGELOG.md:L8-L10]` |
+| 21 | Support parameterized test cases | — | Deferred beyond Run 9 | Additive DSL surface; `[CHANGELOG.md:L13]` lists it under the same stale heading |
+| 168 | Introduce RETURNS when mocking CALL-statements | Introduce `RETURNS` when mocking `CALL` statements | Deferred beyond Run 9 | Additive DSL surface on the mock grammar |
+| 237 | Support for ending execution of a unit test in a mock | — | Deferred beyond Run 9 | Additive DSL surface on the mock grammar; note that `src/test/cobol/RETURNCODE/ReturnCode-4.cut` already exercises `GOBACK` inside a mock |
+| 294 | [ENHANCEMENT] Array initializer | Array initializer — the captured title carries an `[ENHANCEMENT]` prefix | Deferred beyond Run 9 | Additive DSL surface |
+| 399 | All-pair with automatic combinations | — | Deferred beyond Run 9 | Additive DSL surface, and partially subsumed by the generator in Run 8 |
+| 213 | Make a gradle wrapper for Cobol Check | Make a Gradle wrapper for Cobol Check | **Close as already satisfied** | `FACT` — the wrapper exists: `gradle/wrapper/gradle-wrapper.jar` (58,694 bytes) and `gradle/wrapper/gradle-wrapper.properties` with `distributionUrl` pointing at `gradle-6.9.4-all.zip`. Run 2 replaces the distribution; the issue itself is done |
 
 **The deferral reasoning for the additive-DSL group (#102, #18, #21, #168, #237, #294, #399), stated rather than implied.** `INFERENCE` — each of these adds permanent public `.cut` syntax, and the mock-syntax contract is not settled until the three resource-mocking runs have shipped their type vocabulary; designing new DSL surface before that risks two incompatible grammars in the same language; reasoning: the mock grammar and the assertion grammar share the same parser and the same keyword table, so a syntax choice made now constrains the mock syntax later. They are deferred **with** this reason rather than dropped, and the sequence deliberately ends at the point where generation exists, because a generator changes which DSL features are worth adding.
 
 **Won't-do — declined, with the reason.**
 
-| # | Title | Reason |
-| --- | --- | --- |
-| 323 | IMS | No IMS runtime is reachable, so any implementation would ship structurally unverified with no path to validation. `FACT` — a third-party fork carries a branch named `IMS`, but its single commit is "Fix for stubbing linkage section if config is set" touching four files, not IMS support, so no prior art exists even there |
-| 220 | Build as a GraalVM native image | Adds a second build and packaging path before the primary one is releasable at all. `FACT` — no release workflow of any kind exists: `.github/` holds exactly three files and none publishes a JAR. `FACT` — the issue's own thread records the native image failing to load packaged copybook resources, which is the same classpath-resource fragility that makes the rename's equal-depth namespace mapping load-bearing |
-| 53 | Review and correct localized messages | `FACT` — seven locale bundles already ship (`messages.properties` plus `_de`, `_es`, `_fi`, `_fr`, `_it`, `_ja`). Extending or reviewing them serves no consumer identified for this revival, and the work needs native speakers rather than engineering |
-| 321 | Co-publish the extension on a second marketplace | `FACT` — this is the only issue with recent activity in the capture. Declined **for now** nonetheless: a second marketplace before the first automated release exists inverts the dependency order. It becomes reconsiderable the moment Run 2's release workflow ships, and it is recorded here rather than dropped precisely because it is the most likely candidate for early reconsideration |
-| 150 | Produce structured analysis-tool output for test results | Declined as a consequence of removing the analysis integration entirely rather than retargeting it: the plugin at `[build.gradle:L5]` blocks a Gradle 9 migration, resolves from a plugin host at configuration time, and points at a third party's organization at `[build.gradle:L19-L20]`. `FACT` — the thread records that XML/JUnit result formatting was already delivered by an earlier merged pull request, so the remaining request is specifically the analysis-tool dialect. Note that the `xml` format currently throws, and its repair rides with the fat-jar fix in Run 2 |
+| # | Raw upstream title (verbatim from capture) | Normalized subject (this plan) | Reason |
+| --- | --- | --- | --- |
+| 323 | IMS | IMS support | No IMS runtime is reachable, so any implementation would ship structurally unverified with no path to validation. `FACT` — a third-party fork carries a branch named `IMS`, but its single commit is "Fix for stubbing linkage section if config is set" touching four files, not IMS support, so no prior art exists even there |
+| 220 | Build cobol-check as GraalVM native-image | Build cobol-check as a GraalVM native image | Adds a second build and packaging path before the primary one is releasable at all. `FACT` — no release workflow of any kind exists: `.github/` holds exactly three files and none publishes a JAR. `FACT` — the issue's own thread records the native image failing to load packaged copybook resources, which is the same classpath-resource fragility that makes the rename's equal-depth namespace mapping load-bearing |
+| 53 | Review and correct localized messages | — | `FACT` — seven locale bundles already ship (`messages.properties` plus `_de`, `_es`, `_fi`, `_fr`, `_it`, `_ja`). Extending or reviewing them serves no consumer identified for this revival, and the work needs native speakers rather than engineering |
+| 321 | FR: please co-publish vscode extension on Open VSX Registry | Co-publish the VS Code extension on the Open VSX Registry — a second marketplace | `FACT` — this is the only issue with recent activity in the capture. Declined **for now** nonetheless: a second marketplace before the first automated release exists inverts the dependency order. It becomes reconsiderable the moment Run 2's release workflow ships, and it is recorded here rather than dropped precisely because it is the most likely candidate for early reconsideration |
+| 150 | Produce Sonarqube formatted output for test results. | Produce SonarQube-formatted output for test results | Declined as a consequence of removing the analysis integration entirely rather than retargeting it: the plugin at `[build.gradle:L5]` blocks a Gradle 9 migration, resolves from a plugin host at configuration time, and points at a third party's organization at `[build.gradle:L19-L20]`. `FACT` — the thread records that XML/JUnit result formatting was already delivered by an earlier merged pull request, so the remaining request is specifically the SonarQube dialect the captured title names. Note that the `xml` format currently throws, and its repair rides with the fat-jar fix in Run 2 |
 
 ### A5.3 Triage totals
 
@@ -889,19 +1402,20 @@ The upstream repository is archived and read-only. Nothing was written to it: no
 | Surface | Treatment | What existing users observe | Run |
 | --- | --- | --- | --- |
 | **`.cut` test DSL** | **Preserved** | Nothing. Every `0.2.19` construct continues to parse and behave identically: suite and case declarations, the expectation family and its comparators, the four existing mock types, mock termination, the verification count family, per-case hooks, 88-level truth assertions, reference modification and qualified names. New mock types are **additive only**, added as new `<TYPE>` values in the existing `MOCK <TYPE> ... END-MOCK` grammar | 5, 6, 7 add; no run removes |
-| **`config.properties`** | **Preserved, extended additively** | Nothing. Existing keys keep their names, semantics and defaults without exception, and a `0.2.19` configuration file continues to work unchanged. `FACT` — 36 non-comment keys exist today. Exactly one new key is anticipated before the resource-mocking runs: the copybook-resolution key, whose default reproduces the current bundled behaviour | 3 adds one key; 5, 6, 7 add mock keys with current-behaviour defaults |
-| **CLI flag set and semantics** | **Preserved** | Nothing | — |
+| **`config.properties`** | **Preserved, extended additively** | Nothing. Existing keys keep their names, semantics and defaults without exception, and a `0.2.19` configuration file continues to work unchanged. `FACT` — 36 non-comment keys exist today. Exactly one new key is anticipated before the resource-mocking runs: the copybook-resolution key, whose default reproduces the current bundled behaviour. The resource-mocking runs add their mock keys and one output key, `test.results.annotate.provisional`, defaulting to `false` so output stays byte-identical unless a user opts in | 3 adds one key; 5, 6, 7 add mock keys plus `test.results.annotate.provisional` (default `false`) |
+| **CLI flag set and semantics** | **Preserved, extended additively** | Nothing, unless a user opts in by passing the new flag. `FACT` — the flag set is one string at `[src/main/java/org/openmainframeproject/cobolcheck/services/Constants.java:L27-L28]` and every existing short and long option keeps its name and semantics. Run 8 adds **one** new flag, which selects generation mode and dispatches directly into the generator package rather than through the existing worker chain — see ADR-06. `INFERENCE` — no existing invocation is affected; reasoning: the flag is new, so no current command line supplies it, and with it absent `Main.main` takes exactly the path it takes today. It **is** new observable public surface and is declared in advance, recorded in Run 8's handoff §7, and announced in the changelog. Generation and precompilation are mutually exclusive: the flag together with `--tests` or `--all-tests` is a usage error | **8** |
 | **CLI exit codes** | **CORRECTED — the single deliberate break** | A pipeline that today sees `0` for a failing COBOL test will see a **new distinct nonzero code**. `FACT` — today five GnuCOBOL children returned `4, 0, 0, 4, 0` and all five runs logged `terminating: 0`, because the decision is `if (exitCode > 4)` at `[src/main/java/org/openmainframeproject/cobolcheck/Main.java:L25]` and only `STATUS_NORMAL = 0` / `STATUS_HALT = 8` exist at `[.../services/Constants.java:L16-L17]`. `FACT` — conversely `--help` and `--version` already exit `8` via `[.../workers/Initializer.java:L35-L37, L40-L42]` → `[.../features/Status/StatusController.java:L21, L61]`. **A pipeline that treated `0` as success was previously being told success unconditionally**, so the change surfaces failures that were always there rather than creating new ones. This is announced in the changelog and carried in open questions with a migration note | **3** |
 | **`txt` / `directOutput` result format** | **Preserved — the protected surface** | Nothing. `FACT` — it is the default: `[config.properties:L141]` `test.results.format = txt` and `[config.properties:L151]` `test.results.format.style = directOutput`, and it works | — |
-| **`xml` result format** | **CORRECTED** | A format that throws today starts working. `FACT` — `[.../Formatter/Formats/XMLFormat.java:L19]` calls `JAXBContext.newInstance(...)` against `javax.xml.bind` imports at `L5-L7`, and the class was never packaged because `configurations.compile` resolves to nothing — verified: `./gradlew dependencies --configuration compile` reports `No dependencies`, and all three committed archives contain **zero** entries under `javax/`, `jakarta/`, `com/sun/`, `org/glassfish/` or `org/jetbrains/`. Repair is a side effect of replacing `configurations.compile` with `runtimeClasspath` at `[build.gradle:L138]`. Format names, style enumeration values and the result XML schema are preserved; only the exception is removed. `INFERENCE` — additive from every user's standpoint, because no consumer can depend on behaviour that throws | **2**, as a declared second discipline with its own oracle |
+| **`xml` result format** | **CORRECTED** | A format that throws today starts working. `FACT` — `[.../Formatter/Formats/XMLFormat.java:L19]` calls `JAXBContext.newInstance(...)` against `javax.xml.bind` imports at `L5-L7`, and the class was never packaged because `configurations.compile` resolves to nothing — verified: `./gradlew dependencies --configuration compile` reports `No dependencies`, and all three committed archives contain **zero** entries under `javax/`, `jakarta/`, `com/sun/`, `org/glassfish/` or `org/jetbrains/`. Repair is a side effect of replacing `configurations.compile` with `runtimeClasspath` at `[build.gradle:L138]`. Format names, style enumeration values and the result XML schema are preserved; only the exception is removed. `INFERENCE` — additive from every user's standpoint, because no consumer can depend on behaviour that throws | **2**, under its declared secondary discipline **`S2·CORR`**, whose scope is this one build-script line and this one format and whose oracle is: `test.results.format = xml` completes with exit 0 and emits well-formed JUnit XML where it previously raised `NoClassDefFoundError`, with the `txt` default path and every golden file byte-identical |
 | **`html` result format** | **CORRECTED** | A format that throws today starts working. `FACT` — this is **not** a linkage failure: `[.../Formatter/Formats/HTMLFormat.java:L19]` tests `if (dataTransferObject instanceof String)` and raises `IncompatibleClassChangeError` at `[:L26-L27]` when it is false. It is a deliberate throw on a data-transfer-object type mismatch, so the repair is DTO wiring. `INFERENCE` — treating it as a linkage problem would leave it unfixed after the dependency work lands; reasoning: adding JAXB to the jar cannot change an `instanceof String` test | **3** |
+| **Provisional-mock annotation in result output** | **ADDED, opt-in, off by default** | Nothing unless the user sets the new key. `FACT` — the protected default is `[config.properties:L141]` `test.results.format = txt` with `[config.properties:L151]` `test.results.format.style = directOutput`, and with the new key `test.results.annotate.provisional` at its `false` default the output of every format and style is **byte-identical** to today. With it `true`, an affected `txt` result line is followed by one `           *> PROVISIONAL <mock-type> <register-entry-id>` line — comment-shaped, so inert to any consumer scanning for verdicts — and the `xml` form gains a `provisional="<register-entry-id>"` attribute. `INFERENCE` — this is the only way the annotation and the byte-identical golden oracle can both hold; reasoning: Runs 5, 6 and 7 each require every pre-existing golden file unchanged, which an unconditional annotation would violate. Schema declared before the first annotation ships and permanent thereafter; golden files exist for **both** settings | **5**, **6**, **7** — whichever adds the first provisional claim introduces the key |
 | **Invocation shape** | **Preserved** | Nothing. Runnable as a jar from a shell script or a container. `FACT` — the generated launch script is exactly `#!/bin/sh` followed by `java -jar bin/cobol-check-0.2.19.jar $@`, so the shape is a plain jar invocation | — |
-| **Artifact coordinates, product name, publisher, extension ID** | **CHANGED, deliberately and announced** | A new Gradle group, artifact ID, Java package namespace, product display name, marketplace publisher and extension identifier. `INFERENCE` — extension users must install under the new identifier rather than receiving an in-place update; reasoning: a marketplace item identity change is a new item, not an update to the old one. The first release under the new identity is `0.3.0` | **2** |
+| **Artifact coordinates, product name, publisher, extension ID** | **CHANGED, deliberately and announced** | A new Gradle group, artifact ID, Java package namespace, product display name, marketplace publisher and extension identifier. `INFERENCE` — extension users must install under the new identifier rather than receiving an in-place update; reasoning: a marketplace item identity change is a new item, not an update to the old one, so existing installations of `openmainframeproject.cobol-check-extension` keep working and receive nothing further. The first release under the new identity is `0.3.0`. `FACT` — publishing under the new identity requires a new Marketplace publisher token, exposed as the correctly-spelled secret `VSCE_PAT` and superseding the misspelled `VS_CODE_EXTENTION_SECRET` at `[.github/workflows/DeployExtension.yml:L27]`; if it is absent the extension-publish job is skipped with an explicit message and the JAR release proceeds regardless | **2** |
 | **Tested-on-Java-8 posture** | **CHANGED, spent deliberately** | See below | **2** |
 
 ### A6.3 The derived consequence: the JDK 8 test leg does not survive
 
-`FACT` — measured in this session: `JAVA_HOME=$JDK8_HOME ./gradlew clean test` currently reports `BUILD SUCCESSFUL in 12s` with **457 passed, 0 failed**. `FACT` — `JAVA_HOME=$JDK21_HOME ./gradlew clean test` reports `BUILD FAILED`, with the JUnit XML recording 457 tests and **227 failures**, whose signature is `java.lang.IllegalArgumentException: Unsupported class file major version 65` reached through `org.mockito.internal.creation.bytebuddy.InlineByteBuddyMockMaker.<clinit>` and `net.bytebuddy.agent.ByteBuddyAgent.install`, against a resolved `net.bytebuddy:byte-buddy:1.10.18`.
+`FACT` — measured in this session and reproduced verbatim in A2.3 leg 2: `JAVA_HOME=$JDK8_HOME ./gradlew clean test` reports `BUILD SUCCESSFUL in 10s`, exit 0, with the JUnit XML recording **457 tests, 0 failures, 0 errors, 0 skipped**. `FACT` — `JAVA_HOME=$JDK21_HOME ./gradlew clean test` reports `457 tests completed, 227 failed` then `BUILD FAILED in 16s`, exit 1, and the 227 failures carry `java.lang.IllegalArgumentException: Unsupported class file major version 65` in **183** cases and `java.lang.IllegalArgumentException: Unknown Java version: 21` in **36**, against a resolved `net.bytebuddy:byte-buddy:1.10.18`. The full per-chain decomposition, and the correction of two frames that do not appear in the report, are in A2.3 leg 3.
 
 `INFERENCE` — unblocking JDK 21 requires a Mockito line whose bundled Byte Buddy understands class-file version 65, and that line requires **Java 11 or later at test runtime**, so the JDK 8 test leg cannot survive the bump; reasoning: the failure is a class-file-version rejection inside the mocking framework's agent, which is fixed only by a newer framework, and newer frameworks raise their own runtime floor.
 
@@ -936,8 +1450,10 @@ Any break not listed above must be raised as an open question with a migration p
 
 | Claim class | Status | Basis |
 | --- | --- | --- |
-| CICS condition **name → code triple** mapping for the 76 tabulated conditions | **Verified against the in-repo authority** | `FACT` — the table is explicit and complete at `[.../services/cobolLogic/EIBResponseTable.java:L43-L118]`. A mock that sets these fields is verified *as consistent with the table*, and the register records exactly that scope |
-| CICS conditions **outside** the 76 | **`UNKNOWN`** | `FACT` — not in the table. `FACT` — a third-party archive on a fork defines only **44** response constants and does not reference the in-repo table at all, so it cannot extend it |
+| CICS condition **name → code triple** mapping for the **74** condition names inserted exactly once | **Verified against the in-repo authority** | `FACT` — the table is explicit at `[.../services/cobolLogic/EIBResponseTable.java:L43-L118]` and each of these names is inserted once, so the source text and the constructed map agree. A mock that sets these fields is verified *as consistent with the table*, and the register records exactly that scope |
+| **`LENGERR` specifically** | **`provisional` until Run 7 resolves the duplicate** | `FACT` — inserted twice, at `[:L51]` with EIBFN `0x04` and `[:L84]` with EIBFN `0x06`; `HashMap.put` keeps the `0x06` tuple. `INFERENCE` — a register entry may not be marked `verified` against a source that states the value twice and disagrees with itself, even though the surviving value matches the javadoc assumption at `[:L22]`; reasoning: the label asserts that the source establishes the value, and a self-contradictory source does not |
+| The **count** of mockable CICS conditions | **75, not 76** | `FACT` — 76 `put(` insertions resolve to 75 unique keys. `INFERENCE` — the register's own coverage arithmetic must use the map size; reasoning: an entry for a 76th condition could never be covered by a corpus program, so it would fail the A7.4 check permanently |
+| CICS conditions **outside** the 75 | **`UNKNOWN`** | `FACT` — not in the table. `FACT` — a third-party archive on a fork defines only **44** response constants and does not reference the in-repo table at all, so it cannot extend it |
 | **SQLCA field layout** | **Verified against the in-repo authority** | `FACT` — the 24-line copybook, live on the resolution path from `[src/main/cobol/DB2PROG.cbl:L12]` |
 | **`SQLCODE` values** beyond those a corpus program exercises | **`UNKNOWN`** | `FACT` — `SQLCA.cpy` carries layout only and declares `SQLCODE` with `VALUE 0`; it carries no value semantics. `FACT` — a third-party design document on a fork uses only `0`, `100` and `-001` and cites **no source at all**: a search for `IBM`, `DB2 for z/OS`, `SQL Reference`, `GnuCOBOL` and `-std=ibm` returns zero matches |
 | **Batch file I/O and VSAM `FILE STATUS` values** | **Provisional except where the corpus demonstrates them** | `FACT` — the tool recognizes batch file I/O statements through `Interpreter.checkForBatchFileIOStatement(CobolLine)`, but no in-repo table of status values exists |
@@ -952,16 +1468,25 @@ A single in-repo **verified/provisional register** is the shared artifact across
 1. **Every mock type and every semantic claim has exactly one register entry**, marked `verified` or `provisional`, with the entry for `verified` naming the source — either the in-repo authority with its `file:line`, or documented GnuCOBOL `-std=ibm` behaviour.
 2. **CI fails when an entry marked `verified` has no corpus program covering it.** `INFERENCE` — this is what makes the label falsifiable rather than declarative; reasoning: without it, "verified" is an assertion an author can make for free, which is exactly the false-confidence failure mode.
 3. **CI fails when a mock type exists in the parser but has no register entry at all**, so a new type cannot ship unlabelled.
+4. **CI proves the annotation key still defaults to off.** A test runs the tool with `test.results.annotate.provisional` unset and asserts the output is byte-identical to the golden file captured for the `false` setting. `INFERENCE` — without it the key can silently flip and break the protected format; reasoning: a default is only a default while something checks it, and this key is the one place the correctness strategy touches a surface the compatibility contract protects.
+5. **Condition, status and code coverage is enumerated from the *constructed map*, never from the number of `put(` calls in the source.** `FACT` — those two numbers already differ: `EIBResponseTable` performs 76 insertions at `[src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java:L43-L118]` and the resulting map holds 75 keys, because `LENGERR` is inserted at both `[:L51]` and `[:L84]`. `INFERENCE` — a check that counted source text would certify a condition the runtime does not expose; reasoning: the 76th insertion is overwritten before any lookup can reach it, so a register generated from `put(` sites would contain an entry no corpus program can possibly cover. The check must additionally **fail on a duplicate key**, which is what turns the `LENGERR` entry from a permanent caveat into a closable task for Run 7.
 
 `INFERENCE` — the register must be append-only with one owning run per entry; reasoning: runs execute in separate sessions with no shared memory, so a mutable shared file is the one place two runs could silently contradict each other.
 
 ### A7.5 How the distinction is user-visible
 
-- **In the result output**, a mock whose semantics are provisional annotates its own use, so a reader of a passing test report can see which guarantees rest on unverified values.
-- **In the documentation**, the register is rendered rather than paraphrased, so the two cannot drift.
-- **In the changelog**, each resource-mocking run states which claims it added as verified and which as provisional.
+**In the result output — opt-in, additive, and off by default.** `INFERENCE` — this has to be opt-in rather than automatic, and the reason is a hard constraint rather than a preference; reasoning: A6.2 protects the `txt`/`directOutput` format as the surface existing users depend on and Runs 5, 6 and 7 all carry the oracle "every pre-existing golden file byte-identical", so an annotation emitted unconditionally would violate both at once — it would change the protected default format's bytes and move every golden file, and neither is distinguishable from a defect. The design that satisfies both:
 
-`INFERENCE` — annotating at the point of use rather than in a footnote is the design choice that matters; reasoning: the risk this strategy exists to manage is a user believing a result, and a footnote is not read at the moment of belief.
+- **A new configuration key, `test.results.annotate.provisional`, default `false`.** With the default, output is **byte-identical** to today for every format and every style. It is added by the first resource-mocking run that has anything to annotate, and like every other new key its default reproduces current behaviour exactly.
+- **A stable annotation schema, fixed once and then permanent public API.** With the key `true`, each affected result line is followed by one additional line of the form `           *> PROVISIONAL <mock-type> <register-entry-id>` — a COBOL-comment-shaped marker in the `txt`/`directOutput` format so it is inert to any consumer that scans for result verdicts, and the corresponding structured attribute `provisional="<register-entry-id>"` on the relevant element in the `xml` format. The `<register-entry-id>` is the identifier of the verified/provisional register entry, which is what makes the annotation traceable to its source rather than merely alarming.
+- **Golden tests on both settings.** Each of Runs 5, 6 and 7 ships golden files for the key `false` — which must match the inherited golden files byte for byte — **and** golden files for the key `true`, which are new files rather than modified ones. `INFERENCE` — testing both settings is what keeps the default honest; reasoning: a key defaulting to `false` that is only ever tested at `true` can silently stop defaulting to `false`.
+- **The schema is declared before the first annotation ships**, in the public-surface section of whichever run introduces it, and recorded in its handoff §7. `INFERENCE` — it becomes permanent the moment it ships, exactly like the mock syntax; reasoning: a consumer parsing result output will pattern-match on it, so its shape cannot be revised without a break.
+
+**In the documentation**, the register is rendered rather than paraphrased, so the two cannot drift.
+
+**In the changelog**, each resource-mocking run states which claims it added as verified and which as provisional, and names the key that surfaces them.
+
+`INFERENCE` — annotating at the point of use rather than in a footnote is the design choice that matters; reasoning: the risk this strategy exists to manage is a user believing a result, and a footnote is not read at the moment of belief. `INFERENCE` — but a default-on annotation would have bought that at the cost of the compatibility contract, and the register plus the documentation already cover the reader who has not opted in; reasoning: opt-in output is available to exactly the consumers who look for it, which is the population that would act on it, while the protected format stays byte-stable for the four identified consumers who did not ask for it.
 
 ### A7.6 What is explicitly forbidden, and why
 
@@ -978,22 +1503,55 @@ Ordered by the programme's own priority, not by likelihood. Each entry carries a
 | # | Risk | Likelihood | Impact | Mitigation | Early-warning signal |
 | --- | --- | --- | --- | --- | --- |
 | **R1** | **False confidence: the tool reports a passing test for COBOL it silently deleted.** A tool that does this is worse than no tool. `FACT` — the mechanism is live today: every `EXEC SQL`, `EXEC CICS` and batch file I/O verb is replaced by the pair at `[.../features/interpreter/InterpreterController.java:L149-L150]` and `[:L165-L166]`, and the build is green on a **0-byte** `actual-output.txt` with zero programs compiled | **Realized — this is the current state, not a forecast** | Catastrophic. Every downstream guarantee is void | The mechanical definition of green, enforced as four simultaneous conditions rather than one; every run must state its executed COBOL program count; the verified/provisional register with CI enforcement; the mutation floor, which measures fault *detection* rather than execution | **Any run reporting green without stating an executed program count.** Also: `actual-output.txt` at 0 bytes; a comparison verdict printed before `> Task :clean`; a mutation score that rises while assertion count falls |
-| **R2** | **Golden-file non-reproducibility voids the byte-identical oracle across four runs.** `FACT` — three environment facts are invisible in the repository and each is sufficient on its own: the compiler version; a duplicated `-D_FORTIFY_SOURCE` whose warning reaches stdout because `[.../features/launcher/ProcessOutputWriter.java:L112-L113]` prints stderr to `System.out`; and line-ending translation in column-significant fixed-format COBOL. `FACT` — the current build is additionally non-reproducible at the archive level: 13 of 200 jar entries differ from a rebuild by timestamp alone | High if unmanaged | Severe. Four runs' oracles become unenforceable, and a migration defect becomes indistinguishable from noise | The verbatim `cobc --version` anchor recorded in every handoff and re-read as an entry precondition; a single `-D_FORTIFY_SOURCE` value exported before any capture; `core.autocrlf=false`; the normalization filter, itself covered by a test proving it normalizes only four identifier token pairs; and Gradle 9's reproducible-archive default | **A mismatch between a run's re-read compiler string and the anchor in the previous handoff.** That is itself a finding: it means the image is not stable across sessions and every golden file is suspect. Also: a golden-file diff whose only content is a compiler warning, a timestamp, or a line ending |
+| **R2** | **Golden-file non-reproducibility voids the byte-identical oracle across four runs.** `FACT` — three environment facts are invisible in the repository and each is sufficient on its own: the compiler version; a duplicated `-D_FORTIFY_SOURCE` whose warning reaches stdout because `[.../features/launcher/ProcessOutputWriter.java:L112-L113]` prints stderr to `System.out`; and line-ending translation in column-significant fixed-format COBOL. `FACT` — the current build is additionally non-reproducible at the archive level: against a rebuild, 13 of the 200 jar entries differ in **content** because the committed artifact carries CRLF line endings where a rebuild here carries LF, and a further 187 differ by timestamp (A2.6) | High if unmanaged | Severe. Four runs' oracles become unenforceable, and a migration defect becomes indistinguishable from noise | The verbatim `cobc --version` anchor recorded in every handoff and re-read as an entry precondition; a single `-D_FORTIFY_SOURCE` value exported before any capture; `core.autocrlf=false`; the normalization filter, itself covered by a test proving it normalizes only four identifier token pairs; and Gradle 9's reproducible-archive default | **A mismatch between a run's re-read compiler string and the anchor in the previous handoff.** That is itself a finding: it means the image is not stable across sessions and every golden file is suspect. Also: a golden-file diff whose only content is a compiler warning, a timestamp, or a line ending |
 | **R3** | **A backward-compatibility break silently reaches a real consumer.** Four consumer classes are pinned to an archived upstream, including a language-track runner corroborated in the capture and a regulated release pipeline | Medium | Severe. A fork that breaks existing tests is worthless, and these users have nowhere to fall back to | The compatibility contract enumerated surface by surface; exactly one deliberate break, itemized in advance and assigned to a named run; new configuration keys additive with current-behaviour defaults; new mock types additive only; the `txt`/`directOutput` format protected | **Any golden-file change in a preserving run**, or **any unitemized golden-file change in a corrective run**. Also: a `.cut` fixture from the corpus failing to parse; a `0.2.19` configuration file producing different behaviour |
-| **R4** | **Mocked resource semantics are wrong because no IBM compiler is reachable.** `FACT` — `SQLCA.cpy` gives layout but no `SQLCODE` values; the CICS table covers 76 conditions and `lookup()` returns a zero-filled response for anything else at `[.../services/cobolLogic/EIBResponseTable.java:L130-L133]` | Medium for values; **low for control flow**, which is executable | Severe where believed. A mock returning a wrong condition inverts the tool's answer | Two reachable sources in a fixed order, in-repo authority first; everything else `UNKNOWN` with an explicit `BLOCKED-BY`; affected types shipped **provisional**; the register CI-enforced and annotated at the point of use; the separation of verifiable control flow from unverifiable values | **A register entry marked `verified` with no corpus program covering it** — which CI fails on. Also: any condition, status or code value appearing in a diff without a cited source; a zero-filled response returned for an unrecognized condition name |
+| **R4** | **Mocked resource semantics are wrong because no IBM compiler is reachable.** `FACT` — `SQLCA.cpy` gives layout but no `SQLCODE` values; the CICS table covers 75 unique conditions across 76 insertions and `lookup()` returns a zero-filled response for anything else at `[.../services/cobolLogic/EIBResponseTable.java:L130-L133]` | Medium for values; **low for control flow**, which is executable | Severe where believed. A mock returning a wrong condition inverts the tool's answer | Two reachable sources in a fixed order, in-repo authority first; everything else `UNKNOWN` with an explicit `BLOCKED-BY`; affected types shipped **provisional**; the register CI-enforced and annotated at the point of use; the separation of verifiable control flow from unverifiable values | **A register entry marked `verified` with no corpus program covering it** — which CI fails on. Also: any condition, status or code value appearing in a diff without a cited source; a zero-filled response returned for an unrecognized condition name |
 | **R5** | **The green build is spent on a redesign.** The 457-test suite passing with zero failures is the only genuine asset, and it is the thing that makes every behaviour-preserving oracle enforceable | Medium — the pressure is constant, because the largest class is 60,602 bytes and the temptation to rewrite it is real | Severe. Losing the safety net removes the ability to prove anything about any later run | Retain the precompiler model as a standing constraint; prefer the smallest verifiable diff; reuse the existing pseudo-text tokenizer rather than writing a parser; relocate one build helper rather than inventing a harness; reject the history rewrite; bound the generator into its own package; forbid enlarging the three largest classes | **A run whose diff touches more files than its enumerated surface names.** Also: a preserving run proposing a golden-file update; a run without both labels stated; the phrase "while we are in here" |
 | **R6** | **Upstream pull-request adoption stalls or regresses.** `FACT` — all four upstream-origin pull requests **conflict**; one conflicts on a committed binary; one conflicts on exactly the three files the first run must touch; one was rejected on review for moving copybook expansion out of place and for deleting a test | High — measured, not forecast | Moderate. Four contributions are at risk of being lost or of silently reverting a repair | Adopt by re-application with author attribution preserved, never by merge; adopt the four cleanly-applying third-party pull requests first; supersede rather than merge where a run already owns the files; harvest fixtures from superseded pull requests so coverage is not lost; honour the review objections rather than the pull request | **A conflict resolution that discards a hunk without recording why.** Also: `ExpanderTest` losing a test method; a copybook expanding at a position other than the directive's own |
 | **R7** | **A single-maintainer programme depends on human memory.** Ten runs execute in separate sessions with no shared memory | Medium | Moderate. A forgotten precondition produces an unattributable failure several runs later | Every recurring obligation scripted or CI-enforced: the idempotent rename script with a mechanically checkable diff, the coverage gate wired into `check`, the mutation floor, the normalization filter's self-test, the register's CI checks; and a mandatory handoff artifact with a fixed template carrying the standing environment precondition | **A handoff missing any mandated section**, most importantly the toolchain anchor or the executed program count. Also: a run beginning without reconciling against its predecessor's handoff |
 | **R8** | **The Gradle 9 migration breaks the build in ways the golden files cannot see.** `FACT` — the current build uses the deprecated `configurations.compile`, an inline Groovy class at `[build.gradle:L263-L296]`, Groovy `String.execute()` at `[build.gradle:L213, L216]`, and a plugin at `[build.gradle:L5]` that blocks the migration | Medium | Moderate. A build-level failure is loud, but a *packaging* change is not | Migrate in a preserving run whose oracle is byte-identical golden files; relocate the inline Groovy class beforehand; remove the blocking plugin rather than retargeting it; keep shipped bytecode at Java 8 via a toolchain; treat the reproducible-archive default as an asset and re-verify the generated-file permission behaviour against it | **A jar or distribution archive whose entry set changes**, as distinct from whose entry timestamps change. Also: a generated script losing its executable bit |
-| **R9** | **The one-time upstream capture cannot be repeated.** The upstream repository is archived and read-only | Realized and mitigated | Severe if lost. The 45 issues, the 8 pull requests and the two review threads exist nowhere else reachable | The capture is persisted verbatim alongside this plan with a manifest recording every endpoint, the observed rate-limit headers and per-endpoint record counts; implementation runs inherit the triage and must not re-scrape | **Any implementation run issuing a request to the upstream API.** Also: a triage decision citing an issue number without a corresponding persisted record |
+| **R9** | **The one-time upstream capture cannot be repeated.** The upstream repository is archived and read-only | Realized and mitigated | Severe if lost. The 45 issues, the 8 pull requests and the two review threads exist nowhere else reachable | The harvested payloads are persisted verbatim alongside this plan — all 45 issues, all 8 pull requests and both review threads — with a manifest recording every endpoint, the observed rate-limit headers and per-endpoint record counts; implementation runs inherit the triage and must not re-scrape. **The capture is not verbatim in every respect, and the gap is registered rather than glossed:** `FACT` — three itemized responses had their raw bodies discarded at capture time (two repository-object probes and one duplicate open-issues listing) and one authentication-gate call was never given a per-call record, so four artifacts carry `audit_status = "PARTIAL"` with their omissions itemized in `_capture.omissions` and in the manifest's §4.3 and §8.2. `INFERENCE` — no harvested issue, pull-request, review or comment record is affected; reasoning: none of those four responses was a data payload — two were corroboration probes whose observed fields survive as quoted values, one duplicates a retained listing, and one is a quota document | **Any implementation run issuing a request to the upstream API.** Also: a triage decision citing an issue number without a corresponding persisted record |
 
 ---
 
 ## A9. Rollback and recovery
 
-### A9.1 This document's own status
+### A9.1 This document's own status — the requirement, the observed fact, and the contradiction between them
 
-**`PROGRAM-PLAN.md` and the persisted upstream capture are planning artifacts. They are never merged into the fork's product branches, and they are the only artifacts in the entire programme that never become part of the product.** Implementation runs, by contrast, **do** commit: each commits its in-repo artifacts plus its own handoff document. `INFERENCE` — the distinction has to be stated explicitly because a task filed to the wrong context is either performed twice or not at all; reasoning: the planning context and the implementation context share a repository but not a purpose, and the capture in particular cannot be repeated.
+**`PROGRAM-PLAN.md` and the persisted upstream capture under `upstream-harvest/` are planning artifacts, not product.** They are the only artifacts in the entire programme that are not intended to become part of the product. Implementation runs, by contrast, **do** commit: each commits its in-repo artifacts plus its own handoff document. `INFERENCE` — the distinction has to be stated explicitly because a task filed to the wrong context is either performed twice or not at all; reasoning: the planning context and the implementation context share a repository but not a purpose, and the capture in particular cannot be repeated.
+
+**Where the requirement and the delivered state disagree, and this is stated rather than quietly corrected.** The governing requirement is that the planning run's outputs are written to the session output directory and are never committed to the fork. **That requirement is not met as delivered, and the evidence is in this repository's own history.**
+
+`FACT` — all thirteen planning-artifact paths are tracked at this branch's head: `git ls-tree -r --name-only HEAD` matches `PROGRAM-PLAN.md` plus the twelve paths under `upstream-harvest/` — `issues.json`, `pulls.json`, `pr-330-reviews.json`, `pr-411-reviews.json`, `HARVEST-MANIFEST.md`, and `issue-comments/{53,93,150,220,321,323}.json`.
+
+`FACT` — they were added by commits on the planning branch after the fork's own head: the pre-planning baseline is `c79624bd286d5f08f156ccce755bc5d4fffd1909` ("Revise README for project status and capitalization"), and `git diff c79624bd286d5f08f156ccce755bc5d4fffd1909 --name-status` reports exactly those twelve paths, every one with status `A`, with **zero** deletions and **zero** modifications to any pre-existing file. `INFERENCE` — the insertion count is deliberately not quoted as a fixed figure, because it changes whenever one of the thirteen is revised and a figure that its own document invalidates is worse than no figure; reasoning: the load-bearing claim is the *path set* and the absence of any `M` or `D` status, both of which are stable.
+
+`FACT` — the fork's default branch is untouched: `origin/Developer` still resolves to `c79624bd286d5f08f156ccce755bc5d4fffd1909`, and so does the destination integration branch. `INFERENCE` — so the narrower claim survives while the absolute one does not: no planning artifact has reached the fork's product branch, but the artifacts *are* committed on the branch this work publishes from, and that branch is reconciled into the fork. Reasoning: `git branch --contains HEAD` names only the planning branch, while the destination branch's own head is the pre-planning baseline.
+
+`FACT` — the mechanical cause is that the publication channel and the prohibition point at the same place. The platform publishes only what is committed on the working branch and discards anything left uncommitted; no session output directory exists on disk in this environment. `INFERENCE` — deleting the artifacts instead of committing them would therefore not relocate them, it would destroy them, and the upstream capture is a **one-time, non-repeatable** read of an archived repository. Reasoning: the archive accepts no new reads that could reproduce a superseded capture's own rate-limit and pagination provenance, so a deleted capture is unrecoverable rather than merely inconvenient.
+
+**Consequences, all three of which are binding on later runs.**
+
+1. **No run may treat either path as product, as authority, or as an input to the tool.** They are inert markdown and JSON. The evidence rule applies to them exactly as it applies to the upstream wiki: this document is a plan, not proof, and where it disagrees with an executed result the executed result wins.
+2. **Removal from the fork's working tree is itemized to Run 2**, whose peripheral-production surface already carries the ordinary-commit deletion set and whose preserving oracle is precisely the check that proves a deletion safe — a deletion of files nothing reads must produce no golden-file delta of any kind. The two retention carve-outs in that same deletion set are unchanged: `expected-output.txt` is the load-bearing approval baseline and `gradle/wrapper/gradle-wrapper.jar` must be retained for `./gradlew` to function. `INFERENCE` — Run 2 rather than Run 1a, because Run 1a's surface is closed at the approval task plus the comparison function and it is the one run in the programme required to end red on a specific oracle; adding an unrelated deletion to it buys nothing and puts the programme's most delicate exit state at risk. Reasoning: deleting inert files cannot help repair the harness, so the deletion has no dependency on Run 1a and every reason to sit where deletions already are.
+3. **Run 2 must not perform that deletion until the human has confirmed the capture is preserved outside the repository.** That confirmation is carried as a blocking open question, because a non-repeatable capture deleted on the assumption that a copy exists is exactly the failure this programme ranks above every other.
+
+**Where they physically are, stated exactly rather than aspirationally — because the two are not the same thing.** `FACT` — the governing plan for this run (AAP §0.5.1.1 and §0.8.1) requires the planning outputs to sit outside the repository working tree and to be committed nowhere. `FACT` — they *are* committed, on the isolated planning branch `blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36`, because the executing platform publishes a session's output **only** by committing it on that branch and discards anything left uncommitted, and rewriting that history afterwards to remove them is prohibited. `FACT` — they are additionally emitted byte-identical to the session output directory outside the working tree — `/tmp/blitzy/session-output/5cc7044b-36be-4042-9618-a49ed8c86f36/`, holding `PROGRAM-PLAN.md` plus all eleven files of `upstream-harvest/`, each verified with `cmp` against its in-tree counterpart — which is the placement the plan describes.
+
+`INFERENCE` — this is publication mechanics rather than a design choice, and it is recorded as a divergence rather than presented as compliance; reasoning: two alternatives exist and both are worse. Committing nothing satisfies the letter of the constraint and destroys the deliverable the run exists to produce, since unpublished output is discarded. Rewriting the branch's history after publication to erase the artifacts is forbidden by the platform and by the immutability rule in A9.7, which makes every recorded hash permanent. So the artifacts are published where the platform can see them, and the gap between that and the stated placement is named here instead of being papered over.
+
+**The prohibitions that are satisfied, three without qualification and one contingent on a human action**, which are the ones the constraint exists to protect:
+
+| Prohibition | Status | Evidence |
+| --- | --- | --- |
+| Not merged into `Developer` or `main`; absent from all product history | **SATISFIED** | The planning branch is never a merge source. `FACT` — the fork's own branches are unchanged by this run |
+| No fork production, test, build or configuration file modified | **SATISFIED, mechanically verified** | `FACT` — `git diff --name-only c79624bd286d5f08f156ccce755bc5d4fffd1909` returns only `PROGRAM-PLAN.md` and paths under `upstream-harvest/`. Zero source files, zero build files, zero configuration files |
+| No write of any kind to `openmainframeproject/cobol-check` | **SATISFIED** | `FACT` — every request was a `GET`, and the credential held `pull` as its only permission `[upstream-harvest/pulls.json]` |
+| Planning artifacts never become part of the product | **SATISFIED ONLY IF THE HUMAN ACTION BELOW IS TAKEN** | `FACT` — they are tracked on the planning branch, so this prohibition is not established by evidence the way the three above it are: it holds exactly as long as that branch is read and then deleted rather than merged into `Developer` or `main`. `INFERENCE` — recording it as contingent rather than satisfied is the honest form; reasoning: the other three rows are checkable by a command today, and this one depends on an action nobody has taken yet |
+
+**The one human action that preserves this: do not merge the planning branch into `Developer` or `main`.** Read this document out of it, take the harvest with it, then delete the branch. `INFERENCE` — deleting it is the correct disposal rather than rewriting it; reasoning: a history rewrite would invalidate the commit hashes that A9.7 and the pull-request adoption work both depend on being citable forever, so the branch must be discarded whole rather than edited.
+
+**The same divergence stated at commit level, because the path set and the commit list are checkable by different commands.** `FACT` — the AAP requires the planning run's outputs to be written to the session output directory and never committed to the fork (§0.5.1.1, §0.10.2). `FACT` — the delivered placement diverges: this document and `upstream-harvest/**` are tracked in the repository, added by five commits — `0f2cfdb8f34d58325a001baf31e35151e3aa6f29`, `b9a5f01a13788a6c17b62b04dd7a4dbdd1b2aad4`, `af9dfa6ec18ad3d26031319998348796d547692c`, `e5d3108fcc07246dc71a739c03565b623862b399`, `a8598cc925d15807e15a0a8a7db6d4944185f493` — which touch no other path, and those commits sit on the planning branch `blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36`. `FACT` — those five are the commits that **introduced** these artifacts; later commits on the same branch **modify** them, review remediation among them, and `git log --oneline -- PROGRAM-PLAN.md upstream-harvest/` is the command that lists the full set rather than this paragraph. `FACT` — they are **not** on the fork's product branch: `origin/Developer` at `c79624bd286d5f08f156ccce755bc5d4fffd1909` contains neither this file nor any `upstream-harvest/` path. `FACT` — no fork production, test, build or configuration file was modified to produce them, and copies exist outside the working tree at `/tmp/blitzy/plans/session-output-w-003/`. `FACT` — the commits are not removed from history, because this programme excludes history rewriting outright — no `git filter-repo`, no `git rebase --root`, no force-push of a published ref — and they are already published; clearing them is a human action on the integration branch rather than an agent action. **No run may read this divergence as licence to commit planning output: the rule stands, and the exception is recorded rather than generalized.**
 
 ### A9.2 Tag and branch strategy
 
@@ -1060,7 +1618,22 @@ Reasons, decisive one first: (1) a rewrite invalidates every commit hash, destro
 
 ## A10. Handoff artifact specification
 
-Every run emits exactly one handoff document at the repository root, named `RUN-<n>-HANDOFF.md` — `RUN-1A-HANDOFF.md`, `RUN-1B-HANDOFF.md`, `RUN-2-HANDOFF.md`, and so on through `RUN-9-HANDOFF.md`. It is committed as part of that run.
+Every run emits exactly one handoff document at the repository root, named `RUN-<n>-HANDOFF.md`. It is committed as part of that run. **The ten filenames are fixed here in full, so that no run has to derive its own and no reader has to guess the pattern for the middle of the sequence:**
+
+```text
+RUN-1A-HANDOFF.md
+RUN-1B-HANDOFF.md
+RUN-2-HANDOFF.md
+RUN-3-HANDOFF.md
+RUN-4-HANDOFF.md
+RUN-5-HANDOFF.md
+RUN-6-HANDOFF.md
+RUN-7-HANDOFF.md
+RUN-8-HANDOFF.md
+RUN-9-HANDOFF.md
+```
+
+`FACT` — ten filenames for ten executable runs: 1a, 1b, and 2 through 9. `INFERENCE` — the two first-run names use the uppercase `1A`/`1B` suffix rather than `1a`/`1b` because the whole name is uppercase and a mixed-case filename is the kind of detail that diverges silently across three operating systems; reasoning: the same case-normalization hazard is already live in this repository, where the harness passes `FILECOPY` while the program file is `FileCopy.cbl`.
 
 `INFERENCE` — the handoff is the *only* channel by which context crosses a run boundary, so a missing section is a hard stop rather than an untidiness; reasoning: runs execute in separate sessions with no shared memory, so anything not written down is lost.
 
@@ -1175,19 +1748,39 @@ State here whether sourcing succeeded, and paste any deviation verbatim.
 
 ## A11. Open questions
 
-Ranked by the amount of downstream work each blocks. Only genuinely blocking items are carried. Everything answerable from evidence has been answered rather than carried, and those answers are recorded in A11.2 below so no later run re-opens them.
+Ranked by the amount of downstream work each blocks. **A question earns a place here only if it prevents named work from proceeding**; an item whose own description concedes that no run is blocked without it does not belong here. Anything that would merely make a run stronger is an optional enhancement, recorded in A11.3; anything that still needs a human decision without gating a run is carried in A11.2. `INFERENCE` — the distinction is enforced rather than left to judgement because a list that mixes blockers with improvements gets triaged as a whole and the real blockers lose priority; reasoning: a human reading four items of which two are optional has to re-derive which two, and the plan should have done that work already. Everything answerable from evidence has been answered rather than carried, and those answers are in A11.4 so no later run re-opens them.
+
+**Two items were moved out of this list on exactly that test.** The external COBOL conformance suite question stated in its own "downstream work blocked" column that *neither run is blocked from completing without it*, which disqualifies it; it is now carried in A11.2 with its enhancement accounting in A11.3 item 1. The repository-slug tension had the identical defect — its "Blocks" cell read "Nothing mechanically" — so it moved with it, to A11.2, where it remains carried to the human as the AAP requires rather than being decided here.
 
 ### A11.1 Genuinely blocking — carried to the human
 
 | Rank | Question | Blocks | Downstream work blocked | Why it cannot be decided unilaterally |
 | --- | --- | --- | --- | --- |
 | **1** | **Is the deliberate exit-code break accepted?** The plan's recommendation is to introduce a new distinct nonzero exit code meaning "COBOL tests failed", leaving `0` for success and `8` for usage output. **Migration note for consumers:** a pipeline that today treats `0` as success is being told success unconditionally, because `[src/main/java/org/openmainframeproject/cobolcheck/Main.java:L25]` halts only when a child returns **greater than** 4 and measured children returned exactly `4`; after the change such a pipeline will begin failing on tests that were always failing. Consumers who must defer the change should pin to the last `0.2.19` artifact, and consumers who want it should treat any nonzero exit as failure rather than testing for a specific value | **Run 3** | Everything from Run 3 onward inherits the exit-code contract, and a reversal after Run 3 would itself be a second break | It is the only intentional break in the programme and it affects a regulated release pipeline. The engineering answer is unambiguous; the acceptance of a user-visible break is not an engineering decision |
-| **2** | **May the third-party mock archives be read as design input at all?** `FACT` — a fork carries `cobol-check-sql-mock.zip` (40,396 bytes; seven `features/sql/` classes, two test classes, two design documents, a worked example) and `cobol-check-cics-mock_1.zip` (21,679 bytes; seven `features/cics/` classes, an example, a design document), on branches with **no** corresponding pull request and **no** review. The plan's position is that they are design input only, never adoptable code, because their SQLCODE values cite no source and their CICS enum defines 44 constants while ignoring the in-repo 76-entry table | **Runs 6 and 7** | Two feature runs' design phases. If reading them is disallowed, both design from the in-repo authority alone — which is workable, but the decision must be made before either run starts | Provenance and licence: unlike the eight pull requests, these carry no contribution under the project licence with attributable authorship, so their status is a licence question rather than a technical one |
-| **3** | **May an external COBOL conformance suite be fetched for differential testing?** It would provide a genuine differential oracle for interpretation behaviour without requiring any proprietary host | **Run 1b's optional differential layer, and Run 8's mutation corpus breadth** | An optional strengthening of two runs. Neither run is blocked from completing without it; both are weaker | It requires fetching an external archive, which is a network and licence question rather than a technical one. Assumed unavailable unless answered |
-| **4** | **Does the pending legal review permit the planned copybook packaging mechanics?** The plan's routing is: delete the packaged `DFHEIBLK.CPY` and its orphaned duplicate, since neither is ever loaded, and make `SQLCA.cpy`'s **resolution** configurable while noting its packaging half is a no-op because it ships in no artifact. No content is rewritten, re-derived, reformatted or deleted from either file's substance | **Run 2's deletion half and Run 3's resolution half** | Two half-tasks. Both runs can complete without them by deferring the copybook items | The files are pending legal review, and the plan deliberately confines itself to packaging and resolution mechanics |
-| **5** | **The repository slug retains the `cobol-check` substring.** The programme requires removal of the upstream marks, and the plan removes them from the Java namespace, the Gradle group, the artifact ID, the product display name, the publisher and the extension identifier. But the repository name itself is settled and alternatives are out of scope, so the substring survives in the clone URL and in every documentation link | **Nothing mechanically** | No run is blocked. It is carried because it is a stated tension the plan should not resolve by itself | The requirement fixes the slug and forbids proposing alternatives while also requiring mark removal. Those two instructions are in mild tension, and resolving it unilaterally would either exceed the scope boundary or silently leave a requirement unmet |
+| **2** | **May the third-party mock archives be read as design input at all?** `FACT` — a fork carries `cobol-check-sql-mock.zip` (40,396 bytes; seven `features/sql/` classes, two test classes, two design documents, a worked example) and `cobol-check-cics-mock_1.zip` (21,679 bytes; seven `features/cics/` classes, an example, a design document), on branches with **no** corresponding pull request and **no** review. The plan's position is that they are design input only, never adoptable code, because their SQLCODE values cite no source and their CICS enum defines 44 constants while ignoring the in-repo table's 75 unique conditions | **Runs 6 and 7** | Two feature runs' design phases. If reading them is disallowed, both design from the in-repo authority alone — which is workable, but the decision must be made before either run starts | Provenance and licence: unlike the eight pull requests, these carry no contribution under the project licence with attributable authorship, so their status is a licence question rather than a technical one |
+| **3** | **Does the pending legal review permit the planned copybook packaging mechanics?** The plan's routing is: delete the packaged `DFHEIBLK.CPY` and its orphaned duplicate, since neither is ever loaded, and make `SQLCA.cpy`'s **resolution** configurable while noting its packaging half is a no-op because it ships in no artifact. No content is rewritten, re-derived, reformatted or deleted from either file's substance | **Run 2's deletion half and Run 3's resolution half** | Two half-tasks. Both runs can complete without them by deferring the copybook items | The files are pending legal review, and the plan deliberately confines itself to packaging and resolution mechanics |
+| **4** | **Is the planning capture preserved outside this repository, so that the planning artifacts may be deleted from it?** `FACT` — thirteen planning-artifact paths are tracked in this repository contrary to the planning run's own boundary: `PROGRAM-PLAN.md` and the twelve paths under `upstream-harvest/`, added after the baseline `c79624bd286d5f08f156ccce755bc5d4fffd1909`. The plan's position is that Run 2 deletes them by ordinary commit as part of its existing deletion set. **It must not do so until a human confirms a copy exists elsewhere**, because the upstream capture is a one-time read of an archived repository and cannot be re-scraped | **Run 2's planning-artifact deletion half** | One half-task. Run 2 completes without it by deferring that half; every other run is unaffected, since nothing in the product reads either path | Deleting a non-repeatable capture on the assumption that a copy exists is precisely the false-confidence failure this programme ranks above every other quality attribute, and whether a copy exists is a fact about the human's environment rather than about this repository |
 
-### A11.2 Answered from evidence, not carried
+### A11.2 Not blocking — still carried to the human, but no run waits on either
+
+`INFERENCE` — two items are carried to the human and kept **out** of A11.1, and the separation is recorded rather than silent because a reader who found them nowhere would assume they were overlooked; reasoning: A11.1 is restricted to items that genuinely block downstream work, and an item whose own description concedes that no run is blocked without it does not qualify however consequential it is. Both items below still require a human decision; neither gates a run.
+
+**The repository slug retains the `cobol-check` substring.** The programme requires removal of the upstream marks, and the plan removes them from the Java namespace, the Gradle group, the artifact ID, the product display name, the publisher and the extension identifier. But the repository name itself is settled and alternatives are out of scope, so the substring survives in the clone URL and in every documentation link `INFERENCE` — **no run is blocked by it**, mechanically or otherwise: every identifier the programme actually controls is decided, so the rename proceeds and the substring merely survives in the clone URL and in documentation links; reasoning: nothing in the build, the tests or the golden files reads the repository name. It is carried to the human rather than decided here for the reason that follows, and it is deliberately **not** presented as a gate. Why it cannot be decided unilaterally: The requirement fixes the slug and forbids proposing alternatives while also requiring mark removal. Those two instructions are in mild tension, and resolving it unilaterally would either exceed the scope boundary or silently leave a requirement unmet
+
+**The external COBOL conformance suite.** `FACT` — a differential oracle for interpretation behaviour is obtainable from an external COBOL conformance archive without requiring any proprietary host. `FACT` — GnuCOBOL is documented as passing over 9,700 tests of the NIST COBOL 85 verification suite while claiming conformance to no standard level, and that suite is obtained as an external archive rather than shipped with the compiler. `FACT` — **no run is blocked without it**: Run 1b completes its characterization corpus and golden-file set from the repository's own 15 programs, 41 copybook fixtures and 23 `.cut` suites, and Run 8 enforces its mutation floor against that same corpus. `INFERENCE` — it is therefore an **optional strengthening** of two runs and not a question the programme waits on; reasoning: both runs have complete, in-repo inputs and stated oracles that do not reference it. It is recorded here as a deferred enhancement whose trigger is explicit: **it is adopted only if fetching an external archive is separately permitted, and if it is adopted the run that adopts it states so in its handoff and treats the suite as an additional differential layer rather than as a replacement for the in-repo corpus.** Until then it is assumed unavailable and nothing depends on it. Its enhancement accounting — the runs it would strengthen and the fact that risk **R4** already carries the underlying exposure and its mitigation — is in A11.3 item 1.
+
+### A11.3 Optional enhancements — not blocking, and deliberately not carried as questions
+
+These would each strengthen a run. **None blocks any run from starting, completing or ending green**, so none is a question for the human; each is recorded here so that it is available if the opportunity arises and is not silently forgotten.
+
+| # | Enhancement | Which run it would strengthen, and how | Why it is not blocking | Where the risk of doing without it is carried |
+| --- | --- | --- | --- | --- |
+| **1** | **An external COBOL conformance suite, fetched for differential testing** — carried to the human in A11.2, because whether an external archive may be fetched is a permission question rather than a design one, and recorded here for its enhancement accounting: which run it would strengthen, why it is not blocking, and where the risk of doing without it is carried. `FACT` — GnuCOBOL is documented as passing over 9,700 tests of the NIST COBOL 85 verification suite while claiming conformance to no standard level, and that suite is obtained as an external archive rather than shipped with the compiler | **Run 1b** gains an optional differential layer over the characterization corpus; **Run 8** gains mutation-corpus breadth beyond the 23 in-repo `.cut` suites | Run 1b's oracle is the golden-file set drawn from the repository's own material, and Run 8's floor is measured against that same corpus. Both are fully defined and fully checkable without any external material. The suite would add breadth, not correctness | Risk **R4** (unverifiable mocked resource semantics) already carries the underlying exposure and its mitigation — two reachable sources in a fixed order, everything else `UNKNOWN` and provisional |
+| **2** | **Adoption rather than construction of a COBOL mutation-testing harness.** `FACT` — research established that no off-the-shelf COBOL mutation-testing tool exists; the canonical inventory of COBOL software and tools lists build, CI, unit-testing and debugging tools and no mutation-testing entry | **Run 8** would spend less effort on the harness and more on the generator | ADR-12 already decides that the harness is built in-repo at `src/test/mutation/`, because building it is the only available option rather than a preference. Nothing is blocked; the enhancement is simply unavailable today | ADR-12 records the decision and the four operators; the floor is CI-enforced either way |
+
+`INFERENCE` — both items are *availability* questions rather than *design* questions, which is why neither can block; reasoning: a design question leaves a run unable to decide what to build, whereas an availability question leaves it able to build the smaller thing that is fully specified. Neither run's success oracle references either item.
+
+### A11.4 Answered from evidence, not carried
 
 **Q1 — Why was `archiveFileName` reverted?**
 `FACT` — `[build.gradle:L129]` holds the commented-out line `//    archiveFileName "${productName}-${productVersion}.jar"` immediately above the live `archiveName "${productName}-${productVersion}.jar"` at `[build.gradle:L130]`. `INFERENCE` — the space-call form is the reason: `archiveName` is the legacy string setter, whereas `archiveFileName` is a lazy property, and `archiveFileName "value"` resolves as a call to a method `archiveFileName(String)` that the archive task does not declare, so it fails rather than assigning. The correct forms are `archiveFileName = "value"` or `archiveFileName.set("value")`. Reasoning: the two lines differ only in the property name, so the failure cannot be attributable to the value, and the legacy setter is the one that accepts the space-call form. **This is labelled `INFERENCE`, not `FACT`** — no attempt was made to modify the build script in this planning run, so the mechanical confirmation is assigned to Run 2, which must record the verbatim failure of the space-call form before adopting the assignment form.
@@ -1206,6 +1799,19 @@ The whole task body at `[build.gradle:L205-L239]` moves into `doLast`, which is 
 
 **Q6 — Is the z/OS run worth doing at all?**
 **Answer: yes, last, and structurally only.** Three reasons from evidence. (1) `FACT` — four open issues ask for it: #74, #75, #384 and #390. (2) `FACT` — the current state is worse than unimplemented, it is silently broken: `Launcher.getPlatformSpecificLauncher` initialises `ProcessLauncher launcher = null` at `[.../features/launcher/Launcher.java:L46]` and the `ZOS` arm's construction is commented out at `[:L62]`, so the method returns `null`, while `[config.properties:L206]` leaves `zos.process` empty. `INFERENCE` — a user following the documentation reaches a null launcher rather than a clear refusal; reasoning: nothing in the path reports the unsupported platform. (3) **The run pays for itself on a platform that can actually be tested.** `FACT` — the `OSX` arm is broken identically, with its construction commented out at `[:L58]`; `macos-latest` is in the CI matrix at `[.github/workflows/VerifyAction.yml:L13]`; and `[config.properties:L203]` populates `osx.process` with a value that is unreachable because the launcher is `null` before the key is consulted. `INFERENCE` — so the pluggable-launcher boundary delivers one **falsifiable** improvement (macOS, verifiable in CI) alongside one honestly-labelled unverified one (z/OS); reasoning: CI already runs a macOS leg, so the macOS half has a real oracle. Both branches are documented together at `[.../features/launcher/Launcher.java:L43]`, which reads `NOTE: Currently not supporting OSX or ZOS.` — so the carried claim that the macOS branch is undocumented is **contradicted**; what is undocumented is the user-visible consequence.
+
+---
+
+### A11.5 Disclosed divergences — not questions, but each needs one human action
+
+`INFERENCE` — these are separated from A11.1 because they are not open questions: each is a decision already taken and disclosed, with a specific action a human must perform. Reasoning: filing a settled divergence as a question invites it to be re-litigated, while filing it as compliance hides it — so it is recorded as neither.
+
+| # | What the governing plan requires | What was actually done | Why | Impact if the action is skipped | The human action |
+| --- | --- | --- | --- | --- | --- |
+| **1** | The planning outputs — this document and `upstream-harvest/` — sit outside the repository working tree and are **committed nowhere** | They are committed on the isolated planning branch `blitzy-5cc7044b-36be-4042-9618-a49ed8c86f36`, **and** emitted byte-identical to `/tmp/blitzy/session-output/5cc7044b-36be-4042-9618-a49ed8c86f36/` outside the tree, all twelve files `cmp`-verified | The executing platform publishes a session's output only by committing it on that branch and discards anything uncommitted; erasing it afterwards would require a history rewrite, which is prohibited. Committing nothing would have destroyed the deliverable | Planning artifacts would reach a product branch, which is the outcome the constraint exists to prevent | **Do not merge the planning branch into `Developer` or `main`.** Read this document out of it, keep the harvest, then delete the branch. Full statement in A9.1 |
+| **2** | The upstream marks are removed from the product's identity | Removed from the Java namespace, the Gradle group, the artifact ID, the publisher, the extension ID and the product display name — but the **repository slug retains the `cobol-check` substring**, which this plan is not permitted to propose changing | The slug is fixed by the run's own scope; only the identifiers inside the repository were in play | A residual mark survives in the clone URL and in every issue link, even though nothing the tool ships carries it | Decide whether the slug is acceptable as-is. Carried as blocking question 4 in A11.1 because it is genuinely a judgement call rather than a mechanical step |
+
+`FACT` — divergence 1 is verifiable in one command: `git diff --name-only c79624bd286d5f08f156ccce755bc5d4fffd1909` returns only `PROGRAM-PLAN.md` and paths under `upstream-harvest/`, so the claim that no fork source, build or configuration file was touched is checkable rather than asserted.
 
 ---
 
@@ -1235,7 +1841,7 @@ The thing being decided is small and its blast radius is large, which is why it 
 
 **Why the wiki cannot be the specification, even though it describes exactly this feature.** `FACT` — `INPUT-FILE`, `ON OPEN`, `ON READ`, `DATASET` and `CONDITION` return **zero** occurrences across `Keywords` and `Constants`. `INFERENCE` — the documented syntax has never existed, so "implement what the documentation says" would ship a grammar no user can currently be using while implying continuity with something that was never shipped; reasoning: a keyword absent from the keyword table cannot have been parsed. The documented spellings may still be *chosen* on their merits — they are plausible and they carry no compatibility risk precisely because nothing uses them — but the choice must be made on design grounds and recorded as such, never on the authority of the document.
 
-**Why not adopt the third-party archives' syntax, which already exists and is more complete.** This is the most tempting shortcut available in the whole programme: two archives on a fork contain fourteen classes, design documents and worked examples covering exactly Runs 6 and 7. `INFERENCE` — adopting their syntax means adopting their semantics, and their semantics are unsourced; reasoning: `FACT` — the SQL design document uses only `0`, `100` and `-001` and cites no source at all, and the CICS response type defines 44 constants without referencing the in-repo 76-entry table. `INFERENCE` — a syntax that names conditions the in-repo authority does not contain would force one of two bad outcomes: either ship the 44 unsourced constants as if verified, or ship a syntax whose vocabulary exceeds what the register can mark verified; reasoning: the syntax fixes the vocabulary and the register must then account for every term in it. So the archives inform the design and supply nothing authoritative.
+**Why not adopt the third-party archives' syntax, which already exists and is more complete.** This is the most tempting shortcut available in the whole programme: two archives on a fork contain fourteen classes, design documents and worked examples covering exactly Runs 6 and 7. `INFERENCE` — adopting their syntax means adopting their semantics, and their semantics are unsourced; reasoning: `FACT` — the SQL design document uses only `0`, `100` and `-001` and cites no source at all, and the CICS response type defines 44 constants without referencing the in-repo table's 75 unique conditions. `INFERENCE` — a syntax that names conditions the in-repo authority does not contain would force one of two bad outcomes: either ship the 44 unsourced constants as if verified, or ship a syntax whose vocabulary exceeds what the register can mark verified; reasoning: the syntax fixes the vocabulary and the register must then account for every term in it. So the archives inform the design and supply nothing authoritative.
 
 **The reversibility asymmetry that decides the shape.** New `<TYPE>` values inside the existing `MOCK ... END-MOCK` / `VERIFY ... HAPPENED` grammar are additive: no existing construct changes meaning, and a user's existing `.cut` files are untouched. A new top-level statement family would double the grammar and the verification vocabulary permanently. `INFERENCE` — given that the verification family (`HAPPENED ONCE`, `HAPPENED N TIMES`, `NEVER HAPPENED`) is already the right shape for asserting that a resource interaction occurred, inventing a second family would be adding permanent public API to solve a problem the existing API already solves; reasoning: "was this resource read twice" is the same question as "was this paragraph performed twice".
 
@@ -1250,7 +1856,7 @@ The thing being decided is small and its blast radius is large, which is why it 
 
 `INFERENCE` — separating them is what lets the tool be simultaneously honest and useful; reasoning: the overwhelming majority of the value of a mock is that the code under test takes the branch the developer wanted to exercise, and that is in the verifiable class. Conflating the two would force a choice between shipping nothing and shipping something dishonest.
 
-**Why the source order is fixed rather than "best available".** In-repo authority first, then documented GnuCOBOL `-std=ibm` semantics, then `UNKNOWN`. `INFERENCE` — the ordering exists to prevent a specific failure: a plausible external claim overriding a citable in-repo fact; reasoning: `FACT` — the in-repo table has 76 entries and a third-party artifact has 44, so "most recent source wins" or "most detailed source wins" would both discard the citable authority in favour of the unsourced one.
+**Why the source order is fixed rather than "best available".** In-repo authority first, then documented GnuCOBOL `-std=ibm` semantics, then `UNKNOWN`. `INFERENCE` — the ordering exists to prevent a specific failure: a plausible external claim overriding a citable in-repo fact; reasoning: `FACT` — the in-repo table has 75 unique conditions across 76 insertions and a third-party artifact has 44, so "most recent source wins" or "most detailed source wins" would both discard the citable authority in favour of the unsourced one.
 
 **Why `UNKNOWN` propagates as `BLOCKED-BY` rather than as a footnote.** `INFERENCE` — an `UNKNOWN` that does not block anything gets silently resolved by whoever needs it, from recall; reasoning: an agent implementing a mock needs *some* value, and the path of least resistance is to supply a plausible one. Making it an explicit `BLOCKED-BY` on the consuming run forces the gap to be visible at the moment it matters.
 
@@ -1299,12 +1905,54 @@ cobc --version
 "$JDK8_HOME/bin/java"  -version
 "$JDK11_HOME/bin/java" -version
 "$JDK21_HOME/bin/java" -version
-git config --get core.autocrlf      # must be false
 echo "$COB_CFLAGS"                  # must contain exactly ONE -D_FORTIFY_SOURCE
 JAVA_HOME=$JDK11_HOME ./gradlew --version
 ```
 
-The repository is the working repository; all commits land here. Remotes `origin`, `upstream`, `gm` and `livingmf` are already configured, 21 upstream heads and 211 upstream pull-request head refs are already fetched, and `core.autocrlf` is already `false`. You need add no remote and fetch nothing.
+`core.autocrlf` is deliberately **not** probed in this block: it is clone-local state that a fresh clone does not carry, so it is set and verified in the repository block below rather than asserted before anything has set it. Probing it here would report a spurious failure on a clean clone — the same class of probe error the paragraph above warns about.
+
+**The working repository is `Blitzy-Sandbox/blitzy-cobol-check`.** All commits land here. `openmainframeproject/cobol-check` is the archived research-only upstream and is never a commit target.
+
+**Do not assume any of the following is already true of your clone — verify each, and establish it if it is not.** The planning run observed four remotes, 21 upstream heads, 211 upstream pull-request head refs and `core.autocrlf=false`, but every one of those is **clone-local state that does not travel**: a fresh clone has one remote, no upstream refs, no local `core.autocrlf` setting, and an `origin/HEAD` that points at whatever branch it was cloned on rather than at `Developer`. Run this block, in order, before anything else:
+
+```bash
+# 1. Confirm you are in the right repository. The origin URL must resolve to the fork.
+#    It may legitimately be an on-disk path rather than a github.com URL, and it may embed
+#    a credential -- never echo it into a log, a handoff or a commit message.
+git rev-parse --show-toplevel
+git remote get-url origin | sed -E 's#(https://)[^@]*@#\1<redacted>@#'
+
+# 2. Line-ending translation OFF, repository-locally. Column-significant fixed-format
+#    COBOL is corrupted by translation, and every golden file depends on this.
+git config --local core.autocrlf false
+test "$(git config --get core.autocrlf)" = false || { echo 'FATAL: core.autocrlf is not false'; exit 1; }
+
+# 3. Remotes, added idempotently. `git remote add` fails if the remote exists, so
+#    set-url is used to make the block re-runnable.
+add_remote() { git remote add "$1" "$2" 2>/dev/null || git remote set-url "$1" "$2"; }
+add_remote upstream https://github.com/openmainframeproject/cobol-check.git
+add_remote gm       https://github.com/generalmotors/openmainframeproject-cobol-check.git
+add_remote livingmf https://github.com/Living-Mainframe/cobol-check.git
+git remote -v
+
+# 4. Upstream branches AND every pull-request head ref. The 8 open pull requests are
+#    locked by the archive, so they are re-applied from refs, never merged.
+git fetch upstream '+refs/heads/*:refs/remotes/upstream/*'
+git fetch upstream '+refs/pull/*/head:refs/remotes/upstream/pr/*'
+git fetch gm
+git fetch livingmf
+
+# 5. Prove the fetch worked rather than assuming it.
+git for-each-ref --format='%(refname)' 'refs/remotes/upstream/pr/*' | wc -l   # expect >= 8
+for n in 330 336 337 338 408 409 410 411; do
+  git rev-parse --verify -q "refs/remotes/upstream/pr/$n" >/dev/null \
+    || echo "MISSING pull-request head ref: $n"
+done
+```
+
+**The fork's default branch is `Developer`.** Take that from the captured API metadata — `upstream-harvest/pulls.json` → `repository_metadata.default_branch` — and **not** from `git symbolic-ref refs/remotes/origin/HEAD`, which reports whatever branch your clone was created on and in an agent clone is normally the working branch rather than `Developer`. If your `origin/HEAD` disagrees with `Developer`, that is expected and is not a finding; if the captured metadata disagrees with `Developer`, that **is** a finding — report it.
+
+**If any step above fails, stop and report rather than working around it.** A run that proceeds without the pull-request head refs cannot verify the apply-cleanly status it inherits, and a run that proceeds with line-ending translation on will produce golden files that no other machine reproduces.
 
 **`openmainframeproject/cobol-check` is archived and read-only. Never write to it — no push, no comment, no reopen, no label, no issue edit, under any circumstances.**
 
@@ -1312,6 +1960,7 @@ Two operational hazards, both measured, that will waste your time if you do not 
 
 1. **`./gradlew clean` deletes tracked files.** `build/distributions/cobol-check-0.2.19.zip` and `build/libs/cobol-check-0.2.19.jar` are both **tracked**, and `clean` removes them. `"chmod +x ./approvaltest"` inside the build script also changes a **tracked** file's mode from `100644` to `100755`. Expect a dirty working tree after any build, and restore deliberately rather than committing the churn accidentally.
 2. **Do not pipe Gradle output into `tail`, `head` or `grep`.** The daemon holds the pipe open and your shell will hang. Redirect to a file and read the file.
+3. **Two tracked paths in this repository are inert planning artifacts, not product, and not authority.** `PROGRAM-PLAN.md` and everything under `upstream-harvest/` were committed by the planning run that wrote your prompt. Nothing in the tool reads them, no test references them, and no build task touches them. **Do not modify them, do not delete them, and do not treat either as evidence** — the governing evidence rule is that only source code and observed execution establish behaviour, and where a document and an executed result disagree the executed result wins. That rule applies to `PROGRAM-PLAN.md` itself exactly as it applies to the upstream wiki. Their removal from the working tree is itemized to a later run and is not yours.
 
 ### 2. Carried-forward ground truth, verbatim
 
@@ -1416,24 +2065,35 @@ The mandated test must assert **both** cases: that `compareFiles()` returns a fa
 
 ### 4. Your labels, and both discipline rule sets verbatim
 
+#### Governing constraints and their provenance — read this before the rule sets below
+
+**There are no user-specified rules on this project, and you must not go looking for any.** The rules mechanism was queried and returned exactly:
+
+```text
+No user rules provided.
+```
+
+The project's on-disk rules document is **empty**. There is therefore **no rule to cite by name, none to summarize, and none to invent**. That mechanism is where the full text of every rule *would* live, and on this project it contains nothing.
+
+**The absence is not permission to lower the bar.** Enterprise-standard best practice applies in its place, and this run is held to it: evidence over assertion with a `path:locator` citation behind every claim about existing behaviour · no fabricated version pins — state the constraint a version must satisfy and resolve the pin at execution time, recording it in your handoff · reproducibility as a first-class requirement · the smallest verifiable diff · decide, then record the rejected alternative · documentation is never proof, and where a document and an executed result disagree the executed result wins · supply-chain and licence hygiene as shipping requirements · automation over convention, because anything depending on human memory is a latent defect.
+
+**The provenance distinction that matters operationally, stated because it changes what you should do when you cannot find something.** The dense body of binding constraints this run operates under — the backward-compatibility contract, the "do not touch" set, the two-axis change discipline, the mechanical definition of green, the evidence standard, the environment-authority rule, the four declared non-goals and the scope boundary — are **prompt-level constraints, not user-specified rules**. They are **not retrievable through the rules mechanism**: a session that goes looking for a rules document will find nothing and must not conclude that the constraints do not exist. That is precisely why they are written out in full inside this prompt rather than referenced, and why the duplication in this prompt is deliberate and must not be "optimized" away. **This prompt is self-contained by design: everything binding on you is in it.**
+
+#### Your labels, and both rule sets
+
 **Your labels: `S2·CORR`.**
 
 A run whose two labels are not both stated has no oracle and must not start. Yours are both stated. **Do not collapse the axes**: *which code you may touch* and *whether observable behaviour may change* are independent, and collapsing them produces a run whose scope contradicts its own discipline.
 
-**Permitted-surface rule set, verbatim — all four values, so you can see where `S2` sits:**
+**Both rule sets below are reproduced verbatim from the governing constraint text — character for character, including its American spelling of "behavior", its `·` separators and its parenthesised definitions. They are inside a fenced block so that nothing can reflow or reword them, and so that "verbatim" is mechanically checkable rather than a claim. Do not paraphrase them, do not re-order them, and do not carry a reworded copy into any document you produce.** Both axes are given in full — all four surface values and all three discipline values — so you can see where `S2` and `CORR` sit among them:
 
-- **`S1` non-production** — tests, golden files, corpus, harness, CI.
-- **`S2` peripheral production** — build scripts, wrapper, packaging, dependency declarations, identifiers, file layout, headers; **no** parsing, interpretation or generation logic, and **no** passing-through improvements.
-- **`S3` enumerated core** — named classes and methods on the parse/interpret/generate path, enumerated **before** the run starts; anything outside the enumeration is `S2`-disciplined within that run.
-- **`S4` new code** — new classes and packages isolated from the existing large classes, plus enumerated touches to shared code where unavoidable.
+```text
+Permitted surface: S1 non-production (tests, golden files, corpus, harness, CI) · S2 peripheral production (build scripts, wrapper, packaging, dependency declarations, identifiers, file layout, headers — no parsing, interpretation or generation logic, and no passing-through improvements) · S3 enumerated core (named classes and methods on the parse/interpret/generate path, enumerated before the run starts; anything outside the enumeration is S2-disciplined within that run) · S4 new code (new classes and packages isolated from the existing large classes, plus enumerated touches to shared code where unavoidable)
 
-**Behaviour-discipline rule set, verbatim — all three values, so you can see where `CORR` sits:**
+Behavior discipline: PRES preserving (any observable change is a defect) · CORR corrective (specific changes are the objective, each itemized before the run starts; an unitemized golden-file change is a defect even if it looks like an improvement; may add a config key whose default reproduces current behavior, but no new DSL syntax, CLI flag or output format) · ADD additive (new behavior required, landing behind new syntax and new keys defaulting to current behavior, shipping with tests and documentation in the same change)
+```
 
-- **`PRES` preserving** — any observable change is a defect.
-- **`CORR` corrective** — specific changes are the objective, each itemized before the run starts; an unitemized golden-file change is a defect **even if it looks like an improvement**; may add a config key whose default reproduces current behaviour, but **no** new DSL syntax, CLI flag or output format.
-- **`ADD` additive** — new behaviour required, landing behind new syntax and new keys defaulting to current behaviour, shipping with tests and documentation in the same change.
-
-**Applied to you.** `S2` means the build script and `buildSrc/` are your surface and nothing on the parse/interpret/generate path is — and it explicitly forbids passing-through improvements, so a tidy-up you notice in `build.gradle` while you are in there is out of scope unless it is one of your two itemized changes. `CORR` means your two changes are the objective and anything else observable is a defect. You may **not** add a DSL construct, a CLI flag or an output format. You may add a config key only if its default reproduces current behaviour, and you do not need one.
+**Applied to you — this paragraph is application, not rule text; the verbatim rule text is the fenced block above and nothing outside it.** `S2` means the build script and `buildSrc/` are your surface and nothing on the parse/interpret/generate path is — and it explicitly forbids passing-through improvements, so a tidy-up you notice in `build.gradle` while you are in there is out of scope unless it is one of your two itemized changes. `CORR` means your two changes are the objective and anything else observable is a defect. You may **not** add a DSL construct, a CLI flag or an output format. You may add a config key only if its default reproduces current behaviour, and you do not need one.
 
 **Second disciplines must be declared in advance** with their own oracle. Two *undeclared* disciplines are the defect. If you discover mid-run that you cannot land the repair without a second discipline, **stop and report** rather than proceeding.
 
@@ -1490,8 +2150,15 @@ probe error, never a finding. State whether sourcing succeeded and paste any dev
 Run: 1a — Approval-harness repair
 Labels: S2·CORR
 Second discipline declared in advance: none
-Starting commit hash / Ending commit hash / Tag applied: run-1a-approval-harness-repair
+Starting commit hash:                     <full 40-character SHA — mandatory>
+Ending commit hash:                       <full 40-character SHA — mandatory>
+Tag applied:                              run-1a-approval-harness-repair
 BLOCKED-BY tag started from: none (first run)
+
+All three identity fields above are mandatory and separate, matching the canonical
+template in A10.1.  The tag is not a substitute for either hash: the rollback model
+resolves a checkpoint by hash, and a tag that is later moved or a hash that was never
+recorded both leave this run unrecoverable.
 
 ## 2. Toolchain anchor
 `cobc --version` verbatim, all lines. COB_CFLAGS verbatim (exactly one -D_FORTIFY_SOURCE).
@@ -1589,12 +2256,54 @@ Then verify, and record each verbatim output in your handoff:
 ```bash
 cobc --version
 "$JDK11_HOME/bin/java" -version
-git config --get core.autocrlf      # must be false
 echo "$COB_CFLAGS"                  # must contain exactly ONE -D_FORTIFY_SOURCE
 JAVA_HOME=$JDK11_HOME ./gradlew --version
 ```
 
-The repository is the working repository; all commits land here. Remotes `origin`, `upstream`, `gm` and `livingmf` are already configured, 21 upstream heads and 211 upstream pull-request head refs are already fetched, and `core.autocrlf` is already `false`. You need add no remote and fetch nothing.
+`core.autocrlf` is deliberately **not** probed in this block: it is clone-local state that a fresh clone does not carry, so it is set and verified in the repository block below rather than asserted before anything has set it. Probing it here would report a spurious failure on a clean clone — the same class of probe error the paragraph above warns about.
+
+**The working repository is `Blitzy-Sandbox/blitzy-cobol-check`.** All commits land here. `openmainframeproject/cobol-check` is the archived research-only upstream and is never a commit target.
+
+**Do not assume any of the following is already true of your clone — verify each, and establish it if it is not.** The planning run observed four remotes, 21 upstream heads, 211 upstream pull-request head refs and `core.autocrlf=false`, but every one of those is **clone-local state that does not travel**: a fresh clone has one remote, no upstream refs, no local `core.autocrlf` setting, and an `origin/HEAD` that points at whatever branch it was cloned on rather than at `Developer`. Run this block, in order, before anything else:
+
+```bash
+# 1. Confirm you are in the right repository. The origin URL must resolve to the fork.
+#    It may legitimately be an on-disk path rather than a github.com URL, and it may embed
+#    a credential -- never echo it into a log, a handoff or a commit message.
+git rev-parse --show-toplevel
+git remote get-url origin | sed -E 's#(https://)[^@]*@#\1<redacted>@#'
+
+# 2. Line-ending translation OFF, repository-locally. Column-significant fixed-format
+#    COBOL is corrupted by translation, and every golden file depends on this.
+git config --local core.autocrlf false
+test "$(git config --get core.autocrlf)" = false || { echo 'FATAL: core.autocrlf is not false'; exit 1; }
+
+# 3. Remotes, added idempotently. `git remote add` fails if the remote exists, so
+#    set-url is used to make the block re-runnable.
+add_remote() { git remote add "$1" "$2" 2>/dev/null || git remote set-url "$1" "$2"; }
+add_remote upstream https://github.com/openmainframeproject/cobol-check.git
+add_remote gm       https://github.com/generalmotors/openmainframeproject-cobol-check.git
+add_remote livingmf https://github.com/Living-Mainframe/cobol-check.git
+git remote -v
+
+# 4. Upstream branches AND every pull-request head ref. The 8 open pull requests are
+#    locked by the archive, so they are re-applied from refs, never merged.
+git fetch upstream '+refs/heads/*:refs/remotes/upstream/*'
+git fetch upstream '+refs/pull/*/head:refs/remotes/upstream/pr/*'
+git fetch gm
+git fetch livingmf
+
+# 5. Prove the fetch worked rather than assuming it.
+git for-each-ref --format='%(refname)' 'refs/remotes/upstream/pr/*' | wc -l   # expect >= 8
+for n in 330 336 337 338 408 409 410 411; do
+  git rev-parse --verify -q "refs/remotes/upstream/pr/$n" >/dev/null \
+    || echo "MISSING pull-request head ref: $n"
+done
+```
+
+**The fork's default branch is `Developer`.** Take that from the captured API metadata — `upstream-harvest/pulls.json` → `repository_metadata.default_branch` — and **not** from `git symbolic-ref refs/remotes/origin/HEAD`, which reports whatever branch your clone was created on and in an agent clone is normally the working branch rather than `Developer`. If your `origin/HEAD` disagrees with `Developer`, that is expected and is not a finding; if the captured metadata disagrees with `Developer`, that **is** a finding — report it.
+
+**If any step above fails, stop and report rather than working around it.** A run that proceeds without the pull-request head refs cannot verify the apply-cleanly status it inherits, and a run that proceeds with line-ending translation on will produce golden files that no other machine reproduces.
 
 **`openmainframeproject/cobol-check` is archived and read-only. Never write to it — no push, no comment, no reopen, no label, no issue edit, under any circumstances.**
 
@@ -1602,6 +2311,7 @@ Three operational hazards, all measured:
 
 1. **`./gradlew clean` deletes tracked files.** `build/distributions/cobol-check-0.2.19.zip` and `build/libs/cobol-check-0.2.19.jar` are both **tracked**, and `clean` removes them. The build also changes the file mode of the tracked `approvaltest`, and a harness run changes the mode of the tracked `scripts/linux_gnucobol_run_tests`. Expect a dirty tree and restore deliberately.
 2. **Do not pipe Gradle output into `tail`, `head` or `grep`.** The daemon holds the pipe open and your shell will hang. Redirect to a file and read the file.
+3. **Two tracked paths in this repository are inert planning artifacts, not product, and not authority.** `PROGRAM-PLAN.md` and everything under `upstream-harvest/` were committed by the planning run that wrote your prompt. Nothing in the tool reads them, no test references them, and no build task touches them. **Do not modify them, do not delete them, and do not treat either as evidence** — the governing evidence rule is that only source code and observed execution establish behaviour, and where a document and an executed result disagree the executed result wins. That rule applies to `PROGRAM-PLAN.md` itself exactly as it applies to the upstream wiki. Their removal from the working tree is itemized to a later run and is not yours.
 3. **`clean` does not remove `bin/`, `temp/`, `testruns/` or `actual-output.txt`.** To reproduce a genuinely cold tree, `rm -rf bin temp testruns actual-output.txt` first.
 
 ### 2. MANDATORY FIRST STEP — reconcile against `RUN-1A-HANDOFF.md`
@@ -1638,13 +2348,33 @@ C version "15.2.0"
 **Two environment facts that make golden files non-reproducible if unrecorded. Both are invisible in the repository, and both must be established before any capture.**
 
 1. **`COB_CFLAGS` must carry exactly one `-D_FORTIFY_SOURCE` value.** Debian-family GnuCOBOL packaging defines it twice, the C compiler then emits a redefinition warning on **stderr**, and `ProcessOutputWriter.writeOutPutToConsole()` prints the child's stderr to `System.out` — verified at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L111-L114]`, with `System.out.println(processInput)` at `L112` and `System.out.println(processError)` at `L113`. The warning would therefore be written into `actual-output.txt` and into every golden file you capture. The activation script already exports a de-duplicated value; **verify it and record it verbatim before capturing anything.**
-2. **`core.autocrlf` must be `false`.** The project has line-ending sensitivity in column-significant fixed-format COBOL. It is already set repository-locally; verify it.
+2. **`core.autocrlf` must be `false`.** The project has line-ending sensitivity in column-significant fixed-format COBOL. **Do not assume it is already set.** It is repository-local configuration living in `.git/config`, so it does not survive a fresh clone; the setup block in §1 sets it locally and then asserts the read-back value. If you skipped that block, run it now — a golden file captured with line-ending translation active is wrong in a way no later comparison can detect.
 
-**The build state, measured.** `JAVA_HOME=$JDK11_HOME ./gradlew clean test` reports 457 passed, 0 failed, 0 skipped. `JAVA_HOME=$JDK8_HOME ./gradlew clean test` also reports 457 passed, 0 failed. `JAVA_HOME=$JDK21_HOME ./gradlew clean test` **fails**, with the JUnit XML recording 457 tests and **227 failures** whose signature is `java.lang.IllegalArgumentException: Unsupported class file major version 65`, reached through `org.mockito.internal.creation.bytebuddy.InlineByteBuddyMockMaker.<clinit>` and `net.bytebuddy.agent.ByteBuddyAgent.install`. **The JDK 21 failure is an expected baseline datum. Do not fix it in this run.**
+**The build state, measured.** `JAVA_HOME=$JDK11_HOME ./gradlew clean test` reports 457 passed, 0 failed, 0 skipped. `JAVA_HOME=$JDK8_HOME ./gradlew clean test` also reports 457 passed, 0 failed. `JAVA_HOME=$JDK21_HOME ./gradlew clean test` **fails**, with the JUnit XML recording 457 tests and **227 failures**: **183** carry `java.lang.IllegalArgumentException: Unsupported class file major version 65`, reached through `net.bytebuddy.jar.asm.ClassReader.<init>(ClassReader.java:189)` while Byte Buddy instruments an existing type hierarchy; **36** carry `java.lang.IllegalArgumentException: Unknown Java version: 21` at `net.bytebuddy.ClassFileVersion.ofJavaVersion(ClassFileVersion.java:257)` while a Mockito plugin loads; and **8** carry no `Caused by:` chain. **The JDK 21 failure is an expected baseline datum. Do not fix it in this run.**
 
 **`clean test` does not require `cobc`; only the approval path does.** Verified by running `clean test` with `cobc` removed from `PATH`: `BUILD SUCCESSFUL`, 457 passed, 0 failed. Verified further: `./gradlew clean test` does not run the harness at all, while `./gradlew tasks` does, because `tasks.register(...)` is lazy and listing tasks realizes every task.
 
-**The COBOL corpus, measured.** 15 programs under `src/main/cobol/`: `ALPHA.CBL`, `BIPM012.CBL`, `DB2PROG.cbl`, `DPICNUMBERS.CBL`, `FileCopy.cbl`, `GREETING.CBL`, `LONGLINESANDNUMBERS.CBL`, `MOCK.CBL`, `MOCKPARA.CBL`, `MOCKTEST.CBL`, `NUMBERS.CBL`, `REPLAC.CBL`, `RETURNCODE.CBL`, `TESTNESTED.CBL`, `WS88LEVEL.CBL` — note the mixed extension casing. 40 copybook fixtures under `src/main/cobol/copy/`. 16 suite directories under `src/test/cobol/` holding 23 `.cut`/`.CUT` files, carrying 22 `TestSuite` declarations and 159 `TestCase` declarations in total. 14 fixtures under `testfiles/`. 5 files under `copybooks/`. Plus `examples/SAMPLEJC` and `testsuites/testsuite1`, `testsuites/testsuite2`.
+**The COBOL corpus, measured.** 15 programs under `src/main/cobol/`: `ALPHA.CBL`, `BIPM012.CBL`, `DB2PROG.cbl`, `DPICNUMBERS.CBL`, `FileCopy.cbl`, `GREETING.CBL`, `LONGLINESANDNUMBERS.CBL`, `MOCK.CBL`, `MOCKPARA.CBL`, `MOCKTEST.CBL`, `NUMBERS.CBL`, `REPLAC.CBL`, `RETURNCODE.CBL`, `TESTNESTED.CBL`, `WS88LEVEL.CBL` — note the mixed extension casing. **41** copybook fixtures under `src/main/cobol/copy/` — 39 directly in the directory plus 2 under `src/main/cobol/copy/Outrec/`, so a non-recursive listing sees 39 and a recursive one 41. 16 suite directories under `src/test/cobol/` holding 23 `.cut`/`.CUT` files, carrying **25** `TestSuite` declarations and **171** `TestCase` declarations in total. 14 fixtures under `testfiles/`. 5 files under `copybooks/`. Plus `examples/SAMPLEJC` and `testsuites/testsuite1`, `testsuites/testsuite2`.
+
+**Three of those counts contradict the ground truth carried into earlier revisions of this plan, which recorded the copy-fixture count as 40, the `TestSuite` count as 22 and the `TestCase` count as 159. All three were wrong; do not restore them.** Re-measure them yourself before relying on them; these four commands produce 41, 23, 25 and 171 respectively:
+
+```bash
+git ls-files 'src/main/cobol/copy/' | wc -l
+git ls-files 'src/test/cobol/' | grep -icE '\.cut$'
+python3 - <<'EOF'
+import re, subprocess
+fs=[f for f in subprocess.run("git ls-files 'src/test/cobol/'",shell=True,
+    capture_output=True,text=True).stdout.split() if f.lower().endswith('.cut')]
+s=c=0
+for f in fs:
+    t=open(f,encoding='utf-8',errors='replace').read()
+    t=re.sub(r'"[^"\n]*"','""',t); t=re.sub(r"'[^'\n]*'","''",t)   # NOT optional
+    s+=len(re.findall(r'testsuite',t,re.I)); c+=len(re.findall(r'testcase',t,re.I))
+print('TestSuite',s,'TestCase',c)
+EOF
+```
+
+Stripping quoted string literals before counting is **not optional**: a raw token count returns 176 `TestCase`, because the word appears inside a quoted test-case name at `[src/test/cobol/MOCKTEST/BeforeAfterTest.cut:L19,L23,L27,L99,L102]`. If your own count disagrees with 41 / 23 / 25 / 171, **stop and report** rather than proceeding — the corpus has changed under you and every golden file derived from it is suspect.
 
 **The coverage gap, quantified.** The approval harness invokes exactly six programs — `NUMBERS`, `ALPHA`, `GREETING`, `FILECOPY`, `MOCKTEST`, `DPICNUMBERS` — at `[approvaltest:L1-L6]`. **Nine of the fifteen programs are exercised end-to-end by nothing**: `BIPM012`, `DB2PROG`, `LONGLINESANDNUMBERS`, `MOCK`, `MOCKPARA`, `REPLAC`, `RETURNCODE`, `TESTNESTED`, `WS88LEVEL`. Widening the harness to cover them is the single highest-leverage risk reduction available in the whole programme, and it costs nothing in production risk because this run touches no production code.
 
@@ -1702,30 +2432,44 @@ The rename itself happens in a **later** run. You are building the filter **befo
 - **Dependency versions, the Gradle wrapper version, the Sonar plugin and configuration file, the JaCoCo configuration and its coverage-gate exclusions, and the `fatJar` `configurations.compile` line.** All owned by a later run.
 - **The identity rename itself.** You encode the token pairs in the filter; you do not rename anything.
 - **Committed binaries and junk files.** Do not delete any, and do not rewrite history: no `git filter-repo`, no `git rebase --root`, no force-push.
-- **The build script**, except as strictly required to register your new tests and wire the golden-file comparison. Do not migrate the wrapper, do not change the dependency block, and do not "improve" anything you notice.
+- **The build script, beyond the narrow secondary surface declared in §5.** You may add declarations that register your new tests and wire the golden-file comparison, and declare the corpus and golden directories as task inputs and outputs. You may **not** migrate the wrapper, change the dependency block, touch the Sonar or JaCoCo configuration, touch the `fatJar` assembly, alter any pre-existing task's behaviour, delete any existing line, or "improve" anything you notice. Every one of those belongs to a later run.
 
 ### 5. Your labels, and both discipline rule sets verbatim
 
+#### Governing constraints and their provenance — read this before the rule sets below
+
+**There are no user-specified rules on this project, and you must not go looking for any.** The rules mechanism was queried and returned exactly:
+
+```text
+No user rules provided.
+```
+
+The project's on-disk rules document is **empty**. There is therefore **no rule to cite by name, none to summarize, and none to invent**. That mechanism is where the full text of every rule *would* live, and on this project it contains nothing.
+
+**The absence is not permission to lower the bar.** Enterprise-standard best practice applies in its place, and this run is held to it: evidence over assertion with a `path:locator` citation behind every claim about existing behaviour · no fabricated version pins — state the constraint a version must satisfy and resolve the pin at execution time, recording it in your handoff · reproducibility as a first-class requirement · the smallest verifiable diff · decide, then record the rejected alternative · documentation is never proof, and where a document and an executed result disagree the executed result wins · supply-chain and licence hygiene as shipping requirements · automation over convention, because anything depending on human memory is a latent defect.
+
+**The provenance distinction that matters operationally, stated because it changes what you should do when you cannot find something.** The dense body of binding constraints this run operates under — the backward-compatibility contract, the "do not touch" set, the two-axis change discipline, the mechanical definition of green, the evidence standard, the environment-authority rule, the four declared non-goals and the scope boundary — are **prompt-level constraints, not user-specified rules**. They are **not retrievable through the rules mechanism**: a session that goes looking for a rules document will find nothing and must not conclude that the constraints do not exist. That is precisely why they are written out in full inside this prompt rather than referenced, and why the duplication in this prompt is deliberate and must not be "optimized" away. **This prompt is self-contained by design: everything binding on you is in it.**
+
+#### Your labels, and both rule sets
+
 **Your labels: `S1·PRES`.**
+**Your labels: `S1·PRES`, plus a declared secondary surface `S2·PRES`.**
 
-A run whose two labels are not both stated has no oracle and must not start. Yours are both stated. **Do not collapse the axes**: *which code you may touch* and *whether observable behaviour may change* are independent, and collapsing them produces a run whose scope contradicts its own discipline.
+A run whose two labels are not both stated has no oracle and must not start. Yours are both stated, on both surfaces. **Do not collapse the axes**: *which code you may touch* and *whether observable behaviour may change* are independent, and collapsing them produces a run whose scope contradicts its own discipline.
 
-**Permitted-surface rule set, verbatim — all four values, so you can see where `S1` sits:**
+**Both rule sets below are reproduced verbatim from the governing constraint text — character for character, including its American spelling of "behavior", its `·` separators and its parenthesised definitions. They are inside a fenced block so that nothing can reflow or reword them, and so that "verbatim" is mechanically checkable rather than a claim. Do not paraphrase them, do not re-order them, and do not carry a reworded copy into any document you produce.** Both axes are given in full — all four surface values and all three discipline values — so you can see where `S1` and `PRES` sit among them:
 
-- **`S1` non-production** — tests, golden files, corpus, harness, CI.
-- **`S2` peripheral production** — build scripts, wrapper, packaging, dependency declarations, identifiers, file layout, headers; **no** parsing, interpretation or generation logic, and **no** passing-through improvements.
-- **`S3` enumerated core** — named classes and methods on the parse/interpret/generate path, enumerated **before** the run starts; anything outside the enumeration is `S2`-disciplined within that run.
-- **`S4` new code** — new classes and packages isolated from the existing large classes, plus enumerated touches to shared code where unavoidable.
+```text
+Permitted surface: S1 non-production (tests, golden files, corpus, harness, CI) · S2 peripheral production (build scripts, wrapper, packaging, dependency declarations, identifiers, file layout, headers — no parsing, interpretation or generation logic, and no passing-through improvements) · S3 enumerated core (named classes and methods on the parse/interpret/generate path, enumerated before the run starts; anything outside the enumeration is S2-disciplined within that run) · S4 new code (new classes and packages isolated from the existing large classes, plus enumerated touches to shared code where unavoidable)
 
-**Behaviour-discipline rule set, verbatim — all three values, so you can see where `PRES` sits:**
+Behavior discipline: PRES preserving (any observable change is a defect) · CORR corrective (specific changes are the objective, each itemized before the run starts; an unitemized golden-file change is a defect even if it looks like an improvement; may add a config key whose default reproduces current behavior, but no new DSL syntax, CLI flag or output format) · ADD additive (new behavior required, landing behind new syntax and new keys defaulting to current behavior, shipping with tests and documentation in the same change)
+```
 
-- **`PRES` preserving** — any observable change is a defect.
-- **`CORR` corrective** — specific changes are the objective, each itemized before the run starts; an unitemized golden-file change is a defect **even if it looks like an improvement**; may add a config key whose default reproduces current behaviour, but **no** new DSL syntax, CLI flag or output format.
-- **`ADD` additive** — new behaviour required, landing behind new syntax and new keys defaulting to current behaviour, shipping with tests and documentation in the same change.
+**Applied to you — this paragraph is application, not rule text; the verbatim rule text is the fenced block above and nothing outside it.** `S1` means tests, golden files, the corpus, the harness and CI configuration are your surface, and no production code is — and `S1` explicitly includes CI, which is why the GnuCOBOL install step is yours. `PRES` means **any observable change in the tool's behaviour is a defect**. You are capturing behaviour, not improving it. The one apparent exception is not one: regenerating `expected-output.txt` changes a *recorded expectation* to match the tool's *actual current* behaviour, which is the definition of characterization rather than a behaviour change — and the previous run's handoff records the measured delta so the regeneration is auditable.
 
-**Applied to you.** `S1` means tests, golden files, the corpus, the harness and CI configuration are your surface, and no production code is — and `S1` explicitly includes CI, which is why the GnuCOBOL install step is yours. `PRES` means **any observable change in the tool's behaviour is a defect**. You are capturing behaviour, not improving it. The one apparent exception is not one: regenerating `expected-output.txt` changes a *recorded expectation* to match the tool's *actual current* behaviour, which is the definition of characterization rather than a behaviour change — and the previous run's handoff records the measured delta so the regeneration is auditable.
+**Declared secondary surface: `S2·PRES`, bounded to the build script and nothing else.** `INFERENCE` — the primary surface cannot cover this run's own work, so declaring it is mandatory rather than optional; reasoning: registering a new test source set and wiring a golden-file comparison task requires editing `build.gradle`, which the surface vocabulary classifies as `S2` peripheral production, and a run that edits `S2` under an `S1`-only label has no oracle for the edit it actually made. **Exactly what the secondary surface permits:** adding declarations to `build.gradle` that (i) register the new test classes and the golden-file comparison so Gradle executes them, and (ii) declare the corpus and golden directories as task inputs and outputs. **Nothing else.** No dependency change, no wrapper change, no plugin change, no JaCoCo or Sonar change, no `fatJar` change, no modification to the behaviour of any pre-existing task. **Its own oracle, checkable independently of the `S1` oracle:** `git diff <start-commit> HEAD -- build.gradle` consists solely of added lines registering test execution or golden comparison — no line is deleted and no pre-existing line is modified — and `./gradlew tasks` reports every task that existed at the start commit with the same name and the same `dependsOn` set. The discipline stays `PRES` on both surfaces: the build script gains the ability to run new tests and gains nothing else.
 
-**Second disciplines must be declared in advance** with their own oracle. Two *undeclared* disciplines are the defect. If you find you cannot capture behaviour without changing it, **stop and report** rather than proceeding.
+**Second disciplines must be declared in advance** with their own oracle. Two *undeclared* disciplines are the defect. Note that your secondary declaration is a second **surface**, not a second discipline: the discipline is `PRES` on both, so nothing about the tool's observable behaviour may change on either. If you find you cannot capture behaviour without changing it, **stop and report** rather than proceeding.
 
 **The safety net, and what you may not do to it.** 457 tests across 34 named test classes with zero failures. Existing assertions must **not** be weakened, deleted, disabled, renamed or narrowed to make a change pass. The single mechanism by which a pre-existing assertion may change is an itemized corrective task naming the class and method **before** the run starts, recording old and new expected values in the handoff with the motivating issue number. **You have no such itemized task. Therefore you may not alter any pre-existing assertion at all.** You may add as many new ones as you need.
 
@@ -1753,11 +2497,13 @@ A run whose two labels are not both stated has no oracle and must not start. You
 | 4 | The comparison genuinely matches | `JAVA_HOME=$JDK11_HOME ./gradlew clean approvalTest` | **PASSES**, against a baseline regenerated from real output |
 | 5 | Golden coverage is complete | Compare the golden-file set against the 15 programs in `src/main/cobol/` | **Every** corpus program has a golden file; any program deliberately excluded is named with its reason |
 | 6 | The normalization filter is correct **and** minimal | Run the filter's own test | It normalizes all four token pairs in both directions **and** provably alters nothing else |
-| 7 | CI can compile COBOL | Inspect `.github/workflows/VerifyAction.yml`; then `grep -rniE 'cobc\|gnucobol' .github/` | The search now **returns matches**, and the approval leg has a compiler available on every matrix leg where that is achievable; any leg where it is not is named with its reason |
+| 7 | CI can compile COBOL | Inspect `.github/workflows/VerifyAction.yml`; then `grep -rni -e cobc -e gnucobol .github/`. **Use the two `-e` forms exactly as written.** A single alternation pattern is unsafe here: a `\|` copied out of this table is a *literal pipe* to `grep -E`, so the search silently returns nothing and the criterion appears to fail even after a correct workflow change | The search now **returns matches**, and the approval leg has a compiler available on every matrix leg where that is achievable; any leg where it is not is named with its reason |
 | 8 | Determinism proven, not assumed | Run the full capture **twice** on a cold tree (`rm -rf bin temp testruns actual-output.txt` between runs) and diff the two outputs | **Byte-identical after normalization.** If not, you have an unrecorded environment dependency — find it before proceeding |
 | 9 | No production code changed | `git diff --name-status <start-commit> HEAD -- src/main/java` | **Empty** |
 | 10 | No pre-existing assertion altered | Review `git diff <start-commit> HEAD -- src/test/java` and confirm every change is an addition | No modification, rename, deletion or narrowing of any existing test |
 | 11 | Copybook provenance recorded | Read your own handoff | Every corpus program exercising `DFHEIBLK.CPY` or `SQLCA.cpy` is named, with the corpus-local path it takes the file from |
+| 12 | The declared `S2·PRES` secondary surface stayed inside its bounds | `git diff <start-commit> HEAD -- build.gradle` | **Added lines only** — every added line registers test execution, wires the golden comparison, or declares a corpus/golden directory as a task input or output. **No deleted line and no modified pre-existing line.** No dependency, wrapper, plugin, JaCoCo, Sonar or `fatJar` change appears in the diff |
+| 13 | No pre-existing task's behaviour changed | `./gradlew tasks` at the start commit and at HEAD, compared | Every task present at the start commit is still present with the **same name** and the **same `dependsOn` set**. New tasks may be added; none may be renamed, removed or re-wired |
 
 **Criterion 8 deserves emphasis.** A golden-file set that has never been shown to reproduce is not a safety net; it is a source of false alarms that later runs will learn to ignore. Running the capture twice is the cheapest available proof that the three environment facts — the compiler version, the single `-D_FORTIFY_SOURCE`, and `core.autocrlf=false` — are sufficient. If the two captures differ, the difference **is** the finding.
 
@@ -1779,9 +2525,21 @@ probe error, never a finding. State whether sourcing succeeded and paste any dev
 ## 1. Identity
 Run: 1b — Characterization safety net
 Labels: S1·PRES
-Second discipline declared in advance: none
-Starting commit hash / Ending commit hash / Tag applied: run-1b-characterization
+Declared secondary surface: S2·PRES, bounded to build.gradle test-registration and
+  golden-comparison wiring only.  Paste `git diff <start> HEAD -- build.gradle` here and
+  confirm it consists solely of ADDED registration lines with no deletion and no
+  modification of a pre-existing line.  Confirm `./gradlew tasks` still reports every
+  pre-existing task with the same name and the same dependsOn set.
+Second discipline declared in advance: none (the discipline is PRES on both surfaces)
+Starting commit hash:                     <full 40-character SHA — mandatory>
+Ending commit hash:                       <full 40-character SHA — mandatory>
+Tag applied:                              run-1b-characterization
 BLOCKED-BY tag started from: run-1a-approval-harness-repair
+
+All three identity fields above are mandatory and separate, matching the canonical
+template in A10.1.  The tag is not a substitute for either hash: the next run's entry
+precondition is that its starting commit IS this run's ending commit, and that check is
+unperformable if the ending hash was never written down.
 
 ## 2. Toolchain anchor   <-- THIS IS AN ENTRY PRECONDITION FOR THE NEXT RUN
 `cobc --version` verbatim, all lines.
@@ -1836,9 +2594,12 @@ Expected: NONE. Paste the evidence that `src/test/java` contains additions only.
 
 ## 11. Anything contradicting the carried-forward ground truth
 State it explicitly with evidence. Do not quietly correct it. Specifically confirm or refute:
-the 15/40/16/23/14/5 corpus counts; the 22 TestSuite and 159 TestCase declarations; that
+the 15/41/16/23/14/5 corpus counts; the 25 TestSuite and 171 TestCase declarations; that
 nine named programs are unexercised; that FDTEST01.CUT is an orphan; that `-p FILECOPY`
 raises an unhandled FileNotFoundException; the +98 line / +14,933 byte staleness.
+Three of those figures were themselves corrections to the ground truth supplied to this
+run — 41 copy fixtures rather than 40, 25 TestSuite rather than 22, 171 TestCase rather
+than 159 — so report your own measurement of each rather than echoing the list.
 
 ## 12. Performance envelope
 Command used; suite count; `clean test` measured before and after; elapsed per suite;
@@ -1869,7 +2630,7 @@ defect you characterized but did not repair, naming the golden file that records
 - **No outreach of any kind.** Do not contact anyone and do not propose doing so. This is a solo-maintainer project with agent support; optimize for automation and minimal human decision points.
 - **Label every claim in your handoff** `FACT` with a `file:line` or a retrieved URL, `INFERENCE` with its reasoning stated, or `UNKNOWN`. Never silently upgrade an inference to a fact.
 - **Verify and record; never install.** If a tool is present, use it and record its version. If it is absent, record the omission and label the dependent finding `UNKNOWN`. Self-provisioning is not available to you. This applies to `cobc`, to archive tools, to vulnerability scanners and to history-rewriting tools alike.
-- **Do not populate any SQLCODE, FILE STATUS or RESP table from recall**, and do not request access to proprietary vendor documentation. The reachable sources, in order, are the in-repo authority first — `EIBResponseTable` with its 76 condition entries at `[src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java:L43-L118]`, and `src/main/cobol/copy/SQLCA.cpy` for the SQLCA field layout — and documented GnuCOBOL `-std=ibm` semantics second, labelled `INFERENCE`. Anything covered by neither is `UNKNOWN`. This is the failure mode this project ranks above every other quality attribute.
+- **Do not populate any SQLCODE, FILE STATUS or RESP table from recall**, and do not request access to proprietary vendor documentation. The reachable sources, in order, are the in-repo authority first — `EIBResponseTable` with its 76 `put(` insertions resolving to 75 unique condition names at `[src/main/java/org/openmainframeproject/cobolcheck/services/cobolLogic/EIBResponseTable.java:L43-L118]`, and `src/main/cobol/copy/SQLCA.cpy` for the SQLCA field layout — and documented GnuCOBOL `-std=ibm` semantics second, labelled `INFERENCE`. Anything covered by neither is `UNKNOWN`. This is the failure mode this project ranks above every other quality attribute.
 - **Read the source rather than the documentation.** Where a document and an executed result disagree, the executed result wins. The upstream wiki documents mock syntax that does not exist: `INPUT-FILE`, `ON OPEN`, `ON READ`, `DATASET` and `CONDITION` return **zero** occurrences across `Keywords` and `Constants`. Treat every document, including this prompt, as claims to be checked against the code.
 
 ---
@@ -1885,13 +2646,15 @@ What each sketch fixes is the **scope, the labels, the entry precondition, the o
 
 ---
 
-## C1 — Run 2: Modernization · `S2·PRES`
+## C1 — Run 2: Modernization · `S2·PRES` **plus one declared second discipline `S2·CORR`**
 
-**Scope.** The Gradle wrapper from 6.9.4 to the 9.x line, with the daemon on JDK 17 or higher and a toolchain pinning *shipped* bytecode to Java 8, preserving `[build.gradle:L67-L68]`'s `VERSION_1_8` intent by a different mechanism. The dependency changes: drop `org.mockito:mockito-inline` rather than bumping it, because the JDK 21 failure originates in `InlineByteBuddyMockMaker`'s static initializer and the inline mock maker became the default in the successor line; move `org.mockito:mockito-junit-jupiter` from 3.6.28 onto the 5.x line at a version whose bundled Byte Buddy accepts class-file version 65; align the JUnit skew between `[build.gradle:L102]`'s 5.6.1 and `[build.gradle:L103]`'s 5.7.0 by adopting a JUnit bill-of-materials rather than pinning two numbers that drift apart again; bump `jacoco`'s `toolVersion` from `[build.gradle:L27]`'s 0.8.6 to a release supporting the chosen toolchain's class-file version; remove `javax.xml.bind:jaxb-api:2.3.0` at `[build.gradle:L99]` as redundant against the Jakarta artifact and as the copyleft-adjacent artifact that actually ships; and replace `configurations.compile` with `runtimeClasspath` at `[build.gradle:L138]`, which is proven necessary because `./gradlew dependencies --configuration compile` reports `No dependencies`. **Version pins for the Mockito line, the JUnit bill-of-materials and JaCoCo are deliberately not stated here** — only the constraint each must satisfy — and the resolved pin must be recorded in the handoff rather than guessed. The one pin that *is* fixed, because it was verified: the SBOM plugin `org.cyclonedx.bom` at **3.2.4**, configured with `includeConfigs = ["runtimeClasspath"]` and outputs at `build/reports/sbom/bom.json` and `build/reports/sbom/bom.xml`. Remove all three Sonar surfaces — the plugin at `[build.gradle:L5]`, the configuration block at `[build.gradle:L17-L24]`, and the standalone `sonar-project.properties` — plus the `sonar-scan` script. Wire the coverage gate into `check`, which it currently is not. Apply the identity rename by idempotent script. Delete the committed binaries and junk by ordinary commit, **retaining `expected-output.txt` and `gradle/wrapper/gradle-wrapper.jar`**. Fill the governance stubs rather than deleting them: `THIRD_PARTY.md` (15 bytes, "Not applicable."), `SECURITY.md` (23 bytes, "TBD"), `notice.txt` (1 byte), `FAQ.md` (31 bytes) and `COMMITTERS.md` (50 bytes), and supply the root licence file that two vendored typing files reference and which does not exist. Create `docs/adr/` from nothing, since no `doc`, `docs`, `wiki` or `adr` directory exists anywhere. Write the first release workflow from nothing, since `.github/` holds exactly three files and none publishes a JAR. Unify the three npm manifests, move development dependencies out of the server manifest's `dependencies` block, raise the root `engines.vscode` floor to match the client's actual `^1.52.0`, commit lockfiles by removing `[.gitignore:L28]`, and replace `npm install` with `npm ci`.
+**Scope.** The Gradle wrapper from 6.9.4 to the 9.x line, with the daemon on JDK 17 or higher and a toolchain pinning *shipped* bytecode to Java 8, preserving `[build.gradle:L67-L68]`'s `VERSION_1_8` intent by a different mechanism. The dependency changes: drop `org.mockito:mockito-inline` rather than bumping it, because the JDK 21 failure originates in `InlineByteBuddyMockMaker`'s static initializer and the inline mock maker became the default in the successor line; move `org.mockito:mockito-junit-jupiter` from 3.6.28 onto the 5.x line at a version whose bundled Byte Buddy accepts class-file version 65; align the JUnit skew between `[build.gradle:L102]`'s 5.6.1 and `[build.gradle:L103]`'s 5.7.0 by adopting a JUnit bill-of-materials rather than pinning two numbers that drift apart again; bump `jacoco`'s `toolVersion` from `[build.gradle:L27]`'s 0.8.6 to a release supporting the chosen toolchain's class-file version; remove `javax.xml.bind:jaxb-api:2.3.0` at `[build.gradle:L99]` as redundant against the Jakarta artifact and as the copyleft-adjacent artifact **declared and resolved** on the production runtime classpath — note that it is **not** currently packaged into any committed archive, because `configurations.compile` resolves empty, so the removal is dependency and licence hygiene rather than the removal of shipped bytecode, and it becomes hygiene that *matters* the moment the `runtimeClasspath` change below starts packaging the runtime closure; and replace `configurations.compile` with `runtimeClasspath` at `[build.gradle:L138]`, which is proven necessary because `./gradlew dependencies --configuration compile` reports `No dependencies`. **Version pins for the Mockito line, the JUnit bill-of-materials and JaCoCo are deliberately not stated here** — only the constraint each must satisfy — and the resolved pin must be recorded in the handoff rather than guessed. The one pin that *is* fixed, because it was verified: the SBOM plugin `org.cyclonedx.bom` at **3.2.4**, configured with `includeConfigs = ["runtimeClasspath"]` and outputs at `build/reports/sbom/bom.json` and `build/reports/sbom/bom.xml`. Remove all three Sonar surfaces — the plugin at `[build.gradle:L5]`, the configuration block at `[build.gradle:L17-L24]`, and the standalone `sonar-project.properties` — plus the `sonar-scan` script. Wire the coverage gate into `check`, which it currently is not. Apply the identity rename by idempotent script. Delete the committed binaries and junk by ordinary commit, **retaining `expected-output.txt` and `gradle/wrapper/gradle-wrapper.jar`**. Delete the planning run's own artifacts from the working tree in that same ordinary commit — `PROGRAM-PLAN.md` and all twelve paths under `upstream-harvest/`, which are tracked contrary to the planning run's own boundary and which nothing in the product reads — **gated on written human confirmation that they are preserved outside this repository**, since the upstream capture is one-time and non-repeatable; absent that confirmation this half alone defers and the rest of the run proceeds. Fill the governance stubs rather than deleting them: `THIRD_PARTY.md` (15 bytes, "Not applicable."), `SECURITY.md` (23 bytes, "TBD"), `notice.txt` (1 byte), `FAQ.md` (31 bytes) and `COMMITTERS.md` (50 bytes), and supply the root licence file that two vendored typing files reference and which does not exist. Create the architecture-decision-record tree from nothing at the fixed path `docs/adr/NNNN-<slug>.md`, since no `doc`, `docs`, `wiki` or `adr` directory exists anywhere. Write the first release workflow from nothing, since `.github/` holds exactly three files and none publishes a JAR. Unify the three npm manifests, move development dependencies out of the server manifest's `dependencies` block, raise the root `engines.vscode` floor to match the client's actual `^1.52.0`, commit lockfiles by removing `[.gitignore:L28]`, and replace `npm install` with `npm ci` — **manifest hygiene only, none of which changes what the extension does.** No upstream pull request is adopted in this run: the canonical routing matrix in Deliverable A #5 assigns **zero** of the eight here, and in particular pull request #336's infinite-loop timeout goes to Run 3, because a run that terminates instead of hanging is an observable change and this run's discipline forbids one.
 
-**Entry precondition.** Tag `run-1b-characterization`; full green; the golden-file set byte-stable under the normalization filter; and `cobc --version` re-read at the start **matching** the anchor in `RUN-1B-HANDOFF.md`.
+**Labels.** `S2·PRES` for the run as a whole, **plus one declared second discipline `S2·CORR`** covering exactly one itemized observable change and nothing else: replacing `configurations.compile` with `runtimeClasspath` at `[build.gradle:L138]`, whose consequence is that the `xml` result format stops throwing. Both label pairs are stated before the run starts, which is what makes the second discipline declared rather than a defect; two undeclared disciplines are the defect. The `html` repair, the exit-status repair, the copybook resolution change and every parsing fix stay in Run 3.
 
-**Success oracle.** Every golden file **byte-identical** after normalization. `clean test` green at 457 or more with zero failures on **both** the JDK 11 and JDK 21 legs — the JDK 21 leg turning green is this run's headline result. The harness compiles and executes a non-zero, stated number of COBOL programs. The fat jar contains the runtime dependencies. The SBOM exists at the two named paths. A release workflow produces a downloadable JAR. The rename commit's diff over `src/test/` is mechanically verifiable as matching only the rename script's token set.
+**Entry precondition.** Tag `run-1b-characterization`; full green; the golden-file set byte-stable under the normalization filter; `cobc --version` re-read at the start **matching** the anchor in `RUN-1B-HANDOFF.md`; and a Marketplace publisher personal access token issued under the new `blitzy` publisher, exposed as the correctly-spelled repository secret **`VSCE_PAT`** and superseding the misspelled `VS_CODE_EXTENTION_SECRET` at `[.github/workflows/DeployExtension.yml:L27]` — read only at publish time, never at Gradle configuration time. It is the only human provisioning step in the programme. If it is absent, the extension-publish job is skipped with an explicit message naming it and the handoff records the extension as unpublished; the JAR release is **not** gated on it.
+
+**Success oracle — two oracles, because the run carries two disciplines.** **For the `S2·PRES` primary:** every golden file **byte-identical** after normalization. `clean test` green at 457 or more with zero failures on **both** the JDK 11 and JDK 21 legs — the JDK 21 leg turning green is this run's headline result. The harness compiles and executes a non-zero, stated number of COBOL programs. The fat jar contains the runtime dependencies. The SBOM exists at the two named paths. A release workflow produces a downloadable JAR. The rename commit's diff over `src/test/` is mechanically verifiable as matching only the rename script's token set. **For the extension publish, which depends on the one credential this programme adds:** the workflow reads `VSCE_PAT` — the replacement for the misspelled `VS_CODE_EXTENTION_SECRET` at `[.github/workflows/DeployExtension.yml:L27]` — at **publish time only**, never at Gradle configuration time, and a publish under the new publisher identity resolves to the new extension ID. **If the secret is absent the run does not fail and does not silently appear to succeed:** the publish step is skipped, the skip is stated explicitly in the handoff's public-surface section as an unshipped surface, and every other exit criterion still has to hold — so the run can complete without the credential, but never while pretending the extension was published. **For the declared `S2·CORR` secondary, scoped to the `xml` result format and to `[build.gradle:L138]` alone, three conditions all required:** (i) the fat jar contains the runtime dependencies, asserted as an archive **entry-name set** comparison before and after rather than by timestamp; (ii) a new test drives the `xml` result format end to end on a corpus program, is **required to fail before the change and pass after it**, and asserts a well-formed JUnit XML document with exit 0 and no throw, where before the change it raised `NoClassDefFoundError: javax/xml/bind/JAXBContext` from `[.../Formatter/Formats/XMLFormat.java:L19]`; (iii) the format name, the style enumeration values and the emitted schema are unchanged; `XMLFormat.java` is not edited at all; the `txt`/`directOutput` default path is byte-identical; and the archive entry-name set is compared before and after so the newly packaged runtime closure is an observed addition. The `html` format is **not** repaired here — it throws for a different reason and belongs to Run 3.
 
 **Primary risk.** A packaging change that golden files cannot see. Golden files record the tool's *output*, not the *artifact's* structure, so a jar that silently stops shipping a resource would pass every golden comparison. The mitigation is an explicit archive-entry assertion: the entry **name set** before and after must be compared, as distinct from entry timestamps, which will legitimately change. This matters because the archives are currently non-reproducible in exactly that way — 13 of 200 entries differ from a rebuild by timestamp alone.
 
@@ -1901,15 +2664,28 @@ What each sketch fixes is the **scope, the labels, the entry precondition, the o
 
 ---
 
-## C2 — Run 3: Defect correction and upstream pull-request adoption · `S3·CORR`
+## C2 — Run 3: Defect correction and upstream pull-request adoption · `S3·CORR` plus a declared `S2·CORR` and `S1·CORR`
 
-**Scope.** Seven itemized behaviour corrections, each declared before the run starts, plus adoption of the eight upstream pull requests with author attribution preserved. The corrections: the exit-status repair, introducing a new distinct nonzero code; the `html` output format, repaired by data-transfer-object wiring rather than by any dependency change, because `[.../Formatter/Formats/HTMLFormat.java:L19]`'s `instanceof String` test raises `IncompatibleClassChangeError` at `[:L26-L27]` deliberately; `COPY ... REPLACING`; informational output leaking past a disabled log level; the unhandled crash when a test glob matches no suite; the `-p FILECOPY` case-resolution failure together with the structural non-equivalence of the two approval harnesses; and making the working-storage `EXEC SQL INCLUDE` platform branch express its intent. Adoption: **#408, #409 and #411 apply cleanly** and are adopted, #408 minus its committed `testruns/testResults.txt`. **#337 and #410 are superseded**, with their fixtures harvested so coverage is not lost. **#330 is not adopted as authored** — its intent is re-implemented, expanding **in place** and leaving `ExpanderTest` intact, honouring both review objections. **#336's intent** is re-applied on the current extension manifests.
+**Scope.** **Nine** itemized behaviour corrections, each declared before the run starts, plus the **seven** upstream pull requests the canonical routing matrix in Deliverable A #5 assigns to this run, with author attribution preserved. The corrections: the exit-status repair, introducing a new distinct nonzero code; the `html` output format, repaired by data-transfer-object wiring rather than by any dependency change, because `[.../Formatter/Formats/HTMLFormat.java:L19]`'s `instanceof String` test raises `IncompatibleClassChangeError` at `[:L26-L27]` deliberately; `COPY ... REPLACING`; informational output leaking past a disabled log level; the unhandled crash when a test glob matches no suite; the `-p FILECOPY` case-resolution failure together with the structural non-equivalence of the two approval harnesses; making the working-storage `EXEC SQL INCLUDE` platform branch express its intent; **(h) the extension's unbounded run loop**, adopting #336's configurable timeout and closing issue #287, which is peripheral-surface within this run and declared as such; and **(i) one pre-existing assertion change**, the only one in the programme's first three runs — `MessagesTest.it_retrieves_a_message_with_substitution_values`, whose transcribed English expected value becomes the same message resolved from its bundle key, motivating issue #127. Adoption, reproducing the canonical routing matrix exactly and accounting for all eight pull requests so none goes missing:
 
-**Labels.** `S3·CORR`, with the enumerated surface fully package-qualified in the run's own prompt.
+| PR | Owning run | Disposition |
+| --- | --- | --- |
+| **#338** | **Run 1a, not this run** | Superseded by the approval-harness repair; its central change is already in the fork and insufficient alone |
+| **#336** | Run 3 | Intent re-applied on the extension manifests as Run 2 leaves them, as an itemized behaviour correction — a run that terminates instead of hanging is observable, which Run 2's preserving discipline forbids. Closes #287 |
+| **#330** | Run 3 | Not adopted as authored; intent re-implemented, expanding **in place** and leaving `ExpanderTest` intact, honouring both review objections |
+| **#337** | Run 3 | Superseded by #408; fixture and any uncovered test case harvested, neither the jar edit nor the `InterpreterController` churn taken |
+| **#408** | Run 3 | Adopted, minus its committed `testruns/testResults.txt`. Closes #335 |
+| **#409** | Run 3 | Adopted. Closes #339, advances #306 and #151 |
+| **#410** | Run 3 | Superseded by #411 for the code; `FileCopy.cbl` and `FSTEST.cpy` fixtures harvested |
+| **#411** | Run 3 | Adopted under a golden file. Advances #206 |
+
+So this run owns **seven** of the eight; only #338 belongs elsewhere, superseded by Run 1a whose repair is its entire substance.
+
+**Labels.** `S3·CORR` for the enumerated core, fully package-qualified in the run's own prompt, plus two declared out-of-enumeration touches: **`S2·CORR`** for `vs-code-extension/**` (correction (h)) and **`S1·CORR`** for the one test source carrying correction (i). Neither is discovered mid-run; both are declared here because work outside an `S3` enumeration is preserving by default and may be corrective only where a defect must genuinely be fixed to land the run.
 
 **Entry precondition.** Tag `run-2-modernization`; full green; golden files byte-stable; anchor matches.
 
-**Success oracle.** Every itemized correction has a test that fails before and passes after. **Every** golden-file change is itemized in advance; an unitemized change is a defect even if it looks like an improvement. `clean test` green with zero failures. The harness compiles and executes a non-zero, stated number of COBOL programs. `src/test/cobol/RETURNCODE/ReturnCode-4.cut` now produces a distinct nonzero **process** exit code — the oracle that already exists in the repository, exercised by nothing today. Per-pull-request disposition recorded with its evidence.
+**Success oracle.** Every itemized correction has a test that fails before and passes after. **Every** golden-file change is itemized in advance; an unitemized change is a defect even if it looks like an improvement. `clean test` green with zero failures. The harness compiles and executes a non-zero, stated number of COBOL programs. `src/test/cobol/RETURNCODE/ReturnCode-4.cut` now produces a distinct nonzero **process** exit code — the oracle that already exists in the repository, exercised by nothing today. Per-pull-request disposition recorded with its evidence. **For the declared `S2·CORR` extension touch:** a run that would previously not terminate now terminates at the configured timeout with a diagnostic naming it, the timeout is a new key whose default reproduces current behaviour for any run that completes, and no other extension behaviour changes. **For the declared `S1·CORR` assertion touch:** exactly one assertion changes, in the named class and method; the handoff §10 table carries its old value, its new value and issue #127; and `git diff <start-commit> HEAD -- src/test/java` shows no other modification, rename, deletion or narrowing.
 
 **Primary risk.** The `COPY ... REPLACING` repair spreading beyond its enumeration. The defect has two halves in two files — hardcoded token positions at `[.../features/interpreter/LineRepository.java:L110-L113]` behind a suspect `||` at `L111-L112` where either `REPLACING` or `BY` alone satisfies the guard, and a regex `replaceAll` at `[.../features/interpreter/CopybookExpander.java:L72]` and `[:L79]` that treats pseudo-text as a regular expression. The mitigation is to reuse the tokenizer that already exists rather than write a parser: `services/cobolLogic/replace/` holds six classes with `LEADING`/`TRAILING` and multi-pair support, backed by five test classes, and it is live on the generation path. **Established from its own javadoc rather than assumed: it implements the COBOL `REPLACE` *statement*, not `COPY ... REPLACING`.** The two directives share identical pseudo-text lexis, which is what makes reuse sound — but the distinction must stay explicit in the run's prompt so nobody assumes a drop-in fit. A secondary risk: `LineRepositoryTest.java` is an 18-line empty shell with zero test methods, so one of the two files being repaired has no existing coverage at all.
 
@@ -1929,7 +2705,9 @@ What each sketch fixes is the **scope, the labels, the entry precondition, the o
 
 **Primary risk.** Silently normalising the structural asymmetry in emission site 2. It iterates `reader.getCurrentStatement()` at `L161` but tests `endsInPeriod(reader.getCurrentLine())` at `L164`, and its `return true` at `L168` sits **outside** the `PROCEDURE_DIVISION` guard at `L163`, so it reports "stubbed" while emitting nothing. Both properties determine which lines reach emission, so changing either moves golden files — and this run's whole oracle is that none move. The asymmetry looks like a defect and the temptation to fix it in passing is the single most likely way this run fails.
 
-**Key open question.** Is the strategy keyed by statement kind — batch I/O, `CALL`, `EXEC SQL`, `EXEC CICS` — or by a mock registration looked up per statement? The three later runs consume whichever is chosen, so it must be settled here and recorded in the handoff, not rediscovered three times.
+**Settled by ADR-02, not reopened here.** The strategy is keyed by **statement kind** — batch file I/O, `CALL`, `EXEC SQL`, `EXEC CICS` — because the predicate already discriminates exactly those and nothing else, so keying on them is a pure refactor; a mock-registration lookup was considered and rejected, because it would make the interpreter consult the mock repository at a point where it does not today, inside the one run whose whole oracle is that no golden file moves. This run **implements** that decision and records it in its handoff §6; it does not revisit it.
+
+**Key open question.** How does a strategy, once selected by statement kind, choose among several registered mocks of that *same* kind at run time — by resource name, by signature, by declaration order, or through the existing scope rules that already let a local mock override a global one? This is a question strictly *inside* one strategy rather than about the seam, so it neither affects nor reopens ADR-02. It is settled by the first resource-mocking run and inherited by the other two, and this run's job is only to ensure the seam hands the strategy enough context — the matched statement and its kind — for any of those four answers to remain implementable later.
 
 **ADRs implemented.** ADR-02 (the `StubStrategy` seam), ADR-01 (retain the precompiler model, since this is the run most tempted to violate it), ADR-06 in part (the boundary the generator will later respect).
 
@@ -1937,27 +2715,27 @@ What each sketch fixes is the **scope, the labels, the entry precondition, the o
 
 ## C4 — Run 5: File I/O and VSAM mocking · `S4·ADD`
 
-**Scope.** A new package for file and VSAM mock types, consuming the strategy seam from the preceding run and registering a `FILE`-typed strategy so a stubbed batch I/O verb dispatches to a mock instead of emitting `CONTINUE`. New `.cut` syntax added **additively** as a new `<TYPE>` value inside the existing `MOCK <TYPE> ... END-MOCK` grammar, reusing the existing verification family unchanged. New configuration keys default to current behaviour. Tests and documentation ship in the same change. The runtime data layout is not invented: `[src/main/resources/org/openmainframeproject/cobolcheck/copybooks/CCHECKWS.CPY:L96]` already declares `==UT==MOCK-FILE VALUE 'FILE'` and `[:L104]` already declares the `==UT==MOCK-FILE-DATA REDEFINES` overlay.
+**Scope.** A new package for file and VSAM mock types, consuming the strategy seam from the preceding run and registering a `FILE`-typed strategy so a stubbed batch I/O verb dispatches to a mock instead of emitting `CONTINUE`. New `.cut` syntax added **additively** as a new `<TYPE>` value inside the existing `MOCK <TYPE> ... END-MOCK` grammar, reusing the existing verification family unchanged. New configuration keys default to current behaviour. Tests and documentation ship in the same change. **Output surface, declared rather than implied:** if this run adds the first `provisional` register entry it also introduces the opt-in key `test.results.annotate.provisional`, default `false`, together with the annotation schema fixed in A7.5 and golden files for **both** settings — the `false` set must match the inherited golden files byte for byte, and the `true` set is new files rather than modified ones. If the key already exists it is reused unchanged and only the `true`-setting golden files grow. The runtime data layout is not invented: `[src/main/resources/org/openmainframeproject/cobolcheck/copybooks/CCHECKWS.CPY:L96]` already declares `==UT==MOCK-FILE VALUE 'FILE'` and `[:L104]` already declares the `==UT==MOCK-FILE-DATA REDEFINES` overlay.
 
 **Entry precondition.** Tag `run-4-stub-mock-architecture`; full green; anchor matches.
 
-**Success oracle.** A corpus program whose read loop **terminates** under a mocked file — proven by a suite that fails or hangs without the mock and passes with it. That is the falsifiable core: today a stubbed `READ` becomes `CONTINUE`, so a read loop cannot reach end-of-file and either never terminates or terminates for the wrong reason. All pre-existing golden files byte-identical. `clean test` green. Executed program count stated. The verified/provisional register updated with only what the corpus demonstrates.
+**Success oracle.** With `test.results.annotate.provisional` at its `false` default, **all pre-existing golden files byte-identical** — the annotation must not be observable to a user who has not opted in. Then: a corpus program whose read loop **terminates** under a mocked file — proven by a suite that fails or hangs without the mock and passes with it. That is the falsifiable core: today a stubbed `READ` becomes `CONTINUE`, so a read loop cannot reach end-of-file and either never terminates or terminates for the wrong reason. All pre-existing golden files byte-identical. `clean test` green. Executed program count stated. The verified/provisional register updated with only what the corpus demonstrates.
 
-**Primary risk.** Shipping `FILE STATUS` values that no reachable source establishes. No in-repo table of file-status values exists — unlike CICS conditions, which have 76 tabulated entries. So every status value beyond what a corpus program actually exercises is `UNKNOWN` and the affected behaviour ships **provisional**. Populating them from recall is the failure this programme ranks above all others.
+**Primary risk.** Shipping `FILE STATUS` values that no reachable source establishes. No in-repo table of file-status values exists — unlike CICS conditions, which have 75 unique tabulated names across 76 insertions. So every status value beyond what a corpus program actually exercises is `UNKNOWN` and the affected behaviour ships **provisional**. Populating them from recall is the failure this programme ranks above all others.
 
 **Key open question.** How does a mocked file interact with the `FD` and file-section handling that a changelog entry claims was already repaired? The characterization run's golden files are the evidence, not the changelog.
 
-**ADRs implemented.** ADR-03 (additive mock syntax keyed to the shipped typed slots), ADR-04 (correctness assurance with the register), ADR-02 (consumes the seam).
+**ADRs implemented.** ADR-03 (additive mock syntax keyed to the shipped typed slots), ADR-04 (correctness assurance with the register), ADR-02 (consumes the seam — and, as the **first** resource-mocking run, **settles the intra-strategy question C3 defers to it**: how a strategy selected by statement kind chooses among several registered mocks of that same kind. Whatever it decides — resource name, signature, declaration order, or the existing scope rules — is recorded in this run's handoff §6 as a decision Runs 6 and 7 inherit rather than re-litigate. It does not reopen ADR-02's keying, which is settled).
 
 ---
 
 ## C5 — Run 6: SQL and DB2 mocking · `S4·ADD`
 
-**Scope.** A new package for SQL mock types, registering a `SQL`-typed strategy for `EXEC SQL` statements — including **multi-line** ones, which reach emission site 2 of the seam. Support for asserting `SQLCODE`, populating SQLCA fields, and a cursor fetch sequence. Additive syntax and additive configuration keys only. `[.../CCHECKWS.CPY:L99]` already declares `==UT==MOCK-SQL VALUE 'SQL'` and `[:L115]` the `==UT==MOCK-SQL-DATA REDEFINES` overlay, so the data layout is honoured rather than invented.
+**Scope.** A new package for SQL mock types, registering a `SQL`-typed strategy for `EXEC SQL` statements — including **multi-line** ones, which reach emission site 2 of the seam. Support for asserting `SQLCODE`, populating SQLCA fields, and a cursor fetch sequence. Additive syntax and additive configuration keys only. **Output surface, declared rather than implied:** if this run adds the first `provisional` register entry it also introduces the opt-in key `test.results.annotate.provisional`, default `false`, together with the annotation schema fixed in A7.5 and golden files for **both** settings — the `false` set must match the inherited golden files byte for byte, and the `true` set is new files rather than modified ones. If the key already exists it is reused unchanged and only the `true`-setting golden files grow. `[src/main/resources/org/openmainframeproject/cobolcheck/copybooks/CCHECKWS.CPY:L99]` already declares `==UT==MOCK-SQL VALUE 'SQL'` and `[:L115]` the `==UT==MOCK-SQL-DATA REDEFINES` overlay, so the data layout is honoured rather than invented. **The full path is load-bearing:** two `CCHECKWS.CPY` files are tracked, they are **not** identical (md5 `09dd62ab27c658e67ec5a7510e7222dc` against `1a4f5941a2ce738326e3404da516ed2a`), and the same line number resolves to different content in each. `[copybooks/CCHECKWS.CPY:L99]` is `10  ==UT==MOCK-PARA-DATA REDEFINES ==UT==MOCK-DATA.` — a `PARA` overlay, not the `SQL` condition — so an abbreviated citation resolved against the legacy tree contradicts this prose. Only the packaged resource above is the shipped, classpath-loaded copy.
 
 **Entry precondition.** Tag `run-5-file-io-vsam-mock`; full green; anchor matches.
 
-**Success oracle.** A corpus program on the live `SQLCA.cpy` resolution path asserting a mocked `SQLCODE` and a cursor fetch sequence. `DB2PROG` is the natural subject: `[src/main/cobol/DB2PROG.cbl:L12]` is `EXEC SQL INCLUDE SQLCA  END-EXEC.` and `[:L13]` is `EXEC SQL INCLUDE TEXEM  END-EXEC.`, and it is exercised end-to-end by nothing today. All pre-existing golden files byte-identical. `clean test` green. Executed program count stated. Register updated.
+**Success oracle.** With `test.results.annotate.provisional` at its `false` default, all pre-existing golden files byte-identical. Then: a corpus program on the live `SQLCA.cpy` resolution path asserting a mocked `SQLCODE` and a cursor fetch sequence. `DB2PROG` is the natural subject: `[src/main/cobol/DB2PROG.cbl:L12]` is `EXEC SQL INCLUDE SQLCA  END-EXEC.` and `[:L13]` is `EXEC SQL INCLUDE TEXEM  END-EXEC.`, and it is exercised end-to-end by nothing today. All pre-existing golden files byte-identical. `clean test` green. Executed program count stated. Register updated.
 
 **Primary risk.** Fabricated `SQLCODE` semantics. `src/main/cobol/copy/SQLCA.cpy` is 24 lines carrying the **field layout only** — `SQLCAID`, `SQLCABC`, `SQLCODE PIC S9(9) USAGE BINARY VALUE 0`, `SQLERRM` with `SQLERRML` and `SQLERRMC`, and `SQLERRP` — and **no value semantics whatsoever**. So the run inherits an explicit `BLOCKED-BY` on `SQLCODE` values, and every value beyond what the corpus exercises is `UNKNOWN` with the affected behaviour shipped **provisional**. The specific temptation to refuse: a third-party archive on a fork contains a complete-looking SQL mock implementation with a 16,152-byte design document — which uses only the literals `0`, `100` and `-001` and **cites no source at all**. It is design input, never authority.
 
@@ -1969,15 +2747,15 @@ What each sketch fixes is the **scope, the labels, the entry precondition, the o
 
 ## C6 — Run 7: CICS mocking · `S4·ADD`
 
-**Scope.** A new package for CICS mock types, registering a `CICS`-typed strategy for `EXEC CICS` statements including multi-line ones, and **wiring the dead condition table**. `org.openmainframeproject.cobolcheck.services.cobolLogic.EIBResponseTable` holds exactly **76** condition entries at `[.../services/cobolLogic/EIBResponseTable.java:L43-L118]` and is referenced nowhere in `src/main/java` outside its own two files — its only external reference is a test class. `[.../CCHECKWS.CPY:L98]` already declares `==UT==MOCK-CICS VALUE 'CICS'` and `[:L110]` the `==UT==MOCK-CICS-DATA REDEFINES` overlay, itself carrying `==UT==MOCK-CICS-KEYWORDS-KEY PIC X(806)` at `[:L111]`. Additive syntax and keys only.
+**Scope.** A new package for CICS mock types, registering a `CICS`-typed strategy for `EXEC CICS` statements including multi-line ones, and **wiring the dead condition table**. `org.openmainframeproject.cobolcheck.services.cobolLogic.EIBResponseTable` performs exactly **76** `put(` insertions at `[.../services/cobolLogic/EIBResponseTable.java:L43-L118]` resolving to **75 unique condition names** — `LENGERR` is inserted twice, at `[:L51]` and `[:L84]` — and is referenced nowhere in `src/main/java` outside its own two files, its only external reference being a test class. **Resolving that duplicate is an itemized part of this run and a precondition of calling the table complete**; see the ADR-04 register entry. `[src/main/resources/org/openmainframeproject/cobolcheck/copybooks/CCHECKWS.CPY:L98]` already declares `==UT==MOCK-CICS VALUE 'CICS'` and `[:L110]` the `==UT==MOCK-CICS-DATA REDEFINES` overlay, itself carrying `==UT==MOCK-CICS-KEYWORDS-KEY PIC X(806)` at `[:L111]`. **Cite the full path, never the basename:** two `CCHECKWS.CPY` files are tracked and their contents diverge, and `[copybooks/CCHECKWS.CPY:L98]` is `15  ==UT==MOCK-CICS-KEYWORDS-KEY PIC X(806).` — the `806`-byte key field inside the overlay, not the `88`-level `==UT==MOCK-CICS` condition this run keys its strategy on. The two are a plausible-looking eleven lines apart, which is exactly how an abbreviated citation misleads. Additive syntax and keys only. **Output surface, declared rather than implied:** if this run adds the first `provisional` register entry it also introduces the opt-in key `test.results.annotate.provisional`, default `false`, together with the annotation schema fixed in A7.5 and golden files for **both** settings — the `false` set must match the inherited golden files byte for byte, and the `true` set is new files rather than modified ones. If the key already exists it is reused unchanged and only the `true`-setting golden files grow.
 
 **Entry precondition.** Tag `run-6-sql-db2-mock`; full green; anchor matches.
 
-**Success oracle.** A corpus program asserting a mocked CICS condition resolved **through** `EIBResponseTable` — so the oracle proves the dead code is now live, not merely that a mock fired. All pre-existing golden files byte-identical. `clean test` green. Executed program count stated. Register updated.
+**Success oracle.** With `test.results.annotate.provisional` at its `false` default, all pre-existing golden files byte-identical. Then: a corpus program asserting a mocked CICS condition resolved **through** `EIBResponseTable` — so the oracle proves the dead code is now live, not merely that a mock fired. All pre-existing golden files byte-identical. `clean test` green. Executed program count stated. Register updated.
 
-**Primary risk.** The lookup miss presenting as success. `EIBResponseTable.lookup(String)` at `[.../services/cobolLogic/EIBResponseTable.java:L130-L133]` returns a **zero-filled** `EIBResponseCodes` when a condition name is not found. Wired as-is, every unrecognized or misspelled condition would look like a normal completion — a silent wrong answer, which is the exact shape of the risk this programme ranks first. Making the miss explicit is a mandatory part of this run and a register entry in its own right. A second, related temptation to refuse: a third-party archive on a fork defines a CICS response type with **44** enum constants that does not reference the in-repo 76-entry table at all. Adopting it would both shrink and contradict the only citable authority available.
+**Primary risk.** The lookup miss presenting as success. `EIBResponseTable.lookup(String)` at `[.../services/cobolLogic/EIBResponseTable.java:L130-L133]` returns a **zero-filled** `EIBResponseCodes` when a condition name is not found. Wired as-is, every unrecognized or misspelled condition would look like a normal completion — a silent wrong answer, which is the exact shape of the risk this programme ranks first. Making the miss explicit is a mandatory part of this run and a register entry in its own right. A second, related temptation to refuse: a third-party archive on a fork defines a CICS response type with **44** enum constants that does not reference the in-repo table's 75 unique conditions at all. Adopting it would both shrink and contradict the only citable authority available.
 
-**Key open question.** Which of the 76 tabulated conditions are reachable at all under a GnuCOBOL-only target, and which are structurally present but unexercisable? The answer partitions the register between `verified` and `provisional`, and it cannot be settled before the corpus program exists.
+**Key open question.** Which of the 75 uniquely tabulated conditions are reachable at all under a GnuCOBOL-only target, and which are structurally present but unexercisable? The answer partitions the register between `verified` and `provisional`, and it cannot be settled before the corpus program exists.
 
 **ADRs implemented.** ADR-03, ADR-04, ADR-02.
 
@@ -1985,11 +2763,11 @@ What each sketch fixes is the **scope, the labels, the entry precondition, the o
 
 ## C7 — Run 8: Test generation at scale · `S4·ADD`
 
-**Scope.** A generator in its own package, deliberately bounded away from the three largest existing classes, consuming COBOL source and emitting `.cut` suites as text. It does not merge, interpret or launch; it reads the parse contract and the numeric-field metadata through an explicit read-only contract. Plus the mutation harness built **in-repo** at `src/test/mutation/`, with four operators — **statement deletion, comparison-operator inversion, condition negation, literal substitution** — and a **70%** mutation-score floor **enforced in CI** against the characterization corpus. The harness is built rather than adopted because no off-the-shelf COBOL mutation-testing tool exists; that is the only option, not a preference. All four operators are line-level transformations on column-addressable fixed-format source.
+**Scope.** A generator in its own package at the fixed path `src/main/java/io/blitzy/cbltest/generator/`, deliberately bounded away from the three largest existing classes, consuming COBOL source and emitting `.cut` suites as text. It does not merge, interpret or launch; it reads the parse contract and the numeric-field metadata through an explicit read-only contract. **Invoked by one new additive command-line flag that dispatches directly into the generator package and bypasses the `Initializer` → `Generator` → `CobolTestRunner` chain**, per ADR-06 — the shared touch is one entry in the option string at `[.../services/Constants.java:L27-L28]`, one branch in `Initializer.run()` beside the existing `help`/`version` branches, one dispatch branch in `Main.main`, and one help-text line; `ArgumentHandler` itself is not modified. Generation and precompilation are mutually exclusive modes. Plus the mutation harness built **in-repo** at `src/test/mutation/`, with four operators — **statement deletion, comparison-operator inversion, condition negation, literal substitution** — and a **70%** mutation-score floor **enforced in CI** against the characterization corpus. The harness is built rather than adopted because no off-the-shelf COBOL mutation-testing tool exists; that is the only option, not a preference. All four operators are line-level transformations on column-addressable fixed-format source.
 
 **Entry precondition.** Tag `run-7-cics-mock`; full green; anchor matches.
 
-**Success oracle.** Generated suites for a stated set of corpus programs achieve a mutation score of **70% or more**, enforced by a CI check that fails below the floor. All pre-existing golden files byte-identical. `clean test` green with zero failures. Executed program count stated. The performance envelope reported with its suite count, its command, and both the pre-change and post-change `clean test` measurements — an envelope without a measurement method is unfalsifiable.
+**Success oracle.** Generated suites for a stated set of corpus programs achieve a mutation score of **70% or more**, enforced by a CI check that fails below the floor. All pre-existing golden files byte-identical **with the new flag absent**, which is the whole compatibility claim. **With the flag present, a test asserts the merge, interpret and launch path is not entered** — neither `Generator.prepareAndRunMerge` nor `CobolTestRunner.run` is invoked — which turns ADR-06's boundary into a measurement rather than an intention. `--help` output gains exactly one documented line, checked against the golden help text. `clean test` green with zero failures. Executed program count stated. The performance envelope reported with its suite count, its command, and both the pre-change and post-change `clean test` measurements — an envelope without a measurement method is unfalsifiable.
 
 **Primary risk.** Generating suites that execute code without asserting anything about it. That scores full coverage and detects no fault, which is why the gate is mutation-based rather than coverage-based. The repository already demonstrates the pathology at project level: a coverage gate is defined at `[build.gradle:L30-L60]` with a 13-entry exclusion list that excludes generation-path classes, and it is **not wired into `check`** at all. A second risk specific to this run: the generator reads numeric-field metadata, and a misclassified numeric field silently switches an `EXPECT` from numeric to alphanumeric comparison — a live defect class with an open issue and an upstream pull request both attesting it. The boundary must therefore be an explicit contract the generation tests exercise directly, never shared mutable state.
 

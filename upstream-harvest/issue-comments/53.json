@@ -1,5 +1,7 @@
 {
   "_capture": {
+    "envelope_schema": "../capture-envelope.schema.json",
+    "envelope_schema_version": "1.0.0",
     "repository": "openmainframeproject/cobol-check",
     "issue_number": 53,
     "captured_at_utc": "2026-08-14T05:16:01Z",
@@ -11,34 +13,55 @@
     },
     "calls": [
       {
+        "family": "rate_limit",
         "url": "https://api.github.com/rate_limit",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 5000,
         "x_ratelimit_reset": 1786688161,
+        "paginated": false,
         "link_next": null,
-        "records_returned": null
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue_comments",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/53/comments?per_page=100",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4961,
         "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 0
+        "records_returned": 0,
+        "records_persisted": 0,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue_comments",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/53",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4960,
         "x_ratelimit_reset": 1786684750,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 1,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       }
     ],
     "record_counts": {
@@ -52,7 +75,9 @@
       "jq": "present: /usr/bin/jq",
       "gh": "absent",
       "git": "git version 2.51.0",
-      "os_release": "Ubuntu 25.10"
+      "os_release": "Ubuntu 25.10",
+      "capture_driver": "python3 urllib.request (standard library only)",
+      "nothing_installed": true
     },
     "failures": [],
     "notes": [
@@ -71,7 +96,9 @@
       "FACT: the retrieved title and labels quoted above are consistent with the carried-forward characterization of #53 as localization work.",
       "FACT: `review_rules` returns exactly \"No user rules provided.\", so no user-specified rule governs this artifact; it was produced to enterprise-standard best practice instead, and the absence of rules was not treated as licence to lower the bar.",
       "FACT: every entry in `_capture.calls` records method \"GET\"; no POST, PATCH, PUT or DELETE request was issued, and no comment, reaction, label, assignment, reopen or edit was attempted against the archived read-only repository openmainframeproject/cobol-check."
-    ]
+    ],
+    "omissions": [],
+    "audit_status": "COMPLETE"
   },
   "issue_comments": [],
   "issue": {

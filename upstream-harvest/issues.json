@@ -1,5 +1,7 @@
 {
   "_capture": {
+    "envelope_schema": "capture-envelope.schema.json",
+    "envelope_schema_version": "1.0.0",
     "repository": "openmainframeproject/cobol-check",
     "captured_at_utc": "2026-08-14T04:57:59Z",
     "authenticated": true,
@@ -10,44 +12,76 @@
     },
     "calls": [
       {
+        "family": "rate_limit",
         "url": "https://api.github.com/rate_limit",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 5000,
         "x_ratelimit_reset": 1786687078,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 0
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "COMPLETE",
+        "unknown_fields": [],
+        "purpose": "authentication gate read before harvesting"
       },
       {
+        "family": "rate_limit",
         "url": "https://api.github.com/rate_limit",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 60,
         "x_ratelimit_remaining": 58,
         "x_ratelimit_reset": 1786685888,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 0
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "COMPLETE",
+        "unknown_fields": [],
+        "purpose": "deliberate unauthenticated control against the same URL, to prove the credential was honoured"
       },
       {
+        "family": "repository",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4984,
         "x_ratelimit_reset": 1786684750,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 0
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "not_retained",
+        "response_body_location": null,
+        "record_status": "PARTIAL",
+        "unknown_fields": [],
+        "purpose": "repository-metadata corroboration probe",
+        "evidence": "FACT - the response was observed (HTTP status and rate-limit headers recorded here) but its body is not persisted in this artifact; only the fields quoted in _capture.notes survive. Not reconstructed, and not substituted from any other artifact. See _capture.omissions."
       },
       {
+        "family": "issues_list",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues?state=open&per_page=100",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4983,
         "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 53
+        "records_returned": 53,
+        "records_persisted": 53,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issues",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       }
     ],
     "record_counts": {
@@ -57,18 +91,43 @@
       "aap_expected_open_issues": 45,
       "corroborates_expected": true
     },
-    "tooling": "python3 3.13.7 (urllib.request, json - standard library only); curl 8.14.1 present and used only for out-of-band reachability checks, not for the capture. The GitHub CLI (gh) is ABSENT from this image and was not used. jq IS present (jq-1.8.1) but was NOT used; the file-level instruction for this artifact stated jq was absent, which direct verification contradicts - recorded here rather than repeated. Nothing was installed or self-provisioned to produce this capture.",
+    "tooling": {
+      "capture_driver": "python3 urllib.request (standard library only; no third-party packages)",
+      "python3_version_observed": "Python 3.13.7",
+      "curl_version_observed": "curl 8.14.1",
+      "curl_used_for_capture": false,
+      "jq_present": true,
+      "jq_version_observed": "jq-1.8.1",
+      "jq_used": false,
+      "gh_present": false,
+      "gh_used": false,
+      "nothing_installed": true,
+      "provenance_note": "python3 3.13.7 (urllib.request, json - standard library only); curl 8.14.1 present and used only for out-of-band reachability checks, not for the capture. The GitHub CLI (gh) is ABSENT from this image and was not used. jq IS present (jq-1.8.1) but was NOT used; the file-level instruction for this artifact stated jq was absent, which direct verification contradicts - recorded here rather than repeated. Nothing was installed or self-provisioned to produce this capture."
+    },
     "failures": [],
     "notes": [
-      "The GitHub /issues endpoint returns BOTH issues and pull requests; entries carrying a 'pull_request' key are pull requests. Every entry returned is persisted verbatim and unfiltered, so record_counts reports the raw total and the total excluding pull-request entries separately.",
-      "calls[1] is a deliberate UNAUTHENTICATED control GET to the same /rate_limit URL as calls[0]; it observed x-ratelimit-limit=60 (remaining=58) against calls[0]'s 5000. The two entries are distinguishable by their x_ratelimit_limit values. The control exists because an exhausted unauthenticated quota returns empty response bodies rather than errors, which would make a truncated capture indistinguishable from a complete one; _capture.authenticated is therefore derived from the observed limit and not from the mere presence of a credential in the process environment.",
-      "calls[2] is a repository-metadata GET issued solely to corroborate capture completeness from a second independent source. It observed full_name=openmainframeproject/cobol-check, archived=true, disabled=false, has_issues=true, default_branch=Developer, open_issues_count=53. GitHub's open_issues_count counts open pull requests as well as open issues, so the expected cross-check is against entries_total rather than against issues_excluding_pull_requests: 53 == 53, which independently corroborates that no page of the capture was lost.",
-      "Pagination: per_page=100 was sent explicitly because the endpoint's default page size is 30, and Link rel=\"next\" was followed to exhaustion; 1 issue-listing request(s) were issued and the final one reported link_next=null.",
-      "calls[] lists every HTTP request issued while producing this artifact, in the order issued. The three pre-flight entries (calls[0], calls[1], calls[2]) returned no issue records and therefore carry records_returned=0, so the sum of records_returned across calls[] equals len(issues) exactly.",
-      "Method: python3 urllib.request from the standard library, with the credential read from the process environment and injected as a request header. curl was deliberately not used for the authenticated calls because a credential passed via `curl -H` appears in argv, which /proc exposes. No response was fetched with `curl -i` and no request used --fail, so no header text was spliced into any captured body and no error body was discarded. Every request method was GET; the upstream repository is archived and read-only and was not written to in any way.",
-      "Target repository was hard-pinned to openmainframeproject/cobol-check. This matters because the fork's own documentation points at two different upstreams: README.md:38, GOVERNANCE.md:15 and SUPPORT.md:4,8,12 link to the former maintainer's personal fork neopragma/cobol-check, while README.md:55 and vs-code-extension/package.json:18,50 attest openmainframeproject/cobol-check as the issue tracker. The latter is the repository captured here.",
-      "Repository metadata observed at capture time: {\"full_name\": \"openmainframeproject/cobol-check\", \"archived\": true, \"disabled\": false, \"open_issues_count\": 53, \"default_branch\": \"Developer\", \"has_issues\": true}."
-    ]
+      "FACT: the GitHub /issues endpoint returns BOTH issues and pull requests; entries carrying a 'pull_request' key are pull requests. Locator: the top-level `issues` array of this file holds 53 entries persisted verbatim and unfiltered, of which 8 carry a `pull_request` key, and `_capture.record_counts` reports `entries_total` = 53, `entries_with_pull_request_key` = 8 and `issues_excluding_pull_requests` = 45 separately. INFERENCE: reporting all three numbers rather than one is what stops a downstream reader mistaking 53 for the issue count; reasoning: 45 + 8 = 53, so only the split makes the arithmetic checkable against the expected 45 issues and 8 pull requests.",
+      "FACT: `_capture.calls[1]` is a deliberate UNAUTHENTICATED control GET to the same /rate_limit URL as `_capture.calls[0]`. Locator: `_capture.calls[1].x_ratelimit_limit` = 60 with `x_ratelimit_remaining` = 58, against `_capture.calls[0].x_ratelimit_limit` = 5000; the two entries are distinguishable by those values alone. INFERENCE: the control is what makes `_capture.authenticated` an observation rather than an assumption, so it is derived from the observed ceiling and never from the presence of a credential in the process environment; reasoning: an exhausted unauthenticated quota returns empty response bodies rather than errors, which would make a truncated capture indistinguishable from a complete one, and observing 60 and 5000 on the same URL in the same session proves the credential was honoured on the requests that carried data.",
+      "FACT: `_capture.calls[2]` is a repository-metadata GET issued solely to corroborate capture completeness from a second independent source, and the values it observed are persisted verbatim at `_capture.notes[7]`: full_name=openmainframeproject/cobol-check, archived=true, disabled=false, has_issues=true, default_branch=Developer, open_issues_count=53. INFERENCE: the correct cross-check is against `_capture.record_counts.entries_total` rather than against `issues_excluding_pull_requests`, and 53 == 53 independently corroborates that no page of the capture was lost; reasoning: GitHub's open_issues_count counts open pull requests as well as open issues, so it is comparable only with the raw entry total.",
+      "FACT: pagination was requested with per_page=100 and the Link rel=\"next\" relation was followed to exhaustion; exactly 1 issue-listing request was issued and it reported no next page. Locator: `_capture.calls[3].url` carries `per_page=100` and `_capture.calls[3].link_next` is null. INFERENCE: the explicit page size is load-bearing because the endpoint's default page size is 30, so a default-paged capture of 53 entries would have required a second page; reasoning: with a page size larger than the result set, exhaustion is observable in the first response rather than dependent on correct traversal.",
+      "FACT - calls[] lists every HTTP request issued while producing this artifact, in the order issued. Counting convention, fixed for every artifact in this folder by capture-envelope.schema.json and applied here: records_returned is the number of top-level records in the response payload - the array length for a collection endpoint and 1 for a single document, including GET /rate_limit - while records_persisted is how many of those records are stored in this artifact. The page-loss check is therefore the sum of records_persisted over the data-family calls, which equals len(issues) exactly at 53. This replaces an earlier convention local to this file, under which the three pre-flight entries carried records_returned=0 so that the raw sum matched len(issues); that convention disagreed with the sibling captures and is recorded here rather than silently dropped.",
+      "FACT: the HTTP client was python3 `urllib.request` from the standard library, with the credential read from the process environment and injected as a request header; every request method was GET. Locator: `_capture.tooling` records the client, and `_capture.calls[*].method` is \"GET\" on all four entries. INFERENCE: curl was deliberately not used for the authenticated calls because a credential passed via `curl -H` appears in argv, which /proc exposes; reasoning: process arguments are readable by other processes on this host, whereas a header assembled inside the interpreter is not. FACT: no response was fetched with `curl -i` and no request used `--fail`, so no header text was spliced into any captured body and no error body was discarded. The upstream repository is archived and read-only and was not written to in any way.",
+      "FACT: the target repository was hard-pinned to openmainframeproject/cobol-check. Locator: the fork's own documentation names two different upstreams — README.md:38, GOVERNANCE.md:15 and SUPPORT.md:4,8,12 link to the former maintainer's personal fork neopragma/cobol-check, while README.md:55 and vs-code-extension/package.json:18,50 attest openmainframeproject/cobol-check as the issue tracker. The latter is the repository captured here. INFERENCE: the pin had to be explicit rather than inferred from the first link encountered; reasoning: harvesting the personal fork would have produced a plausible-but-wrong issue set that no later reader could distinguish from the right one, because a captured payload carries no evidence of which repository was intended.",
+      "FACT: repository metadata observed at capture time, recorded verbatim as returned by `_capture.calls[2]`: {\"full_name\": \"openmainframeproject/cobol-check\", \"archived\": true, \"disabled\": false, \"open_issues_count\": 53, \"default_branch\": \"Developer\", \"has_issues\": true}.",
+      "FACT - the raw response body of calls[2], GET https://api.github.com/repos/openmainframeproject/cobol-check, is NOT retained in this artifact. Only the selected fields quoted in these notes survive - full_name, archived, disabled, has_issues, default_branch and open_issues_count - and _capture.omissions records the gap. It must not be reconstructed: re-querying is prohibited because the upstream repository is archived and read-only, and the repository_metadata object persisted in upstream-harvest/pulls.json is a DIFFERENT response captured at a different instant and must not be substituted for it."
+    ],
+    "omissions": [
+      {
+        "label": "FACT",
+        "kind": "response_body_not_retained",
+        "call_index": 2,
+        "url": "https://api.github.com/repos/openmainframeproject/cobol-check",
+        "what_is_missing": "the complete GET /repos/{owner}/{repo} response object; only full_name, archived, disabled, default_branch and the other fields quoted in _capture.notes survive",
+        "consequence": "the repository-object corroboration in these notes cannot be re-derived from this artifact alone, so this artifact's audit_status is PARTIAL",
+        "remedy": "none available: re-querying an archived, read-only repository is prohibited, the body must not be reconstructed, and upstream-harvest/pulls.json -> repository_metadata is a different response from a different instant and must not be substituted for it"
+      }
+    ],
+    "audit_status": "PARTIAL"
   },
   "issues": [
     {

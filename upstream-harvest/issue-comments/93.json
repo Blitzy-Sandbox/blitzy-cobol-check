@@ -1,5 +1,7 @@
 {
   "_capture": {
+    "envelope_schema": "../capture-envelope.schema.json",
+    "envelope_schema_version": "1.0.0",
     "repository": "openmainframeproject/cobol-check",
     "issue_number": 93,
     "captured_at_utc": "2026-08-14T05:14:22Z",
@@ -11,34 +13,55 @@
     },
     "calls": [
       {
+        "family": "rate_limit",
         "url": "https://api.github.com/rate_limit",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 5000,
         "x_ratelimit_reset": 1786688062,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 0,
+        "response_body_retention": "summarized_metadata_only",
+        "response_body_location": "_capture.rate_limit_observed",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue_comments",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93/comments?per_page=100",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4977,
         "x_ratelimit_reset": 1786684750,
+        "paginated": true,
         "link_next": null,
-        "records_returned": 0
+        "records_returned": 0,
+        "records_persisted": 0,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue_comments",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       },
       {
+        "family": "issue",
         "url": "https://api.github.com/repos/openmainframeproject/cobol-check/issues/93",
         "method": "GET",
         "http_status": 200,
         "x_ratelimit_limit": 5000,
         "x_ratelimit_remaining": 4976,
         "x_ratelimit_reset": 1786684750,
+        "paginated": false,
         "link_next": null,
-        "records_returned": 1
+        "records_returned": 1,
+        "records_persisted": 1,
+        "response_body_retention": "retained_verbatim",
+        "response_body_location": "issue",
+        "record_status": "COMPLETE",
+        "unknown_fields": []
       }
     ],
     "record_counts": {
@@ -54,7 +77,8 @@
       "jq": "present: jq-1.8.1 at /usr/bin/jq",
       "gh": "absent",
       "os_release_pretty_name": "Ubuntu 25.10",
-      "capture_driver": "python3 urllib.request, GET only"
+      "capture_driver": "python3 urllib.request, GET only",
+      "nothing_installed": true
     },
     "failures": [],
     "notes": [
@@ -69,7 +93,9 @@
       "FACT: every entry in `calls` carries method \"GET\"; the capture driver contains no code path capable of issuing POST, PATCH, PUT or DELETE, and no comment, reaction, label, assignment, reopen or edit was attempted. The target repository is archived and read-only.",
       "FACT: the repository identity is hard-pinned to openmainframeproject/cobol-check. No URL in `calls` contains the string \"neopragma\"; the wiki link at README.md:L38 is a misdirection and was never used, while README.md:L42 and README.md:L55 carry the correct owner.",
       "FACT: the API credential was read only from os.environ inside the capture process and placed only into an in-memory request header. It appears in no file, filename, log line or process argument list, and no request header was echoed."
-    ]
+    ],
+    "omissions": [],
+    "audit_status": "COMPLETE"
   },
   "issue_comments": [],
   "issue": {
