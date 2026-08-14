@@ -55,6 +55,30 @@ Packaged  Jul 28 2023 17:02:56 UTC
 C version "15.2.0"
 ```
 
+**The host operating system, recorded here because three sources disagree about it and the disagreement is not reconcilable.** `FACT` — `cat /etc/os-release`, verbatim and complete:
+
+```text
+PRETTY_NAME="Ubuntu 25.10"
+NAME="Ubuntu"
+VERSION_ID="25.10"
+VERSION="25.10 (Questing Quokka)"
+VERSION_CODENAME=questing
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=questing
+LOGO=ubuntu-logo
+```
+
+`FACT` — `uname -srm` reports `Linux 6.12.85+ x86_64`. `INFERENCE` — `uname -a` is deliberately **not** reproduced; reasoning: it embeds the container hostname, and this document does not disclose run topology, on the same principle that keeps the `origin` URL and the Gradle home path out of it.
+
+**Flagged loudly, as required.** `FACT` — three sources name three different host operating systems: the platform setup document says **Ubuntu 22.04** and states that it "matches the upstream CI runner … the only configuration the project's build is known to pass on"; the carried-forward ground truth says **Ubuntu 25.10**; and that same ground truth's own observed column records **Ubuntu 24.04.4 LTS**. `FACT` — what is actually here is **Ubuntu 25.10 (Questing Quokka)**, which agrees with one of the three and contradicts the other two. `FACT` — the sibling capture artifact records the identical divergence independently `[upstream-harvest/HARVEST-MANIFEST.md]`, so this is a reproduced observation rather than a new claim. `INFERENCE` — the divergence is recorded and **not** worked around, because nothing in this programme may install or change a base image; reasoning: the environment authority governs, the instruction is verify-and-record, and a plan that silently normalized the distro string would hide the very drift signal the golden-file programme depends on. `INFERENCE` — the operative consequence is bounded rather than blocking: the reproducibility control this plan actually relies on is the `cobc --version` anchor above, which pins the compiler *and* its `C version "15.2.0"` and is strictly stronger than a distribution name; reasoning: golden files are produced by the compiler, not by the package archive, and two hosts with the same `cobc` build produce the same bytes. `INFERENCE` — but the distro string is still required in every handoff, which is why A10.1 §2 carries it as a field; reasoning: it is the cheapest way for a later run to detect that the image changed underneath it, which is R2's early-warning signal.
+
+`FACT` — a second, milder consequence follows from the same disagreement and belongs to the CI work rather than to this baseline: `[.github/workflows/VerifyAction.yml:L13]` pins `ubuntu-22.04` runners, so the GnuCOBOL a CI leg installs comes from a different archive than the `3.2.0` recorded here. `INFERENCE` — the run that adds the CI install step must therefore record the CI-resolved `cobc --version` alongside the local one and treat any difference as a golden-file finding rather than as noise; reasoning: the byte-identical oracle is only valid against a fixed compiler, and two archives are two compilers until measured otherwise.
+
 `FACT` — `COB_CFLAGS` is exported as a single `-D_FORTIFY_SOURCE` value: `-std=c17 -finline-functions -pipe -Wdate-time -D_FORTIFY_SOURCE=3 -Wno-unused -fsigned-char`. This matters because `ProcessOutputWriter.writeOutPutToConsole()` prints the child's **standard error** to `System.out` `FACT [src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L111-L114]` — `System.out.println(processInput)` at `L112` and `System.out.println(processError)` at `L113`. `INFERENCE` — a duplicated fortify definition would therefore write a compiler warning into `actual-output.txt` and into every golden file captured; reasoning: the warning is emitted on stderr by the C compiler, the launcher pipes stderr into stdout, and stdout is what the harness redirects.
 
 `FACT` — `core.autocrlf` is `false`, set repository-locally. **Session-local, not durable:** it lives in `.git/config` and is therefore absent from a fresh clone, so every run prompt must set and verify it rather than inherit it.
@@ -410,6 +434,8 @@ exit from compare: 0
 
 **Flagged loudly — the ground truth's rationale for `[build.gradle:L203]` is wrong.** `FACT` — pull request #338, still open upstream and titled "Fixed Gradle build for approval tests", consists precisely of changing `dependsOn fatJar` to `dependsOn copyJarToBin, copyRunScripts`, and `[build.gradle:L203]` **already reads** `dependsOn copyJarToBin, copyRunScripts` (`git diff 08d3c988 refs/remotes/upstream/pr/338 -- build.gradle`). `FACT` — #338 does **not** move the body out of the configuration block; its diff leaves `def output = -1` in the task-configuration body. `INFERENCE` — therefore the `dependsOn` declaration is necessary but wholly insufficient, and the ground truth's claim that it "is what makes the harness execute after the jar and scripts it needs are in place" does not hold; reasoning: `dependsOn` orders **task execution**, and a statement in a configuration body has already run before any task executes — demonstrated by the log above, in which the harness fails and the comparison passes before `:clean`. The obvious fix was already tried upstream and the harness is still vacuous.
 
+**The vacuous pass has two distinct routes, and only the first is the one usually described.** `FACT` — on a cold tree the launcher copy is **absent**, giving the six `not found` lines above. `FACT` — on a **warm** tree, where `copyRunScripts` has already produced `temp/approvalTest/cobolcheck`, a second `clean approvalTest` still passes vacuously if that copy is not executable: measured, `JAVA_HOME=$JDK11_HOME ./gradlew clean approvalTest` exited **0** printing `exit from compare: 0` with `actual-output.txt` at **0 bytes**, because the copy inherits mode `0644` from the tracked `cobolcheck` and every invocation dies with `Permission denied` instead of `not found`. `FACT` — the same command on the same warm tree, with `chmod +x` applied to `cobolcheck` before `copyRunScripts` and to `scripts/linux_gnucobol_run_tests`, exits **1** with `Difference on line 5`, `exit from compare: 1`, `*** FAIL ***` and `BUILD FAILED`, against 332 lines of real output and 5 `INF009` lines. `INFERENCE` — the file-mode route matters more than it looks: it survives a warm tree, it survives `clean`, and it produces the *identical* passing verdict from a *different* cause, so a run that fixes only the timing defect and never grants the execute bits would still report a green comparison over an empty file; reasoning: the comparison short-circuits on the shorter stream either way, and nothing in the build distinguishes "no launcher" from "launcher present but not executable".
+
 **Which invocations actually fire the harness — measured, and narrower than described.**
 
 | Invocation | Harness fires? | Evidence |
@@ -423,7 +449,11 @@ exit from compare: 0
 
 ### A2.5 What the harness does when it actually runs
 
-`FACT` — after a full build plus the executable-bit grants the harness needs, `./approvaltest` was run directly. Six CLI invocations were issued (`grep -c 'INF000: Starting Cobol Check'` = 6) but only **five** reached a COBOL compile-and-run (`grep -c 'INF008: About to launch process'` = 5).
+`FACT` — after a full build plus the executable-bit grants the harness needs, `./approvaltest` was run directly. Six CLI invocations were issued (`grep -c 'INF000: Starting Cobol Check'` = 6), five **attempted** a launch (`grep -c 'INF008: About to launch process'` = 5), and five actually **compiled and executed** a COBOL program (`grep -c 'INF009'` = 5, each line reading `INF009: Process linux_gnucobol_run_tests ended with exit code <n>.`), producing **11** `TESTSUITE:` blocks in `actual-output.txt`.
+
+**Those two counts are not interchangeable, and only the second one measures what the definition of green requires.** `FACT` — `INF008` is emitted *before* the child process is started, so in a run where the compiler script is present but not executable, `INF008` still reads **5** while `INF009` reads **0**, `actual-output.txt` holds 300 bytes of headers with **zero** `TESTSUITE:` blocks, and **zero** COBOL programs are compiled — measured directly, with `ERR023: Process failed to start with arguments: scripts/linux_gnucobol_run_tests,...` raised 5 times from `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/LinuxProcessLauncher.java:L81]`. `INFERENCE` — an `About to launch process` count is therefore **not** evidence that anything ran, and any oracle that uses it can certify exactly the false-green condition this programme ranks above every other quality attribute; reasoning: the message documents an intention, the `INF009` line documents a completed child with its exit status, and only the second is emitted after work happened. **Every executed-program count in this plan means the `INF009` count, corroborated by a non-zero `TESTSUITE:` block count.**
+
+`FACT` — the two log families are written to the process's **stderr**, not into `actual-output.txt`: the harness redirects only stdout into that file `[approvaltest:L1-L6]`, so `grep -c 'INF009' actual-output.txt` returns **0** even on a fully successful run, while the same grep over the harness's captured stderr returns 5. `INFERENCE` — a count must therefore be taken from the harness's combined output — `./approvaltest > log 2>&1`, or the Gradle build log when the task runs it, since `proc.waitForProcessOutput(System.out, System.err)` merges both streams into it — and the `TESTSUITE:` count from `actual-output.txt`; reasoning: the two families live in different streams and a criterion that names the wrong one silently reads zero.
 
 `FACT` — the sixth fails outright:
 
@@ -437,7 +467,21 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 `FACT` — the inverse paradox is confirmed at exact lines: `--help` `[.../workers/Initializer.java:L35-L37]` and `--version` `[.../workers/Initializer.java:L40-L42]` both call `statusController.setExitStatusHalt()`, which assigns `Constants.STATUS_HALT` `[.../features/Status/StatusController.java:L21]`, and `exitProgram()` calls `System.exit(status.exitStatus)` `[.../features/Status/StatusController.java:L61]`. So **help and version exit 8 while failing COBOL tests exit 0**.
 
-**Baseline staleness, measured exactly.** `FACT` — the real run produced `actual-output.txt` at **332 lines / 27,269 bytes** against `expected-output.txt` at **234 lines / 12,336 bytes**: a delta of **+98 lines / +14,933 bytes**. This corroborates the ground truth's "roughly 100 lines and 15 KB" and replaces it with exact figures. `FACT` — the first divergence is at line 5, and it is a result-format change: the baseline carries `EXPECTED +00000000025.7500000, WAS +00000000025.7400000` on one line where the current code emits `EXPECTED ...` and `WAS ...` on two. `INFERENCE` — the +98 lines are predominantly this one-line-to-two-line split rather than new test content; reasoning: the divergence pattern repeats at each `EXPECTED`/`WAS` pair throughout the diff.
+**Baseline staleness, measured exactly — and one of the two figures is not portable, which is a finding in its own right.** `FACT` — the real run produced `actual-output.txt` at **332 lines** against `expected-output.txt` at **234 lines / 12,336 bytes**: a delta of **+98 lines**. `FACT` — in the clone this baseline was captured in, whose absolute repository root is 81 characters long, that output was **27,269 bytes**, a delta of +14,933 bytes. This corroborates the ground truth's "roughly 100 lines and 15 KB" and replaces it with exact figures. **`FACT` — the line count is portable and the byte count is not**, for the reason established immediately below, so **332 lines is the figure any oracle must be written against** and every byte figure for this file must be qualified by the clone that produced it.
+
+**The output embeds the absolute repository path thirteen times, which makes its byte count clone-dependent.** `FACT` — `grep -c -F "$(git rev-parse --show-toplevel)" actual-output.txt` returns **13**, at lines **162, 163, 169, 292, 293, 299, 300, 301, 307, 308, 309, 326, 327**. `FACT` — twelve are GnuCOBOL diagnostics naming the generated program by absolute path, of the form `<root>/./testruns/CC##99.CBL: in paragraph '2000-SPEAK':` and `<root>/./testruns/CC##99.CBL:661: warning: ignoring redundant . [-Wothers]`, and the thirteenth is `WARNING in file: : <root>/src/test/cobol/MOCKTEST/MockCallTest.cut:173:12:`. `FACT` — they reach the file for the same reason the fortify warning would: the compiler writes them to **stderr**, and `ProcessOutputWriter.writeOutPutToConsole()` prints the child's stderr to `System.out` at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L113]`, which is what the harness redirects into `actual-output.txt` `[approvaltest:L1-L6]`.
+
+`FACT` — the dependence is exactly linear and has been measured across three independent clone paths, each reducing to the same path-free size:
+
+| Clone root length | `actual-output.txt` bytes | Lines | Bytes − 13 × root length |
+| --- | --- | --- | --- |
+| 81 (the clone this baseline was captured in) | 27,269 | 332 | **26,216** |
+| 112 (a re-measurement in this session) | 27,672 | 332 | **26,216** |
+| 26 (an independent re-measurement) | 26,554 | 332 | **26,216** |
+
+`FACT` — therefore `bytes = 26,216 + 13 × (length of the absolute repository root)`, and `26,216` is the only byte figure that is a property of the tool rather than of the machine. `INFERENCE` — a byte-count oracle is consequently unusable across machines while a line-count oracle is sound; reasoning: the thirteen substitutions change no line boundaries, which is why all three measurements agree on 332 lines and disagree on every byte total.
+
+**Why this matters beyond this section, stated here because three other places depend on it.** `FACT` — the committed `expected-output.txt` contains **zero** absolute paths (`grep -cE '/(home|tmp|Users)/'` returns `0`) and **zero** `CC##99` references, so today's baseline is accidentally portable. `INFERENCE` — once the baseline is regenerated from a real harness run, as the characterization run is required to do, the new baseline **will** carry those thirteen clone-dependent lines and the comparison will pass only on the machine that captured it; reasoning: the regenerated file is a copy of `actual-output.txt`, the paths are in it, and `BuildHelper.compareFiles()` compares trimmed lines rather than normalized ones. `INFERENCE` — that would break three things at once: the characterization run's own "the comparison genuinely matched" oracle on any second machine, the modernization run's byte-identical golden-file oracle, and the CI comparison, which runs three operating systems against one baseline `FACT [.github/workflows/VerifyAction.yml:L13, L30]`. **The mitigation is therefore mandated in the characterization run rather than left to be discovered: the golden-file normalization filter canonicalizes the absolute repository root as a fifth token pair, and its self-test covers five normalizations rather than four (A3.3).** `INFERENCE` — canonicalizing the path is the right layer for this and stripping the diagnostics is not; reasoning: the diagnostics are real compiler output whose presence and position are exactly what a characterization baseline exists to capture, so only their machine-specific prefix may be removed. `FACT` — the literal chosen for that canonicalization, `<REPO>`, is the same one this document already applies to its own transcripts in A2.3 and A2.4, for the same reason and with the same guarantee that nothing else in the text is altered. `INFERENCE` — reusing it is deliberate rather than incidental; reasoning: a reader who has learned to read `<REPO>` as "the absolute path of your own checkout" in the baseline transcripts reads a golden file the same way, and one convention with one meaning is one fewer thing for a later run to get wrong. `FACT` — the first divergence is at line 5, and it is a result-format change: the baseline carries `EXPECTED +00000000025.7500000, WAS +00000000025.7400000` on one line where the current code emits `EXPECTED ...` and `WAS ...` on two. `INFERENCE` — the +98 lines are predominantly this one-line-to-two-line split rather than new test content; reasoning: the divergence pattern repeats at each `EXPECTED`/`WAS` pair throughout the diff.
 
 `FACT` — simulating `BuildHelper.compareFiles()` over the two files returns `1` at line 5, so once the harness genuinely runs the comparison **does** fail against the stale baseline. `FACT` — conversely, with an empty `actual-output.txt` the loop guard at `[build.gradle:L273]` — `while ((line1 = reader1.readLine()) != null && (line2 = reader2.readLine()) != null)` — short-circuits on the first iteration, the body never executes, and control reaches `return 0` at `[build.gradle:L286]`. Both defects are therefore demonstrated rather than argued.
 
@@ -484,7 +528,7 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 | --- | --- |
 | Scanner | The **OSV** database, queried directly at `https://api.osv.dev/v1/query` with `python3` from the standard library |
 | Ecosystem | `Maven` |
-| Database snapshot | OSV is a live query service, so the snapshot is the **query instant: `2026-08-14T06:57:09Z`** — stated as an instant precisely because no offline snapshot date exists to quote |
+| Database snapshot | OSV is a live query service, so the snapshot is a **query instant** rather than a published release date. The identical 25-coordinate query set was executed **twice**: first at `2026-08-14T06:57:09Z`, then again at **`2026-08-14T09:38:28+00:00`**. **The result recorded in the row below is the second execution's**, and A2.13.5 quotes that execution's verbatim total; the first execution returned the same total and is retained as its corroboration, not as a second finding. `INFERENCE` — exactly one instant may be presented as *the* identifier of a recorded result; reasoning: a live service's answer is only meaningful against the moment it was asked, so two instants offered for one figure leave a reader unable to say which scan produced it |
 | Coordinates queried | **25** — the 24 measured closure coordinates plus `org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:3.0` |
 | Result | **0 advisories. 0 failed queries.** |
 
@@ -533,13 +577,13 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 ### A2.8 Per-PR apply-cleanly status — all eight
 
-`FACT` — measured non-mutatingly with `git merge-tree --write-tree --no-messages c79624bd <pr-head>`; diffstats are against each PR's own merge base. No commit, branch, tag or push was created.
+`FACT` — measured non-mutatingly with `git merge-tree --write-tree --no-messages c79624bd <pr-head>` for the conflicted-path list and its merge stages, and with the same command **without** `--no-messages` for git's own conflict-class verdict; diffstats are against each PR's own merge base. Both forms write nothing: no commit, branch, tag, index entry or push was created. `INFERENCE` — the two forms answer different questions and the distinction matters, because the stage list says *which paths* conflict while the message stream says *what kind* of conflict each is; reasoning: a path appearing at all three stages is a content conflict and one appearing at two is a delete/modify, and only the message stream states which verdict git actually reached.
 
 | PR | Origin | Apply status | Files | Diffstat | Merge base | Conflicting paths |
 | --- | --- | --- | --- | --- | --- | --- |
 | **#330** | `openmainframeproject/cobol-check` | **CONFLICT** | 6 | +139 / −21 | `b0b39da8` | `InterpreterController.java`, `LineRepository.java`, `Generator.java`, `ExpanderTest.java` |
 | **#336** | `openmainframeproject/cobol-check` | **CONFLICT** | 10 | +157 / −8 | `2235764e` | `package-lock.json`, `vs-code-extension/Cobol-check/scripts/windows_gnucobol_run_tests.cmd`, `vs-code-extension/package.json` |
-| **#337** | `openmainframeproject/cobol-check` | **CONFLICT** | 6 | +28 / −24 | `08d3c988` | `InterpreterController.java`, `InterpreterControllerTest.java`, `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar` (**delete/modify**) |
+| **#337** | `openmainframeproject/cobol-check` | **CONFLICT** | 6 | +28 / −24 | `08d3c988` | `InterpreterController.java`, `InterpreterControllerTest.java`, `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` (**content**, reached through rename detection — see below) |
 | **#338** | `openmainframeproject/cobol-check` | **CONFLICT** | 3 | +9 / −9 | `08d3c988` | `approvaltest`, `approvaltestWin.cmd`, `build.gradle` |
 | **#408** | `generalmotors/openmainframeproject-cobol-check` | **CLEAN** | 8 | +261 | `e372dd7f` | — |
 | **#409** | `generalmotors/openmainframeproject-cobol-check` | **CLEAN** | 3 | +138 / −1 | `e372dd7f` | — |
@@ -554,7 +598,17 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 Two consequences that change routing:
 
-- `FACT` — #337 conflicts on a **committed jar**, and its own diff edits `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar`, a path that no longer exists at HEAD. The evidence chain, each step checkable: `FACT` — that jar existed in reachable history, last touched at `c431d60` ("minor detail") and introduced at `b40b8f0` ("New builds for 0.2.8"); `FACT` — it is absent at `c79624bd286d5f08f156ccce755bc5d4fffd1909`, where `git ls-files vs-code-extension/Cobol-check/bin/` returns only `cobol-check-0.2.19.jar`. `INFERENCE` — the fork therefore **deleted** the path while #337 **modifies** it, which is a delete/modify conflict rather than a content conflict; reasoning: a merge cannot reconcile an edit to a file one side removed. `INFERENCE` — committing build outputs is what converts an ordinary text merge into this class of conflict, and a delete/modify conflict on a binary cannot be resolved by choosing a side: keeping the deletion discards the contributor's edit, and restoring the path reintroduces a stale build output for a version the project no longer ships. `INFERENCE` — that is precisely why the disposition harvests #337's fixture and abandons its jar edit rather than attempting a merge.
+- `FACT` — #337 conflicts on a **committed jar**, and its own diff edits `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar`, a path that no longer exists at HEAD. The evidence chain, each step checkable: `FACT` — that jar existed in reachable history, last touched at `c431d60` ("minor detail") and introduced at `b40b8f0` ("New builds for 0.2.8"); `FACT` — it is absent at `c79624bd286d5f08f156ccce755bc5d4fffd1909`, where `git ls-files vs-code-extension/Cobol-check/bin/` returns only `cobol-check-0.2.19.jar`, and it is **present** both at the merge base `08d3c988` and at the head `8c07d40a`.
+
+  **The conflict class this produces is `CONFLICT (content)` on the fork's own path, not a delete/modify on the pull request's path, and an earlier revision of this section had both wrong.** `FACT` — the conflicted path git reports is `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar`, and `git merge-tree --write-tree --no-messages c79624bd 8c07d40a` lists it at **all three** merge stages — `1` (base) `d9cbfa4a`, `2` (ours) `bc1ba4dc`, `3` (theirs) `3f6da6e2`. `FACT` — the same command without `--no-messages` prints, verbatim:
+
+  ```text
+  warning: Cannot merge binary files: vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar (c79624bd286d5f08f156ccce755bc5d4fffd1909:vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar vs. 8c07d40add4289c27f1f1047faedda1d63fe54e2:vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar)
+  Auto-merging vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar
+  CONFLICT (content): Merge conflict in vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar
+  ```
+
+  `FACT` — the mechanism is rename detection, and it is measurable on its own: `git diff --find-renames --name-status c79624bd 8c07d40a -- vs-code-extension/Cobol-check/bin/` reports `R054 vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar → vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar`. `INFERENCE` — git therefore does not see a deletion at all: it pairs the two jars as one renamed file at 54% similarity and then attempts a **content** merge of two unrelated binaries under the fork's name, which is why three stages exist where a delete/modify would produce two; reasoning: a delete/modify conflict has no stage for the side that removed the file, and the printed verdict is `CONFLICT (content)` rather than `CONFLICT (modify/delete)`. **A Run 3 executor must therefore expect the `0.2.19.jar` path in its conflict list and must not reach for `git rm` as the resolution** — that is the delete/modify remedy and it does not apply here. `INFERENCE` — committing build outputs is what converts an ordinary text merge into this class of conflict, and a content conflict between two unrelated binaries cannot be resolved by merging: taking ours discards the contributor's edit, and taking theirs replaces the shipped artifact with a stale build output for a version the project no longer ships. `INFERENCE` — that is precisely why the disposition harvests #337's fixture and abandons its jar edit rather than attempting a merge.
 - `FACT` — #338 conflicts on exactly `build.gradle`, `approvaltest` and `approvaltestWin.cmd`. `INFERENCE` — that is the same file set the approval-harness repair must touch, so the repair supersedes #338 rather than coexisting with it.
 
 ### A2.9 Does `Living-Mainframe` hold commits beyond PR #411? — Yes, definitively
@@ -612,7 +666,7 @@ Established by measurement in this session and flagged rather than quietly corre
 | `JAVA_HOME=$JDK21_HOME ./gradlew clean test` | `BUILD FAILED in 16s` | A2.3 leg 3, capture line 2658 |
 | `./gradlew clean test` with `cobc` absent from `PATH` | `BUILD SUCCESSFUL in 7s` | A11.4 Q5, a separate experiment |
 
-`FACT` — these readings are per-execution and they move between executions of the identical command on the identical image: an earlier execution of the JDK 8 leg in this session's environment reported `BUILD SUCCESSFUL in 12s` and an earlier JDK 21 leg reported `BUILD FAILED in 13s`, against the 10s and 16s reproduced verbatim in A2.3. `INFERENCE` — that variance is precisely why the envelope below is defined as a ratio re-measured back-to-back rather than as an absolute figure; reasoning: a criterion stated in seconds would be satisfied or violated by daemon warmth alone.
+`FACT` — these readings are per-execution and they move between executions of the identical command on the identical image. **Every wall-clock figure appearing anywhere in this document is reconciled here, so that no two of them can be read as a contradiction.** `FACT` — the readings quoted in this section (18s / 10s / 16s / 7s) are the executions transcribed in A2.3 and A11.4 Q5. `FACT` — three further readings exist in this document and belong to *different* executions of the same commands: A2.13.2 records `BUILD SUCCESSFUL in 4s` for the JDK 8 leg, `BUILD SUCCESSFUL in 11s` for the JDK 11 gate and `BUILD FAILED in 8s` for the JDK 21 leg. `FACT` — two earlier executions in this session's environment reported `BUILD SUCCESSFUL in 12s` for JDK 8 and `BUILD FAILED in 13s` for JDK 21. `INFERENCE` — none of these disagree with one another: they are seven readings of four commands taken at different cache states, and the only claims this document makes from them are the pass/fail verdict and the test counts, which are identical across all of them; reasoning: Gradle's reported wall clock is a property of an execution rather than of the build. `INFERENCE` — that variance is precisely why the envelope below is defined as a ratio re-measured back-to-back rather than as an absolute figure; reasoning: a criterion stated in seconds would be satisfied or violated by daemon warmth alone. **No run may treat any second-figure in this document as an expected value.**
 
 `FACT` — the envelope's denominator, measured: the `.cut` corpus is 23 files carrying **25** `TestSuite` declarations and **171** `TestCase` declarations; the approval harness exercises 6 programs of which 5 execute, producing 11 `TESTSUITE:` blocks and 332 output lines.
 
@@ -649,9 +703,14 @@ $ echo "$COB_CFLAGS"
 -std=c17 -finline-functions -pipe -Wdate-time -D_FORTIFY_SOURCE=3 -Wno-unused -fsigned-char
 $ echo "$COB_CFLAGS" | grep -o _FORTIFY_SOURCE | wc -l
 1
+
+$ . /etc/os-release && echo "$PRETTY_NAME | $VERSION | $VERSION_CODENAME"
+Ubuntu 25.10 | 25.10 (Questing Quokka) | questing
+$ uname -srm
+Linux 6.12.85+ x86_64
 ```
 
-`FACT` — the `cobc` block above is the **complete** version output, quoted in full because it is the golden-file reproducibility anchor and a later run must be able to compare it character for character. `FACT` — `_FORTIFY_SOURCE` appears exactly once, which is the condition under which the compiler writes nothing to stderr and therefore nothing into a golden file.
+`FACT` — the `cobc` block above is the **complete** version output, quoted in full because it is the golden-file reproducibility anchor and a later run must be able to compare it character for character. `FACT` — `_FORTIFY_SOURCE` appears exactly once, which is the condition under which the compiler writes nothing to stderr and therefore nothing into a golden file. `FACT` — the host is **Ubuntu 25.10 (Questing Quokka)** on kernel `6.12.85+`, which contradicts two of the three operating-system values carried into this session; the full `/etc/os-release` and the reasoning are in A2.1, and the value is a mandatory handoff field per A10.1 §2 precisely so a later run can detect that the image moved. `INFERENCE` — `uname -a` is not quoted anywhere in this document; reasoning: it carries the container hostname and this document does not disclose run topology.
 
 **A2.13.2 The build matrix.** Three commands, three exit statuses, totals read from the generated JUnit XML rather than from the console summary.
 
@@ -661,7 +720,42 @@ $ echo "$COB_CFLAGS" | grep -o _FORTIFY_SOURCE | wc -l
 | `JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest` | `0` — `BUILD SUCCESSFUL in 11s` | `classes=33 tests=457 failures=0 errors=0 skipped=0 passed=457` |
 | `JAVA_HOME=$JDK21_HOME ./gradlew clean test` | `1` — `BUILD FAILED in 8s` | `classes=33 tests=457 failures=227 errors=0 skipped=0 passed=230` |
 
-`FACT` — the JDK 21 failure signature, quoted from the stack trace: `Caused by: java.lang.IllegalArgumentException: Unsupported class file major version 65`, reached through `org.mockito.internal.creation.bytebuddy.InlineByteBuddyMockMaker` and `net.bytebuddy.agent.ByteBuddyAgent.install`. `INFERENCE` — this is a test-execution failure rather than a build-tool refusal, which is why the unblocker is the Mockito and Byte Buddy bump and not a Gradle version change; reasoning: the build reached test execution and failed inside the mock maker, and 227 of 457 tests — the ones that mock — are affected while the other 230 pass.
+**The JDK 21 failure signature, stated only in frames that are actually present.** `FACT` — the terminal cause is `Caused by: java.lang.IllegalArgumentException: Unsupported class file major version 65`, which appears **183** times, and `Caused by: java.lang.IllegalArgumentException: Unknown Java version: 21`, which appears **36** times. `FACT` — the frames those two causes are reached through, counted over every `<failure>` element in the JUnit XML: `net.bytebuddy.jar.asm.ClassReader.<init>(ClassReader.java:189)` **183**, `net.bytebuddy.TypeCache.findOrInsert(TypeCache.java:153)` **364**, `net.bytebuddy.ClassFileVersion.ofJavaVersion(ClassFileVersion.java:257)` **36**, `org.mockito.internal.configuration.plugins.PluginInitializer.loadImpl` at `:52` **36** and at `:57` **36**, and `org.mockito.internal.creation.bytebuddy.InlineByteBuddyMockMaker` at `createMock(:318)` **182**, `createMockType(:379)` **182**, `doCreateMock(:339)` **182** and `createStaticMock(:543)` **1**.
+
+**Two frames must not be quoted from this section, and the reason is recorded here so it is not reintroduced.** `FACT` — a search of every `<failure>` element for `net.bytebuddy.agent.ByteBuddyAgent.install` returns **zero** occurrences, and for `InlineByteBuddyMockMaker.<clinit>(InlineByteBuddyMockMaker.java:117)` **zero** occurrences. An earlier revision of this appendix asserted both as `FACT`; that assertion was wrong, is withdrawn here, and contradicted A2.3's own measurement in the same document. **The exhaustive decomposition — the three `Caused by:` chains and their 183 / 36 / 8 case split — is in A2.3 and is the authoritative copy; this appendix records the command and does not restate the chains.** `INFERENCE` — this is a test-execution failure rather than a build-tool refusal, which is why the unblocker is the Mockito and Byte Buddy bump and not a Gradle version change; reasoning: the build reached test execution and failed inside the mock maker and inside a Mockito plugin load, and 227 of 457 tests — the ones that mock — are affected while the other 230 pass.
+
+`FACT` — the census above is reproducible from the artifacts the leg leaves behind, with no file from this session required:
+
+```bash
+JAVA_HOME=$JDK21_HOME ./gradlew --no-daemon clean test > jdk21.log 2>&1; echo "EXIT=$?"
+python3 - <<'EOF'
+import glob, xml.etree.ElementTree as ET
+probe = ["ByteBuddyAgent.install",
+         "InlineByteBuddyMockMaker.<clinit>(InlineByteBuddyMockMaker.java:117)",
+         "createMock(InlineByteBuddyMockMaker.java:318)",
+         "createMockType(InlineByteBuddyMockMaker.java:379)",
+         "doCreateMock(InlineByteBuddyMockMaker.java:339)",
+         "createStaticMock(InlineByteBuddyMockMaker.java:543)",
+         "PluginInitializer.loadImpl(PluginInitializer.java:52)",
+         "PluginInitializer.loadImpl(PluginInitializer.java:57)",
+         "TypeCache.findOrInsert(TypeCache.java:153)",
+         "ClassReader.<init>(ClassReader.java:189)",
+         "ClassFileVersion.ofJavaVersion(ClassFileVersion.java:257)",
+         "Unsupported class file major version 65", "Unknown Java version: 21"]
+n = {p: 0 for p in probe}; tot = dict(tests=0, failures=0, errors=0, skipped=0); files = 0
+for f in sorted(glob.glob("build/test-results/test/*.xml")):
+    files += 1; r = ET.parse(f).getroot()
+    for k in tot: tot[k] += int(r.get(k, 0))
+    for el in list(r.iter("failure")) + list(r.iter("error")):
+        t = (el.text or "") + (el.get("message") or "")
+        for p in probe: n[p] += t.count(p)
+print(f"classes={files} tests={tot['tests']} failures={tot['failures']} "
+      f"errors={tot['errors']} skipped={tot['skipped']}")
+for p in probe: print(f"{n[p]:6d}  {p}")
+EOF
+```
+
+Expected, so a drifted image is detectable: `classes=33 tests=457 failures=227 errors=0 skipped=0`; the first two probes **0**; then 182, 182, 182, 1, 36, 36, 364, 183, 36, 183, 36.
 
 `FACT` — the JDK 11 leg was run on a **cold** tree, established immediately beforehand by the guarded cleanup shown in A2.3 — root resolved, sentinel-checked, and every target built from that absolute root rather than from the shell's current directory. That matters: `clean` alone does not remove `bin/` or `temp/`, so a second invocation behaves differently from a first.
 
@@ -690,9 +784,10 @@ No dependencies
 
 `INFERENCE` — that single line is the whole fat-jar defect; reasoning: the `fatJar` assembly collects `configurations.compile` at `[build.gradle:L138]`, and a configuration with no dependencies contributes no files, so the archive can only ever contain the project's own classes.
 
-`FACT` — `./gradlew dependencies --configuration runtimeClasspath` exits `0` and resolves nine coordinates:
+`FACT` — `./gradlew dependencies --configuration runtimeClasspath` exits `0` and resolves nine distinct coordinates. **The block below is the tree in full, with nothing elided and every nested repetition retained**, because an earlier revision of this appendix quoted it three lines short — dropping the nested `jakarta.activation-api` under `istack-commons-runtime` and both nested lines under `stax-ex` — without marking the omission, which is the very thing A2.3 says a transcript may not do:
 
 ```text
+runtimeClasspath - Runtime classpath of source set 'main'.
 +--- org.jetbrains:annotations:15.0
 +--- javax.xml.bind:jaxb-api:2.3.0
 +--- jakarta.xml.bind:jakarta.xml.bind-api:2.3.2
@@ -701,16 +796,21 @@ No dependencies
      +--- jakarta.xml.bind:jakarta.xml.bind-api:2.3.2 (*)
      +--- org.glassfish.jaxb:txw2:2.3.2
      +--- com.sun.istack:istack-commons-runtime:3.0.8
+     |    \--- jakarta.activation:jakarta.activation-api:1.2.1
      +--- org.jvnet.staxex:stax-ex:1.8.1
+     |    +--- jakarta.activation:jakarta.activation-api:1.2.1
+     |    \--- jakarta.xml.bind:jakarta.xml.bind-api:2.3.2 (*)
      +--- com.sun.xml.fastinfoset:FastInfoset:1.2.16
      \--- jakarta.activation:jakarta.activation-api:1.2.1
 ```
+
+`INFERENCE` — the nine-coordinate figure counts distinct coordinates rather than tree lines, which is why fourteen dependency lines reduce to nine; reasoning: `jakarta.activation-api:1.2.1` appears at four positions and `jakarta.xml.bind-api:2.3.2` at three, two of them marked `(*)` for "already listed".
 
 **This is where the supplied transitive list is contradicted, and the correction is now `FACT` rather than `INFERENCE`.** `FACT` — `com.sun.activation:javax.activation:1.2.0`, which the ground truth names as part of the closure, is **absent**; the activation artifact actually resolved is `jakarta.activation:jakarta.activation-api:1.2.1`. `FACT` — two coordinates the supplied list omits are present: `org.jvnet.staxex:stax-ex:1.8.1` and `com.sun.xml.fastinfoset:FastInfoset:1.2.16`. `INFERENCE` — the supplied list was partly inferred rather than resolved; reasoning: it names a plausible artifact that the build does not use and misses two that it does, which is the signature of a closure written from recall rather than read from a resolution report.
 
 `FACT` — `./gradlew dependencies --configuration testRuntimeClasspath` exits `0` and shows the two facts the modernization plan depends on: `org.junit.jupiter:junit-jupiter:5.6.1` resolves **upward** to `5.7.0` because `org.junit:junit-bom:5.7.0` arrives transitively, and `org.mockito:mockito-inline:3.6.0` pulls `mockito-core:3.6.0 -> 3.6.28`, which pulls `net.bytebuddy:byte-buddy:1.10.18`, `net.bytebuddy:byte-buddy-agent:1.10.18` and `org.objenesis:objenesis:3.1`.
 
-**A2.13.5 The vulnerability scan.** `FACT` — executed by `POST https://api.osv.dev/v1/query` with `python3` from the standard library, one request per coordinate. Query instant **`2026-08-14T09:38:28+00:00`**, which is the snapshot identifier because OSV is a live service and publishes no offline snapshot date. `FACT` — **25** Maven coordinates queried, **every response HTTP 200**, and the recorded total is `TOTAL ADVISORIES ACROSS ALL 25 COORDINATES: 0`. `FACT` — no scanner was installed; `trivy`, `grype`, `osv-scanner`, `syft` and `snyk` are all absent from this image, which is why the database was queried directly.
+**A2.13.5 The vulnerability scan.** `FACT` — executed by `POST https://api.osv.dev/v1/query` with `python3` from the standard library, one request per coordinate. Query instant **`2026-08-14T09:38:28+00:00`** — **this is the snapshot identifier of the result recorded in A2.7**, because OSV is a live service and publishes no offline snapshot date, and the total quoted immediately below is this execution's. `FACT` — an earlier execution of the identical query set at `2026-08-14T06:57:09Z` returned the same total; it is a corroborating re-read rather than a separate finding, and the two instants must never be offered as alternative identifiers of one scan. `FACT` — **25** Maven coordinates queried, **every response HTTP 200**, and the recorded total is `TOTAL ADVISORIES ACROSS ALL 25 COORDINATES: 0`. `FACT` — no scanner was installed; `trivy`, `grype`, `osv-scanner`, `syft` and `snyk` are all absent from this image, which is why the database was queried directly.
 
 **A2.13.6 The three committed archives.** `FACT` — inspected with Python's `zipfile`; `unzip` is present in this image (`UnZip 6.00 of 20 April 2009`) and nothing was installed for the purpose.
 
@@ -720,7 +820,7 @@ No dependencies
 | `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` | `46343a5ba4c1dbb1bb6584fa51c9b78b8ad34c4a74f091295e9da11b5e86fa54` | 273,628 | 200 | `META-INF`, `org` | **0** |
 | `build/distributions/cobol-check-0.2.19.zip` | `4e8b703e36eca4c32d3f1fc360a9ef7e991b21c31142d6b4548297483fe64b79` | 245,014 | 17 | `bin`, `config.properties`, `scripts`, `src` | **0** |
 
-`FACT` — the two jars are **byte-identical** to each other, which their equal digests establish directly. `FACT` — a rebuild is **not** byte-identical to either: `JAVA_HOME=$JDK11_HOME ./gradlew fatJar` exits `0` and yields sha256 `3d6fdfa89e405e0ddaba96327c166912e99838e334147ef5137dfc938a322217` at 273,558 bytes, differing from the committed jar in 13 entries by content and 187 by timestamp — see A2.6 for the partition and its two distinct causes. `FACT` — the third-party scan covered the prefixes `javax/`, `jakarta/`, `com/sun/`, `org/glassfish/`, `org/jetbrains/`, `org/intellij/`, `net/bytebuddy/`, `org/junit/`, `org/mockito/` and `org/jvnet/`, and matched nothing in any archive; the jars contain 160 `.class` entries and no nested archive. `FACT` — a refinement worth recording because a naive filter gets it wrong: the jar carries **six** packaged copybook entries — `CCHECKPARAGRAPHSPD.CPY`, `CCHECKRESULTPD.CPY`, `CCHECKWS.CPY`, `DATETIME`, `DFHEIBLK.CPY`, `OUTPUT` — and two of them carry **no file extension**, so an enumeration filtered on `*.CPY` reports four and undercounts. `FACT` — seven message bundles ship alongside them.
+`FACT` — the two jars are **byte-identical** to each other, which their equal digests establish directly. `FACT` — a rebuild is **not** byte-identical to either: `JAVA_HOME=$JDK11_HOME ./gradlew fatJar` exits `0` and yields **273,558 bytes** against the committed 273,628, differing from the committed jar in 13 entries by content and 187 by timestamp — see A2.6 for the partition and its two distinct causes. **The rebuild digest is deliberately not quoted here as a value to compare against.** `FACT` — two consecutive rebuilds on this image, from the same commit with the same command, produced sha256 `4ab502e3dc4e3872d99d3ab41a4d2b770a1adde022f39eb3283b25dc1625f9fb` and then `fe6524de0e91de944eb2b99f413e762e52c1a026c1a65d6e81ad77971f032fa0`, both at exactly 273,558 bytes; a third execution recorded elsewhere in this appendix produced a third digest at the same size. `INFERENCE` — the reproducible quantity is therefore the **size** and the **13/187 entry partition**, never the digest; reasoning: 187 entries carry build-time timestamps, so every rebuild digest is unique to its execution and any run treating one as an expected value would fail against its own correct build. `FACT` — the third-party scan covered the prefixes `javax/`, `jakarta/`, `com/sun/`, `org/glassfish/`, `org/jetbrains/`, `org/intellij/`, `net/bytebuddy/`, `org/junit/`, `org/mockito/` and `org/jvnet/`, and matched nothing in any archive; the jars contain 160 `.class` entries and no nested archive. `FACT` — a refinement worth recording because a naive filter gets it wrong: the jar carries **six** packaged copybook entries — `CCHECKPARAGRAPHSPD.CPY`, `CCHECKRESULTPD.CPY`, `CCHECKWS.CPY`, `DATETIME`, `DFHEIBLK.CPY`, `OUTPUT` — and two of them carry **no file extension**, so an enumeration filtered on `*.CPY` reports four and undercounts. `FACT` — seven message bundles ship alongside them.
 
 **A2.13.7 Re-derivation script for the corpus, table and citation claims.** `FACT` — the following is self-contained, requires only `git` and `python3`, and reproduces the counts in A2.12, the CICS figures in A2.11 and ADR-04, and the copybook disambiguation in Deliverable C. It is quoted so the claims can be re-opened without this session's files.
 
@@ -788,7 +888,7 @@ Expected digests, so a drifted checkout is detectable: the packaged copybook is 
 
 | Claim | Status | Why |
 | --- | --- | --- |
-| The three archives are byte-reproducible across two builds | **They are not** — established in this session, not assumed | `JAVA_HOME=$JDK11_HOME ./gradlew fatJar` exits `0` and produces sha256 `3d6fdfa89e405e0ddaba96327c166912e99838e334147ef5137dfc938a322217` at 273,558 bytes against the committed `46343a5ba4c1dbb1bb6584fa51c9b78b8ad34c4a74f091295e9da11b5e86fa54` at 273,628. An entry-by-entry comparison partitions the 200 entries into **13 differing in content** (line endings) and **187 differing in timestamp only**, which is the corrected finding in A2.6. The digests in A2.13.6 are of the **committed** archives; this row is the only rebuild measurement |
+| The three archives are byte-reproducible across two builds | **They are not** — established in this session, not assumed | `JAVA_HOME=$JDK11_HOME ./gradlew fatJar` exits `0` and produces 273,558 bytes against the committed `46343a5ba4c1dbb1bb6584fa51c9b78b8ad34c4a74f091295e9da11b5e86fa54` at 273,628. An entry-by-entry comparison partitions the 200 entries into **13 differing in content** (line endings) and **187 differing in timestamp only**, which is the corrected finding in A2.6. The digests in A2.13.6 are of the **committed** archives and are stable values. **A rebuild digest is not.** Three rebuild executions on this image produced three different digests — `3d6fdfa89e405e0ddaba96327c166912e99838e334147ef5137dfc938a322217`, `4ab502e3dc4e3872d99d3ab41a4d2b770a1adde022f39eb3283b25dc1625f9fb` and `fe6524de0e91de944eb2b99f413e762e52c1a026c1a65d6e81ad77971f032fa0` — all at exactly 273,558 bytes. Each is **one execution's reading, never an expected value**; the reproducible quantities are the size and the 13/187 partition |
 | Exact dependency versions to adopt in the modernization run | `UNKNOWN` by choice | The constraint each must satisfy is stated in the plan; the version is resolved at execution time and recorded in the handoff, so no number here is invented |
 | Behaviour on Windows or macOS | `UNKNOWN` | Only the Linux container was executed. The CI matrix covers three platforms, but no run of it is part of this baseline |
 | That `Living-Mainframe` holds commits beyond PR #411 | `FACT`, established in A2.9 from the fetched refs | Included here only to note that it rests on a fetch performed in this session, not on the API capture |
@@ -816,6 +916,8 @@ Behavior discipline: PRES preserving (any observable change is a defect) · CORR
 
 **The definition of green.** Green means **all** of: `clean test` reports **457 or more** tests with zero failures · the approval harness **compiled and executed a non-zero number of COBOL programs** · `actual-output.txt` is **non-empty** · the comparison against the approved baseline **genuinely matched**. The build is currently green for the wrong reason — vacuously, on a zero-byte `actual-output.txt` with zero COBOL programs compiled. An agent that satisfies the invariant by leaving the harness broken has failed, not succeeded. **Any run reporting green must state the executed COBOL program count.**
 
+**How that count is measured, and the one metric that must never be used for it.** The executed-program count is the number of `INF009: Process linux_gnucobol_run_tests ended with exit code <n>.` lines in the harness's **combined** output (`./approvaltest > log 2>&1`, or the Gradle build log when the task runs the harness), corroborated by a non-zero count of `TESTSUITE:` blocks in `actual-output.txt`. **It is never the number of `INF008: About to launch process` lines.** `FACT` — measured on this repository: with the compiler script present but not executable, `INF008` reads **5** while `INF009` reads **0**, no `TESTSUITE:` block is written, and **zero** programs are compiled; with it executable, `INF008` reads 5 and `INF009` reads **5** with 11 `TESTSUITE:` blocks. `INFERENCE` — `INF008` announces an intention and `INF009` reports a completed child with its exit status, so only the latter can distinguish work from the appearance of work; reasoning: the first is logged before the process is started and survives a launch failure, which is precisely the false-green shape the definition above exists to exclude. `FACT` — both families are written to **stderr** and not into `actual-output.txt`, so a count taken from `actual-output.txt` alone reads zero on a fully successful run.
+
 **The safety net.** 457 tests across 34 named test classes with zero failures, of which 33 classes actually execute tests. Existing assertions must not be weakened, deleted, disabled, renamed or narrowed to make a change pass. The single mechanism by which a pre-existing assertion may change is an itemized corrective task naming the class and method **before** the run starts, recording old and new expected values in the handoff with the motivating issue number. The rename is the one carve-out: it necessarily edits every existing test source, so "unmodified" cannot be taken literally, and the enforcement is instead that the commit's diff over `src/test/` is mechanically verifiable as matching only the rename script's token set.
 
 **Standing environment precondition for every run.** The first command of every session is `. /etc/profile.d/blitzy-cobolcheck-env.sh`. Nothing is on `PATH` in a non-login shell, and a probe that fails *before* sourcing it is a probe error, not a finding.
@@ -833,8 +935,10 @@ Behavior discipline: PRES preserving (any observable change is a defect) · CORR
 - **Labels:** `S2·CORR`
 - **Scope:** two itemized changes to the build script, plus one mechanically-required relocation. (i) Move the entire `approvalTest` task-configuration body at `[build.gradle:L205-L239]` into `doLast`, leaving the `dependsOn copyJarToBin, copyRunScripts` declaration at `[build.gradle:L203]` outside it. The relocation covers the whole body, not merely the two `.execute()` calls at `[build.gradle:L213]` and `[build.gradle:L216]`, because the body also contains `new BuildHelper().compareFiles(...)` at `[build.gradle:L230]` and the `throw new StopExecutionException(...)` at `[build.gradle:L233-L235]`; relocating only the executions would leave the comparison at configuration time, judging output produced later. This is a mechanical precision of change (i), not a third change. (ii) Change the comparison loop guard at `[build.gradle:L273]` so that **unequal stream lengths fail** instead of reaching `return 0` at `[build.gradle:L286]`.
 - **Required relocation:** `BuildHelper` is an inline **Groovy** class declared in the build script at `[build.gradle:L263-L296]`, not a Java file, and is structurally unreachable from anything under `src/test/java`. It moves to `buildSrc/`, which is the mechanical precondition of change (ii) rather than a third change, because the mandated test proving `compareFiles()` fails on unequal stream lengths and on an empty stream cannot otherwise be written.
-- **Entry precondition:** `clean test` green at 457/457 on JDK 11 with `JAVA_HOME` set to the JDK 11 home exported by the activation script.
-- **Success oracle:** `clean test` remains green at 457 or more tests with zero failures; the repaired harness **compiles and executes a non-zero number of COBOL programs**, and the run states that count; `actual-output.txt` is non-empty; the new `buildSrc` test asserts a failing verdict for unequal stream lengths **and** for an empty stream, and passes; and `approvalTest` **fails** against the un-refreshed baseline.
+- **Entry precondition:** `clean test` green at 457/457 on JDK 11 with `JAVA_HOME` set to the JDK 11 home exported by the activation script; **and the harness's three scripts made executable in the session, before any build** — `chmod +x ./approvaltest ./cobolcheck ./scripts/linux_gnucobol_run_tests`.
+- **Why that grant is an entry precondition and not a third itemized change.** `FACT` — all three ship at mode `0644`, and the build script chmods only `./approvaltest`, at its own `.execute()` site. `FACT` — `copyRunScripts` copies `cobolcheck` to `temp/approvalTest/cobolcheck` and Gradle's `Copy` preserves the source mode, so without the grant the copy is `0644`, all six harness invocations fail with `Permission denied`, the harness exits **126**, `actual-output.txt` is **0 bytes** and **zero** programs compile; granting only the copy still leaves `scripts/linux_gnucobol_run_tests` non-executable, and every launch then fails with `ERR023 … error=13, Permission denied` **while still logging `About to launch process`**. `INFERENCE` — this run's oracle is therefore unreachable without the grant, and the grant is nonetheless outside its itemized enumeration; reasoning: a `chmod` changes a file mode in the working tree and no file content, nothing is committed, and the enumeration governs committed production and build code. **The grant is session-local: the modes are restored before this run commits, and `git diff --numstat` reporting `0 0` for those three paths is the proof that no content changed.**
+- **Deferral of the durable fix, stated so it is not lost:** making those execute bits permanent is a committed mode change to tracked script surface and belongs to **Run 1b**, which owns the harness and CI and needs it for a CI leg that genuinely executes COBOL. It is itemized there.
+- **Success oracle:** `clean test` remains green at 457 or more tests with zero failures; the repaired harness **compiles and executes a non-zero number of COBOL programs**, and the run states that count — counted as `INF009: Process linux_gnucobol_run_tests ended with exit code` occurrences in the harness's combined output and corroborated by a non-zero `TESTSUITE:` block count in `actual-output.txt`, never as `About to launch process` occurrences, which read 5 even when nothing compiled (A3.0); `actual-output.txt` is non-empty at **332 lines**, its byte total being clone-path dependent; the new `buildSrc` test asserts a failing verdict for unequal stream lengths **and** for an empty stream, and passes; and `approvalTest` **fails** against the un-refreshed baseline.
 - **Exit criteria:** `approvalTest` ends **RED by design**. The run repairs the harness without refreshing the stale approved file, so the comparison necessarily fails. That red is the evidence the repair worked and is the required exit state. **The run must not revert on account of it** — reverting would undo the fix and restore the vacuous pass. `clean test` must still be green at 457/457. No other run in this programme may end red.
 - **Tag:** `run-1a-approval-harness-repair`
 - **BLOCKED-BY:** nothing. This is the first run.
@@ -846,11 +950,14 @@ Behavior discipline: PRES preserving (any observable change is a defect) · CORR
 - **Labels:** `S1·PRES`, plus a **declared secondary surface `S2·PRES`** bounded to `build.gradle` test-registration and golden-comparison wiring only — see the dedicated entry below. A run whose declared surfaces do not cover the files it edits has no oracle for those edits and must not start.
 - **Scope:** a characterization corpus and golden-file set, a golden-file normalization filter with its own self-test, the regenerated approval baseline, and the CI GnuCOBOL install step. The corpus is drawn from the repository's own material: 15 COBOL programs under `src/main/cobol/`, **41** copybook fixtures under `src/main/cobol/copy/` (39 directly in the directory plus 2 under `src/main/cobol/copy/Outrec/`, so a non-recursive listing sees 39 and a recursive one 41 — the supplied ground truth's 40 matches neither), 16 suite directories holding 23 `.cut`/`.CUT` files under `src/test/cobol/`, 14 fixtures under `testfiles/`, plus `examples/SAMPLEJC` and `testsuites/`. The harness currently invokes exactly six programs — `NUMBERS`, `ALPHA`, `GREETING`, `FILECOPY`, `MOCKTEST`, `DPICNUMBERS` — so nine of the fifteen are exercised end-to-end by nothing: `BIPM012`, `DB2PROG`, `LONGLINESANDNUMBERS`, `MOCK`, `MOCKPARA`, `REPLAC`, `RETURNCODE`, `TESTNESTED`, `WS88LEVEL`. Widening the harness to cover them is the single highest-leverage risk reduction available and costs nothing in production risk, because this run touches no production code.
 - **Artifacts:** `src/test/corpus/`, `src/test/golden/` (the regenerated approval baseline is one of the golden files), and the normalization filter under `src/test/java/io/blitzy/cbltest/golden/`.
-- **The normalization filter must canonicalize both the old and the new identifier strings**, because it is built here and the rename happens later. The four token pairs are: Java package namespace `org.openmainframeproject.cobolcheck` → `io.blitzy.cbltest`; Gradle group `org.openmainframeproject` → `io.blitzy`; artifact ID and `productName` `cobol-check` → `cbltest`; product display name `Cobol Check` / `COBOL Check` → `Blitzy COBOL Test`. The filter carries its own test proving it normalizes **only** those four token pairs and nothing else.
-- **Declared secondary surface: `S2·PRES`, bounded to the build script and nothing else.** `INFERENCE` — the primary surface cannot cover this run's own work, so declaring it is mandatory rather than optional; reasoning: registering a new test source set and wiring a golden-file comparison task requires editing `build.gradle`, which the surface vocabulary classifies as `S2` peripheral production, and a run that edits `S2` under an `S1`-only label has no oracle for the edit it actually made. **Exactly what the secondary surface permits:** adding declarations to `build.gradle` that (i) register the new test classes and the golden-file comparison so Gradle executes them, and (ii) declare the corpus and golden directories as task inputs and outputs. **Nothing else.** No dependency change, no wrapper change, no plugin change, no JaCoCo or Sonar change, no `fatJar` change, no modification to the behaviour of any pre-existing task. **Its own oracle, checkable independently of the `S1` oracle:** `git diff <start-commit> HEAD -- build.gradle` consists solely of added lines registering test execution or golden comparison — no line is deleted and no pre-existing line is modified — and `./gradlew tasks` reports every task that existed at the start commit with the same name and the same `dependsOn` set. The discipline stays `PRES` on both surfaces: the build script gains the ability to run new tests and gains nothing else.
+- **The normalization filter must canonicalize both the old and the new identifier strings**, because it is built here and the rename happens later. The four identifier token pairs are: Java package namespace `org.openmainframeproject.cobolcheck` → `io.blitzy.cbltest`; Gradle group `org.openmainframeproject` → `io.blitzy`; artifact ID and `productName` `cobol-check` → `cbltest`; product display name `Cobol Check` / `COBOL Check` → `Blitzy COBOL Test`.
+- **The filter carries a fifth normalization, and it is not an identifier: the absolute repository root path, canonicalized to the literal `<REPO>`.** `FACT` — captured output embeds the absolute repository root **thirteen** times, at lines 162, 163, 169, 292, 293, 299, 300, 301, 307, 308, 309, 326 and 327 of a 332-line `actual-output.txt`, because GnuCOBOL writes its diagnostics to stderr and `ProcessOutputWriter.writeOutPutToConsole()` prints the child's stderr to `System.out` at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L113]`. `FACT` — the byte total of that file is therefore `26,216 + 13 × (length of the absolute repository root)`, measured identically across three clones with roots of 81, 112 and 26 characters. `FACT` — the currently committed `expected-output.txt` contains zero absolute paths, so this run is the point at which the problem is created: regenerating the baseline from real output puts thirteen machine-specific lines into it. `INFERENCE` — without this fifth normalization this run's own success oracle is unreachable on any machine but the capturing one, the modernization run's byte-identical oracle is unenforceable, and the three-operating-system CI comparison against a single baseline cannot pass; reasoning: the comparison is line-by-line over trimmed text, so a differing path prefix is a differing line. `INFERENCE` — the path is canonicalized rather than the diagnostics stripped; reasoning: the diagnostics' presence and position are exactly what a characterization baseline exists to record, so only their machine-specific prefix may be removed.
+- **The filter's self-test covers five normalizations and proves it changes nothing else.** It asserts each of the four identifier pairs in both directions, asserts that an absolute repository root is replaced by `<REPO>` wherever it appears, and asserts non-alteration of everything else — COBOL source content, numeric values, and paths that are **relative** or that merely resemble a token. **`<REPO>` must be applied to the canonical real path of the repository root** and to nothing shorter, so that a path which merely shares a prefix with it is left alone.
+- **Declared secondary surface: `S2·PRES`, bounded to the build script plus two file modes and nothing else.** `INFERENCE` — the primary surface cannot cover this run's own work, so declaring it is mandatory rather than optional; reasoning: registering a new test source set and wiring a golden-file comparison task requires editing `build.gradle`, which the surface vocabulary classifies as `S2` peripheral production, and a run that edits `S2` under an `S1`-only label has no oracle for the edit it actually made. **Exactly what the secondary surface permits:** adding declarations to `build.gradle` that (i) register the new test classes and the golden-file comparison so Gradle executes them, and (ii) declare the corpus and golden directories as task inputs and outputs. **Nothing else.** No dependency change, no wrapper change, no plugin change, no JaCoCo or Sonar change, no `fatJar` change, no modification to the behaviour of any pre-existing task. **Its own oracle, checkable independently of the `S1` oracle:** `git diff <start-commit> HEAD -- build.gradle` consists solely of added lines registering test execution or golden comparison — no line is deleted and no pre-existing line is modified — and `./gradlew tasks` reports every task that existed at the start commit with the same name and the same `dependsOn` set. The discipline stays `PRES` on both surfaces: the build script gains the ability to run new tests and gains nothing else.
+- **The second bounded item on that secondary surface: the durable execute bits for `cobolcheck` and `scripts/linux_gnucobol_run_tests`, itemized here in advance.** `FACT` — both ship tracked at mode `0644`, and `build.gradle` chmods only `./approvaltest`. `FACT` — `copyRunScripts` copies `cobolcheck` into `temp/approvalTest/` and Gradle's `Copy` preserves the source mode, so without the execute bit the harness's six invocations fail with `Permission denied`, the harness exits **126**, `actual-output.txt` is **0 bytes** and **zero** programs compile; and with the copy executable but the runner not, every launch fails with `ERR023 … error=13, Permission denied` at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/LinuxProcessLauncher.java:L81]` while still logging `About to launch process`. `INFERENCE` — Run 1a grants both in-session and commits neither, so this run inherits a repository whose harness cannot execute from a fresh checkout, and **a CI runner is exactly a fresh checkout**: it restores modes from the index, so this run's own oracle — CI green with a compiler available — is unreachable until the bits are committed; reasoning: the mode lives in the tree object, nothing in the workflow grants it, and the only chmod anywhere is the one the build script performs on `approvaltest`. `INFERENCE` — adding a `chmod` step to the workflow instead was rejected; reasoning: it would fix CI while leaving every human and agent checkout broken in the same way, which is how this defect survived long enough to be found. **Exactly what this permits:** `git update-index --chmod=+x cobolcheck scripts/linux_gnucobol_run_tests` — a mode change from `100644` to `100755` on those two paths and nothing more. **Its own oracle:** `git diff <start-commit> HEAD -- cobolcheck scripts/linux_gnucobol_run_tests` shows **old mode 100644 / new mode 100755** for both while `git diff --numstat` reports `0	0` for both, proving zero content change; `git ls-files -s` reports `100755`; and a fresh clone of the run's final commit executes `./approvaltest` with a non-zero `INF009` count without any manual `chmod`. The discipline stays `PRES`: a file mode is not observable behaviour of the tool, and the harness's output is unchanged by being permitted to run.
 - **Security controls this run owns, per ADR-13, and its acceptance criteria include them:** every golden file and every corpus artifact is written **atomically** — temporary file in the same directory, then rename — so an interrupted capture leaves the previous file or the new one and never a truncated one; the corpus and golden roots are resolved to canonical real paths and asserted to sit inside the repository, with a symlink that escapes the root **refused** rather than followed; and the widened harness runs under a declared per-program timeout and output cap, so a program whose read loop cannot terminate under current stubbing fails with its name stated instead of hanging the run. `INFERENCE` — these land here rather than later because this is the first run that generates a file set and the first that executes programs nothing has executed before; reasoning: a control introduced alongside its surface costs one change, while the same control retrofitted after four runs have depended on that surface costs four.
 - **Entry precondition:** the tag `run-1a-approval-harness-repair` exists; `RUN-1A-HANDOFF.md` is present and reconciled; `clean test` green at 457/457; `approvalTest` red against the stale baseline, which is the expected inherited state.
-- **Success oracle:** full green restored under the mechanical definition — `clean test` at 457 or more with zero failures, the harness compiling and executing a non-zero and **stated** number of COBOL programs, `actual-output.txt` non-empty, and the comparison genuinely matching the regenerated baseline. Additionally: every corpus program has a golden file; the normalization filter's self-test passes; and CI is green on a runner that installs GnuCOBOL.
+- **Success oracle:** full green restored under the mechanical definition — `clean test` at 457 or more with zero failures, the harness compiling and executing a non-zero and **stated** number of COBOL programs — counted as `INF009` occurrences, never as `About to launch process` occurrences (A3.0) — `actual-output.txt` non-empty, and the comparison genuinely matching the regenerated baseline. Additionally: every corpus program has a golden file; the normalization filter's self-test passes over all **five** normalizations; **no golden file and no regenerated baseline contains an absolute repository path after the filter has been applied**, asserted by a test rather than by inspection; and CI is green on a runner that installs GnuCOBOL — which is the second machine that proves the previous clause, because a CI runner's checkout path is not this container's.
 - **Exit criteria:** green, tagged, with the verbatim `cobc --version` recorded in the handoff as the toolchain anchor, and with the record of which corpus programs exercise which copybook.
 - **Tag:** `run-1b-characterization`
 - **BLOCKED-BY:** `run-1a-approval-harness-repair`
@@ -1215,6 +1322,8 @@ The first release under the new identity is **0.3.0**, and the stale planned hea
 
 **Why this cannot be deferred.** The golden-file normalization filter is built in Run 1b and must canonicalize both the old **and** the new namespace, group, artifact ID and product display name — and Run 1b executes **before** the rename. `INFERENCE` — without these strings the filter is unwritable and the byte-identical oracle for the modernization run collapses silently rather than loudly; reasoning: an un-normalized identifier token appears in golden output, so every golden file diffs for a reason the oracle cannot distinguish from a migration defect.
 
+**Scope note, so this record is not read as bounding the filter.** This decision fixes the **four identifier** token pairs and nothing more. `FACT` — the filter carries a **fifth** normalization that is not an identifier and is not decided here: the absolute repository root, canonicalized to the literal `<REPO>`, mandated by A2.5 and specified in A3.3. `INFERENCE` — the two must not be merged into one list; reasoning: the identifier pairs exist because a later run changes the strings, whereas the path normalization exists because the captured output embeds the machine it was captured on, and only the first is a naming decision.
+
 **Why three segments map to three.** `FACT` — resources are resolved by classpath path: `Constants.COBOLCHECK_PACKAGE_PATH = "/org/openmainframeproject/cobolcheck"` at `[src/main/java/org/openmainframeproject/cobolcheck/services/Constants.java:L21]`, `COBOLCHECK_COPYBOOK_DIRECTORY = COBOLCHECK_PACKAGE_PATH + "/copybooks/"` at `[:L24]`, consumed by `getBoilerplateCodeFromCopybooks()` which builds its path at `[.../features/testSuiteParser/TestSuiteParserController.java:L300]` and reads it with `getResourceAsStream` at `[:L301]`. `INFERENCE` — a path-depth change would break resource lookup and produce golden-file diffs indistinguishable from migration defects, whereas an equal-depth mapping reduces the source move to a two-level directory rename plus a token substitution; reasoning: the resource path is assembled from the package path literal, so its segment count is load-bearing.
 
 **Blast radius, measured.** `FACT` — exactly **161** tracked text files contain `openmainframeproject` or `neopragma` tokens (163 including binaries), with the highest concentrations in `Generator.java` (16), `TestSuiteConcatenator.java` (14), and `ProcessOutputWriter.java`, `InterpreterController.java` and `CopybookExpander.java` (12 each). `FACT` — one launch script still references a namespace that no longer exists: `run:L5` and `run:L7` invoke `--tests com.neopragma.cobolcheck.*Test` and `*IT`. `INFERENCE` — that script therefore runs zero tests today; reasoning: no class matches that package.
@@ -1243,7 +1352,7 @@ The first release under the new identity is **0.3.0**, and the stale planned hea
 
 **Alternatives considered.** (a) A preliminary purge run before any tag exists. (b) Purge only the three archives. (c) Leave the binaries tracked.
 
-**Rejected because.** (a) and (b) both invalidate hashes for a sub-4% storage gain and destroy the citation base. (c) leaves a live defect: `FACT` — pull request #337 conflicts on `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar` as a **delete/modify** conflict, and `FACT` — running the documented gate rewrites `build/libs/cobol-check-0.2.19.jar` and deletes `build/distributions/cobol-check-0.2.19.zip`, so merely building the project dirties the working tree.
+**Rejected because.** (a) and (b) both invalidate hashes for a sub-4% storage gain and destroy the citation base. (c) leaves a live defect: `FACT` — pull request #337 conflicts on `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` as a `CONFLICT (content)` conflict, git having paired that path with the pull request's `cobol-check-0.2.8.jar` by rename detection (A2.8), and `FACT` — running the documented gate rewrites `build/libs/cobol-check-0.2.19.jar`, rewrites the tracked `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` and deletes `build/distributions/cobol-check-0.2.19.zip`, so merely building the project dirties the working tree.
 
 **Implementing run.** Run 2.
 
@@ -1422,7 +1531,7 @@ The upstream repository is archived and read-only. Nothing was written to it: no
 | **#338** | upstream | CONFLICT | **Run 1a** | Superseded. Its central change is already present in the fork at `[build.gradle:L203]` and is insufficient on its own, so Run 1a supersedes it rather than adopting it |
 | **#336** | upstream | CONFLICT | **Run 3** | Intent re-applied on the extension manifests **as Run 2 leaves them**, as itemized behaviour correction (h). Closes issue #287 |
 | **#330** | upstream | CONFLICT | **Run 3** | Not adopted as authored. Its intent is re-implemented, expanding **in place** and leaving `ExpanderTest` intact, honouring both recorded review objections |
-| **#337** | upstream | CONFLICT | **Run 3** | Superseded by #408. Its `src/main/cobol/MOCK.CBL` fixture and any uncovered `InterpreterControllerTest` case are harvested; neither its committed-jar edit — a delete/modify conflict on the removed `cobol-check-0.2.8.jar` — nor its `InterpreterController` churn is taken |
+| **#337** | upstream | CONFLICT | **Run 3** | Superseded by #408. Its `src/main/cobol/MOCK.CBL` fixture and any uncovered `InterpreterControllerTest` case are harvested; neither its committed-jar edit — a `CONFLICT (content)` on the fork's `cobol-check-0.2.19.jar`, which git pairs with the pull request's `cobol-check-0.2.8.jar` by rename detection — nor its `InterpreterController` churn is taken |
 | **#408** | generalmotors | CLEAN | **Run 3** | Adopted, minus its committed `testruns/testResults.txt`. Closes issue #335 |
 | **#409** | generalmotors | CLEAN | **Run 3** | Adopted. Closes issue #339, advances #306 and #151 |
 | **#410** | generalmotors | CLEAN | **Run 3** | Superseded by #411 for the code; its `FileCopy.cbl` and `FSTEST.cpy` fixtures are harvested so the file-section case stays covered |
@@ -1438,7 +1547,7 @@ The per-pull-request evidence behind those dispositions, with measured diff shap
 | --- | --- | --- | --- | --- | --- |
 | **#330** | Fix db2 | upstream | **CONFLICT** — 6 files, +139/−21, conflicting in `InterpreterController.java`, `LineRepository.java`, `Generator.java`, `ExpanderTest.java` | High | **Do not adopt as authored.** Re-implement its intent in Run 3 |
 | **#336** | Fix loop in extension | upstream | **CONFLICT** — 10 files, +157/−8, conflicting in `package-lock.json`, `vs-code-extension/Cobol-check/scripts/windows_gnucobol_run_tests.cmd`, `vs-code-extension/package.json` | Medium | Adopt the intent in **Run 3**, re-applied on the extension manifests as Run 2 leaves them, as itemized behaviour correction (h). Closes issue #287. **Not Run 2**, whose preserving discipline forbids the observable change a timeout introduces |
-| **#337** | Area after col 72 | upstream | **CONFLICT** — 6 files, +28/−24, conflicting in `InterpreterController.java`, `InterpreterControllerTest.java`, and `vs-code-extension/Cobol-check/bin/cobol-check-0.2.8.jar` as a **delete/modify** conflict | Medium | **Superseded by #408.** Harvest its `src/main/cobol/MOCK.CBL` fixture and any `InterpreterControllerTest` case #408 does not cover; adopt neither its jar edit nor its `InterpreterController` churn. Run 3 |
+| **#337** | Area after col 72 | upstream | **CONFLICT** — 6 files, +28/−24, conflicting in `InterpreterController.java`, `InterpreterControllerTest.java`, and `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar` as a `CONFLICT (content)` conflict reached through rename detection against the pull request's `cobol-check-0.2.8.jar` | Medium | **Superseded by #408.** Harvest its `src/main/cobol/MOCK.CBL` fixture and any `InterpreterControllerTest` case #408 does not cover; adopt neither its jar edit nor its `InterpreterController` churn. Run 3 |
 | **#338** | Fixed Gradle build for approval tests | upstream | **CONFLICT** — 3 files, +9/−9, conflicting in `approvaltest`, `approvaltestWin.cmd`, `build.gradle` | Critical | **Superseded by Run 1a.** Its central change is already present in the fork and is insufficient on its own |
 | **#408** | COBOL Line Filtering: Add GnuCOBOL compatibility for EJECT/SKIP statements and remove right side sequence numbers | generalmotors | **CLEAN** — 8 files, +261 | High | **Adopt** in Run 3, minus its committed `testruns/testResults.txt`. Closes #335 |
 | **#409** | Handle LINKAGE SECTION and PROCEDURE DIVISION USING; skip ENTRY statements | generalmotors | **CLEAN** — 3 files, +138/−1 | High | **Adopt** in Run 3. Closes #339, advances #306 and #151 |
@@ -1659,7 +1768,7 @@ Ordered by the programme's own priority, not by likelihood. Each entry carries a
 | # | Risk | Likelihood | Impact | Mitigation | Early-warning signal |
 | --- | --- | --- | --- | --- | --- |
 | **R1** | **False confidence: the tool reports a passing test for COBOL it silently deleted.** A tool that does this is worse than no tool. `FACT` — the mechanism is live today: every `EXEC SQL`, `EXEC CICS` and batch file I/O verb is replaced by the pair at `[.../features/interpreter/InterpreterController.java:L149-L150]` and `[:L165-L166]`, and the build is green on a **0-byte** `actual-output.txt` with zero programs compiled | **Realized — this is the current state, not a forecast** | Catastrophic. Every downstream guarantee is void | The mechanical definition of green, enforced as four simultaneous conditions rather than one; every run must state its executed COBOL program count; the verified/provisional register with CI enforcement; the mutation floor, which measures fault *detection* rather than execution | **Any run reporting green without stating an executed program count.** Also: `actual-output.txt` at 0 bytes; a comparison verdict printed before `> Task :clean`; a mutation score that rises while assertion count falls |
-| **R2** | **Golden-file non-reproducibility voids the byte-identical oracle across four runs.** `FACT` — three environment facts are invisible in the repository and each is sufficient on its own: the compiler version; a duplicated `-D_FORTIFY_SOURCE` whose warning reaches stdout because `[.../features/launcher/ProcessOutputWriter.java:L112-L113]` prints stderr to `System.out`; and line-ending translation in column-significant fixed-format COBOL. `FACT` — the current build is additionally non-reproducible at the archive level: against a rebuild, 13 of the 200 jar entries differ in **content** because the committed artifact carries CRLF line endings where a rebuild here carries LF, and a further 187 differ by timestamp (A2.6) | High if unmanaged | Severe. Four runs' oracles become unenforceable, and a migration defect becomes indistinguishable from noise | The verbatim `cobc --version` anchor recorded in every handoff and re-read as an entry precondition; a single `-D_FORTIFY_SOURCE` value exported before any capture; `core.autocrlf=false`; the normalization filter, itself covered by a test proving it normalizes only four identifier token pairs; and Gradle 9's reproducible-archive default | **A mismatch between a run's re-read compiler string and the anchor in the previous handoff.** That is itself a finding: it means the image is not stable across sessions and every golden file is suspect. Also: a golden-file diff whose only content is a compiler warning, a timestamp, or a line ending |
+| **R2** | **Golden-file non-reproducibility voids the byte-identical oracle across four runs.** `FACT` — **four** sources are invisible in the repository and each is sufficient on its own: the compiler version; a duplicated `-D_FORTIFY_SOURCE` whose warning reaches stdout because `[.../features/launcher/ProcessOutputWriter.java:L112-L113]` prints stderr to `System.out`; line-ending translation in column-significant fixed-format COBOL; and — the one that is not an environment setting at all — **the absolute repository path, which the same stderr-to-stdout pipe embeds 13 times in a 332-line `actual-output.txt`**, making its byte total `26,216 + 13 × (length of the repository root)` and its content machine-specific (A2.5). `FACT` — the current build is additionally non-reproducible at the archive level: against a rebuild, 13 of the 200 jar entries differ in **content** because the committed artifact carries CRLF line endings where a rebuild here carries LF, and a further 187 differ by timestamp (A2.6) | High if unmanaged | Severe. Four runs' oracles become unenforceable, and a migration defect becomes indistinguishable from noise | The verbatim `cobc --version` anchor recorded in every handoff and re-read as an entry precondition; a single `-D_FORTIFY_SOURCE` value exported before any capture; `core.autocrlf=false`; **the normalization filter, covered by a test proving it normalizes exactly five token pairs — the four identifier pairs plus the absolute repository root to the literal `<REPO>` — and nothing else**; a test asserting no golden file contains an absolute repository path after filtering; and Gradle 9's reproducible-archive default | **A mismatch between a run's re-read compiler string and the anchor in the previous handoff.** That is itself a finding: it means the image is not stable across sessions and every golden file is suspect. Also: a golden-file diff whose only content is a compiler warning, a timestamp, a line ending, or **a path prefix**; a byte count quoted for `actual-output.txt` without the clone root it was measured in; a golden-file comparison that passes locally and fails on a CI runner |
 | **R3** | **A backward-compatibility break silently reaches a real consumer.** Four consumer classes are pinned to an archived upstream, including a language-track runner corroborated in the capture and a regulated release pipeline | Medium | Severe. A fork that breaks existing tests is worthless, and these users have nowhere to fall back to | The compatibility contract enumerated surface by surface; exactly one deliberate break, itemized in advance and assigned to a named run; new configuration keys additive with current-behaviour defaults; new mock types additive only; the `txt`/`directOutput` format protected | **Any golden-file change in a preserving run**, or **any unitemized golden-file change in a corrective run**. Also: a `.cut` fixture from the corpus failing to parse; a `0.2.19` configuration file producing different behaviour |
 | **R4** | **Mocked resource semantics are wrong because no IBM compiler is reachable.** `FACT` — `SQLCA.cpy` gives layout but no `SQLCODE` values; the CICS table covers 75 unique conditions across 76 insertions and `lookup()` returns a zero-filled response for anything else at `[.../services/cobolLogic/EIBResponseTable.java:L130-L133]` | Medium for values; **low for control flow**, which is executable | Severe where believed. A mock returning a wrong condition inverts the tool's answer | Two reachable sources in a fixed order, in-repo authority first; everything else `UNKNOWN` with an explicit `BLOCKED-BY`; affected types shipped **provisional**; the register CI-enforced and annotated at the point of use; the separation of verifiable control flow from unverifiable values | **A register entry marked `verified` with no corpus program covering it** — which CI fails on. Also: any condition, status or code value appearing in a diff without a cited source; a zero-filled response returned for an unrecognized condition name |
 | **R5** | **The green build is spent on a redesign.** The 457-test suite passing with zero failures is the only genuine asset, and it is the thing that makes every behaviour-preserving oracle enforceable | Medium — the pressure is constant, because the largest class is 60,602 bytes and the temptation to rewrite it is real | Severe. Losing the safety net removes the ability to prove anything about any later run | Retain the precompiler model as a standing constraint; prefer the smallest verifiable diff; reuse the existing pseudo-text tokenizer rather than writing a parser; relocate one build helper rather than inventing a harness; reject the history rewrite; bound the generator into its own package; forbid enlarging the three largest classes | **A run whose diff touches more files than its enumerated surface names.** Also: a preserving run proposing a golden-file update; a run without both labels stated; the phrase "while we are in here" |
@@ -1771,7 +1880,7 @@ A tagged commit is a known-good checkpoint if and only if **all** of the followi
 
 **Run 1a is the single run in this programme permitted to end red, and it is required to.**
 
-Run 1a repairs the approval harness without refreshing the stale approved baseline. `FACT` — that baseline is stale by exactly **+98 lines and +14,933 bytes**: a real harness run produces `actual-output.txt` at 332 lines / 27,269 bytes against `expected-output.txt` at 234 lines / 12,336 bytes. `FACT` — the first divergence is at line 5 and is a result-format change, the baseline carrying `EXPECTED <value>, WAS <value>` on one line where the current code emits two. `FACT` — simulating the comparison over the two files returns a failing verdict at line 5.
+Run 1a repairs the approval harness without refreshing the stale approved baseline. `FACT` — that baseline is stale by exactly **+98 lines**: a real harness run produces `actual-output.txt` at **332 lines** against `expected-output.txt` at 234 lines / 12,336 bytes. `FACT` — the byte total of that output is **not** a portable figure: it is `26,216 + 13 × (length of the absolute repository root)`, because the file embeds the repository path thirteen times, which was 27,269 bytes in the clone this baseline was captured in and has been re-measured at 27,672 and 26,554 in clones with different path lengths (A2.5). **State the line count as the oracle and qualify any byte figure with the clone that produced it.** `FACT` — the first divergence is at line 5 and is a result-format change, the baseline carrying `EXPECTED <value>, WAS <value>` on one line where the current code emits two. `FACT` — simulating the comparison over the two files returns a failing verdict at line 5. `INFERENCE` — the path dependence does not weaken Run 1a's carve-out; reasoning: Run 1a's required red rests on a content divergence at line 5 that exists on every machine, and thirteen path-bearing lines further down cannot make a failing comparison pass.
 
 `INFERENCE` — therefore `approvalTest` **necessarily** fails once the harness genuinely runs, and that red is the evidence the repair worked; reasoning: before the repair the comparison passed on a zero-byte file, so a failing comparison against real output is the only observable proof that real output now exists.
 
@@ -1860,16 +1969,30 @@ State here whether sourcing succeeded, and paste any deviation verbatim.
 - `cobc --version`, verbatim, all lines:
 - COB_CFLAGS as exported, verbatim (must contain exactly one -D_FORTIFY_SOURCE):
 - `git config --get core.autocrlf` (must be false):
+- Host OS: PRETTY_NAME, VERSION and VERSION_CODENAME from /etc/os-release, plus
+  `uname -srm`. Do NOT paste `uname -a`: it carries the container hostname.
+  Recorded because three sources disagreed about it at planning time and the
+  planning run observed Ubuntu 25.10 (Questing Quokka) on kernel 6.12.85+.
+  This field is NOT part of the match gate below. If the OS differs but
+  `cobc --version` is identical, record it in section 11 and CONTINUE; if
+  `cobc --version` differs, the gate below applies regardless of the OS.
 - JDK used for the daemon, and JDK(s) used for test execution:
 - Gradle version:
 - Does this anchor MATCH the predecessor handoff's anchor?  YES / NO
+  (The gate is `cobc --version`, COB_CFLAGS and core.autocrlf. The OS line is
+  recorded for drift detection, not gated on.)
   If NO: this is a finding. The image is not stable across sessions and every golden
   file is suspect. Stop and report rather than continuing.
 
 ## 3. Green status, stated mechanically
 - `clean test`: <n> tests, <n> failures, <n> skipped        (must be >= 457 with 0 failures)
 - COBOL programs compiled and EXECUTED by the approval harness: <n>   (REQUIRED; a green
-  claim without this number is not a green claim)
+  claim without this number is not a green claim. Count `INF009: Process
+  linux_gnucobol_run_tests ended with exit code` in the harness's COMBINED output, and
+  corroborate with a non-zero count of `TESTSUITE:` blocks in actual-output.txt. Do NOT
+  count `About to launch process`: it is logged before the child starts and reads 5 even
+  when zero programs compiled. Both INF families go to stderr, not into actual-output.txt.)
+- Each executed child's exit code, in order:
 - `actual-output.txt`: <bytes> bytes, <lines> lines          (must be non-empty)
 - Comparison against the approved baseline: MATCHED / DID NOT MATCH
 - Overall: GREEN / RED
@@ -2105,6 +2228,8 @@ cobc --version
 "$JDK21_HOME/bin/java" -version
 echo "$COB_CFLAGS"                  # must contain exactly ONE -D_FORTIFY_SOURCE
 JAVA_HOME=$JDK11_HOME ./gradlew --version
+( . /etc/os-release && echo "$PRETTY_NAME | $VERSION | $VERSION_CODENAME" )
+uname -srm                          # NOT `uname -a`: that prints the container hostname
 ```
 
 `core.autocrlf` is deliberately **not** probed in this block: it is clone-local state that a fresh clone does not carry, so it is set and verified in the repository block below rather than asserted before anything has set it. Probing it here would report a spurious failure on a clean clone — the same class of probe error the paragraph above warns about.
@@ -2159,8 +2284,15 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 case "$BRANCH" in
   Developer|main|master|HEAD) echo "FATAL: refusing to work on '$BRANCH' - cut a run branch first"; exit 1 ;;
 esac
-test -z "$(git status --porcelain)" \
+# The entry gate stays strict everywhere EXCEPT the file modes of the three harness
+# scripts, which step 9 grants and which therefore make the tree legitimately dirty for
+# the rest of the run. A CONTENT change to any of them, or any other dirty path, is still
+# fatal: `git diff --numstat` reports 0/0 for a difference that is only a file mode.
+test -z "$(git status --porcelain -- . ':!approvaltest' ':!cobolcheck' ':!scripts/linux_gnucobol_run_tests')" \
   || { echo 'FATAL: working tree is dirty at entry - commit, stash or restore before starting'; exit 1; }
+test -z "$(git diff --numstat -- approvaltest cobolcheck scripts/linux_gnucobol_run_tests \
+           | awk '$1 != 0 || $2 != 0')" \
+  || { echo 'FATAL: a harness script differs in CONTENT, not only in file mode'; exit 1; }
 
 # 4. Line-ending translation OFF, repository-locally. Column-significant fixed-format
 #    COBOL is corrupted by translation, and every golden file depends on this.
@@ -2233,7 +2365,32 @@ cold_tree_reset() {
 }
 cold_tree_reset
 
-echo 'Repository, remotes and pull-request heads verified; cold-tree reset available.'
+# 9. Grant the harness its execute bits. REQUIRED, and not housekeeping: three tracked
+#    scripts ship at mode 0644 and the harness cannot execute a single COBOL program
+#    without them. Measured on a clean checkout after a full build:
+#      * `approvaltest` (0644) is the ONLY one the build chmods for you, at its own
+#        `.execute()` site in build.gradle.
+#      * `cobolcheck` (0644) is copied to `temp/approvalTest/cobolcheck` by
+#        `copyRunScripts`, and Gradle's `Copy` PRESERVES the source mode -- so the copy
+#        is 0644 as well, all six harness invocations die with
+#        `./approvaltest: line N: ./temp/approvalTest/cobolcheck: Permission denied`,
+#        the harness exits 126, `actual-output.txt` is 0 bytes and ZERO programs compile.
+#        Granting +x HERE, before the build, is what makes the copy executable; chmodding
+#        the copy afterwards works too but must be redone after every `copyRunScripts`.
+#      * `scripts/linux_gnucobol_run_tests` (0644) is exec'd once per program by the
+#        launcher. Without +x every launch fails with `ERR023: Process failed to start
+#        with arguments: scripts/linux_gnucobol_run_tests,...`, caused by
+#        `java.io.IOException: error=13, Permission denied` -- while STILL logging
+#        `INF008: About to launch process` first, which is exactly why an
+#        `About to launch process` count is not evidence that anything ran.
+#    These are file-MODE changes to tracked files and change no file content. Your output
+#    contract says what to do with them before you commit.
+chmod +x ./approvaltest ./cobolcheck ./scripts/linux_gnucobol_run_tests
+for _f in approvaltest cobolcheck scripts/linux_gnucobol_run_tests; do
+  test -x "$_f" || { echo "FATAL: $_f is not executable"; exit 1; }
+done
+
+echo 'Repository, remotes, pull-request heads and harness execute bits verified; cold-tree reset available.'
 ```
 
 **The fork's default branch is `Developer`.** Take that from the captured API metadata — `upstream-harvest/pulls.json` → `repository_metadata.default_branch` — and **not** from `git symbolic-ref refs/remotes/origin/HEAD`, which reports whatever branch your clone was created on and in an agent clone is normally the working branch rather than `Developer`. If your `origin/HEAD` disagrees with `Developer`, that is expected and is not a finding; if the captured metadata disagrees with `Developer`, that **is** a finding — report it.
@@ -2253,7 +2410,7 @@ echo 'Repository, remotes and pull-request heads verified; cold-tree reset avail
 
 Two operational hazards, both measured, that will waste your time if you do not know them:
 
-1. **`./gradlew clean` deletes tracked files.** `build/distributions/cobol-check-0.2.19.zip` and `build/libs/cobol-check-0.2.19.jar` are both **tracked**, and `clean` removes them. `"chmod +x ./approvaltest"` inside the build script also changes a **tracked** file's mode from `100644` to `100755`. Expect a dirty working tree after any build, and restore deliberately rather than committing the churn accidentally.
+1. **`./gradlew clean` deletes tracked files, and the distribution task set rewrites a third one.** `build/distributions/cobol-check-0.2.19.zip` and `build/libs/cobol-check-0.2.19.jar` are both **tracked**, and `clean` removes them. `"chmod +x ./approvaltest"` inside the build script also changes a **tracked** file's mode from `100644` to `100755`, and step 9 of the block above changes two more modes deliberately. **And `prepareDistribution` rewrites the tracked binary `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar`**: it declares `dependsOn copyJarToBin, copyJarToExtension, copyRunScripts`, and `copyJarToExtension` in turn `dependsOn clearExtensionJar`, which is a `Delete` over that directory's jars — so a full build deletes and re-creates it. Measured: after `clean build fatJar copyJarToBin copyRunScripts prepareDistribution`, `git status --porcelain` reports ` M build/distributions/cobol-check-0.2.19.zip`, ` M build/libs/cobol-check-0.2.19.jar` and ` M vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar`. That third path matters twice over: it is the jar whose digest the baseline uses as evidence that the two committed jars are byte-identical, and it is the easiest of the three to commit by accident because nothing in the build's own output names it. **Expect a dirty working tree after any build, restore deliberately, and check that path explicitly.**
 2. **Do not pipe Gradle output into `tail`, `head` or `grep`.** The daemon holds the pipe open and your shell will hang. Redirect to a file and read the file.
 3. **Two tracked paths in this repository are inert planning artifacts, not product, and not authority.** `PROGRAM-PLAN.md` and everything under `upstream-harvest/` were committed by the planning run that wrote your prompt. Nothing in the tool reads them, no test references them, and no build task touches them. **Do not modify them, do not delete them, and do not treat either as evidence** — the governing evidence rule is that only source code and observed execution establish behaviour, and where a document and an executed result disagree the executed result wins. That rule applies to `PROGRAM-PLAN.md` itself exactly as it applies to the upstream wiki. Their removal from the working tree is itemized to a later run and is not yours.
 
@@ -2274,6 +2431,8 @@ Built     Sep 23 2025 17:57:37
 Packaged  Jul 28 2023 17:02:56 UTC
 C version "15.2.0"
 ```
+
+**The host operating system, and why it is recorded but not gated.** The planning run observed `Ubuntu 25.10 (Questing Quokka)` — `PRETTY_NAME="Ubuntu 25.10"`, `VERSION_CODENAME=questing` — on kernel `6.12.85+`. Three sources disagreed about this at planning time: the platform setup document said Ubuntu 22.04, the carried-forward ground truth said 25.10, and that same ground truth's observed column said 24.04.4 LTS. **Record what your own host reports in your handoff; do not try to change it, and do not install anything.** If your OS differs from the value above but `cobc --version` matches character for character, that is a recorded observation and you continue. If `cobc --version` differs, stop and report regardless of the OS: the compiler is the golden-file anchor and the distribution name is only a drift signal. Never paste `uname -a` into a handoff — it carries the container hostname; use `uname -srm`.
 
 **The build state, measured.** `JAVA_HOME=$JDK11_HOME ./gradlew clean test approvalTest` reports `BUILD SUCCESSFUL`, exit 0, with **457 tests passed, 0 failed, 0 skipped**. `JAVA_HOME=$JDK8_HOME ./gradlew clean test` also reports 457 passed, 0 failed. `JAVA_HOME=$JDK21_HOME ./gradlew clean test` **fails**, with the JUnit XML recording 457 tests and **227 failures** whose signature is `java.lang.IllegalArgumentException: Unsupported class file major version 65`. **The JDK 21 failure is an expected baseline datum. Do not fix it in this run.**
 
@@ -2310,7 +2469,9 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 The harness passes `-p FILECOPY` at `[approvaltest:L4]` while the program file is `src/main/cobol/FileCopy.cbl` and the suite directory is `src/test/cobol/FileCopy`. On a case-sensitive filesystem the name does not resolve. **This is a real defect, and it is NOT yours to fix in this run.** Characterize it, report the count honestly as five, and record it as a deferral.
 
-**The baseline is stale, by measured amounts.** A real harness run produces `actual-output.txt` at **332 lines / 27,269 bytes**, against `expected-output.txt` at **234 lines / 12,336 bytes** — a delta of **+98 lines / +14,933 bytes**. The first divergence is at line 5 and is a result-format change: the baseline carries `EXPECTED <value>, WAS <value>` on one line where the current code emits `EXPECTED <value>` and `WAS <value>` on two. **Do not refresh the baseline. Its staleness is load-bearing for your exit state.**
+**The baseline is stale, by measured amounts.** A real harness run produces `actual-output.txt` at **332 lines**, against `expected-output.txt` at **234 lines / 12,336 bytes** — a delta of **+98 lines**. The first divergence is at line 5 and is a result-format change: the baseline carries `EXPECTED <value>, WAS <value>` on one line where the current code emits `EXPECTED <value>` and `WAS <value>` on two. **Do not refresh the baseline. Its staleness is load-bearing for your exit state.**
+
+**Use the line count, not a byte count, and here is why.** `actual-output.txt` embeds the absolute repository root **13 times** — GnuCOBOL diagnostics on `<root>/./testruns/CC##99.CBL` plus one `.cut` path — because the compiler writes them to stderr and `ProcessOutputWriter.writeOutPutToConsole()` prints the child's stderr to `System.out` at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L113]`, which the harness redirects into the file. Its size is therefore `26,216 + 13 × (length of your repository root)` — 27,269 bytes in an 81-character clone, 27,672 in a 112-character clone, 26,554 in a 26-character clone, all of them 332 lines. **So a byte figure you read here will not equal the byte figure you measure, and that is expected and is not a finding.** Record the size you observe together with `git rev-parse --show-toplevel | wc -c` so the number is interpretable; the portable figures are 332 lines and 26,216 path-free bytes. Fixing this — canonicalizing the path in a golden-file filter — belongs to the next run, not to you.
 
 **`BuildHelper` is not a Java file.** It is a **Groovy** class declared inline in the build script at `[build.gradle:L263-L296]`, structurally unreachable from anything under `src/test/java`.
 
@@ -2413,8 +2574,8 @@ Behavior discipline: PRES preserving (any observable change is a defect) · CORR
 | # | Criterion | How it is checked | Required result |
 | --- | --- | --- | --- |
 | 1 | Unit suite still green | `JAVA_HOME=$JDK11_HOME ./gradlew clean test` and read the JUnit XML under `build/test-results/test/` | **457 or more tests, 0 failures, 0 errors** |
-| 2 | The harness actually runs COBOL | Count `About to launch process` occurrences in the harness output | **Non-zero, and you must state the number.** It will be **5**, because `-p FILECOPY` fails to resolve — report 5, not 6 |
-| 3 | Real output is produced | `wc -c actual-output.txt` | **Non-zero.** It will be approximately 27,269 bytes / 332 lines |
+| 2 | The harness actually **compiled and executed** COBOL | Capture the harness's combined output (`./approvaltest > harness.log 2>&1`, or the Gradle log when the task runs it) and count `INF009: Process linux_gnucobol_run_tests ended with exit code`; then count `^TESTSUITE:` blocks in `actual-output.txt`. **Do NOT count `About to launch process`** — it is logged *before* the child starts, so it reads 5 even when zero programs compiled (measured: with `scripts/linux_gnucobol_run_tests` non-executable, `INF008`=5, `INF009`=0, `TESTSUITE:`=0, output 300 bytes of headers). Note both `INF` families go to **stderr**, so a count taken from `actual-output.txt` alone reads 0 | **`INF009` non-zero and stated, and `TESTSUITE:` non-zero.** `INF009` will be **5**, not 6, because `-p FILECOPY` fails to resolve; `TESTSUITE:` will be **11**. State both numbers, and state the five child exit codes (`4, 0, 0, 4, 0`) since they are the evidence for the exit-status defect a later run repairs |
+| 3 | Real output is produced | `wc -l actual-output.txt` for the oracle, and `wc -c` plus `printf %s "$(git rev-parse --show-toplevel)" \| wc -c` for the record | **332 lines**, exactly. The byte count is **clone-dependent by design** — `26,216 + 13 × (length of your repository root)`, so 27,269 at 81 characters and 27,672 at 112 — so state it with your root length and do **not** treat any byte figure in this prompt as an expected value |
 | 4 | The harness runs at execution time, not configuration time | Capture the full log and locate the harness output relative to `> Task :` markers | The harness block must appear **after** a `> Task :` marker, **not** under `> Configure project :` |
 | 5 | The comparison now fails against the stale baseline | `JAVA_HOME=$JDK11_HOME ./gradlew clean approvalTest`; read the exit status and the verdict line | **`approvalTest` FAILS.** This is the required exit state |
 | 6 | The empty-stream defect is fixed and proven | Run the `buildSrc` test | The test asserting a failing verdict on **unequal lengths** and on an **empty stream** passes |
@@ -2458,12 +2619,21 @@ recorded both leave this run unrecoverable.
 ## 2. Toolchain anchor
 `cobc --version` verbatim, all lines. COB_CFLAGS verbatim (exactly one -D_FORTIFY_SOURCE).
 `git config --get core.autocrlf` (must be false). Daemon JDK, test JDK(s), Gradle version.
+Host OS: PRETTY_NAME, VERSION and VERSION_CODENAME from /etc/os-release, plus `uname -srm`.
+  Do NOT paste `uname -a`: it carries the container hostname. The prompt carries
+  Ubuntu 25.10 (Questing Quokka), kernel 6.12.85+. This line is NOT gated: if the OS
+  differs but `cobc --version` is identical, record it in section 11 and CONTINUE.
 Does this anchor match the value carried in the prompt?  YES / NO
+  (The gate is `cobc --version`, COB_CFLAGS and core.autocrlf, not the OS line.)
 If NO: this is a finding. Stop and report; every golden file downstream would be suspect.
 
 ## 3. Green status, stated mechanically
 `clean test`: <n> tests, <n> failures, <n> skipped        (must be >= 457 with 0 failures)
-COBOL programs compiled and EXECUTED by the harness: <n>  (REQUIRED. Expected 5, not 6)
+COBOL programs compiled and EXECUTED by the harness: <n>  (REQUIRED. Expected 5, not 6.
+  Count `INF009: Process linux_gnucobol_run_tests ended with exit code` in the harness's
+  COMBINED output; corroborate with `TESTSUITE:` blocks in actual-output.txt, expected 11.
+  Do NOT count `About to launch process` -- it reads 5 even with zero programs compiled.)
+Each executed child's exit code, in order:                  (expected 4, 0, 0, 4, 0)
 `actual-output.txt`: <bytes> bytes, <lines> lines          (must be non-empty)
 Comparison against the approved baseline: MATCHED / DID NOT MATCH   (must be DID NOT MATCH)
 Overall: RED on approvalTest, GREEN on clean test
@@ -2514,6 +2684,11 @@ Not measured in this run.
   (one process) against a single shared baseline across three operating systems.
 - Triage of the dormant `src/test/approvalTest/` six-file layout and its byte-identical
   second copy of `expected-output.txt`.
+- The DURABLE execute bits for `cobolcheck` and `scripts/linux_gnucobol_run_tests`. Both
+  ship at mode 0644; this run granted them in-session and committed neither, so a fresh
+  checkout -- including every CI runner, which restores modes from the index -- still
+  cannot execute the harness. State the modes you observed, that you restored them, and
+  that the committed change is itemized to the next run.
 
 ## 14. Reconciliation performed against the predecessor handoff
 Not applicable — this is the first run.
@@ -2523,7 +2698,7 @@ Not applicable — this is the first run.
 
 - **Commit to this repository.** Your in-repo changes plus `RUN-1A-HANDOFF.md`, and nothing else.
 - **Tag the final commit `run-1a-approval-harness-repair`.** The tag is immutable once created: never move, delete or re-point it, and never rewrite the history it names.
-- **Do not commit build output or working-tree churn.** Restore `build/distributions/cobol-check-0.2.19.zip`, `build/libs/cobol-check-0.2.19.jar`, `approvaltest`'s file mode and `scripts/linux_gnucobol_run_tests`' file mode to their committed states before committing. Do not commit `actual-output.txt`, `temp/`, `testruns/` or `bin/`.
+- **Do not commit build output or working-tree churn.** Restore all five, and check the list against `git status --porcelain` rather than from memory: `build/distributions/cobol-check-0.2.19.zip`, `build/libs/cobol-check-0.2.19.jar`, the tracked **`vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar`** that `prepareDistribution` rewrites, and the file modes of `approvaltest`, `cobolcheck` and `scripts/linux_gnucobol_run_tests` that step 9 of section 1 granted. **The three mode grants are session-local and are not yours to commit:** making them durable is a change to tracked build/script surface, it is not one of your two itemized changes, and it is itemized to the next run instead. `git diff --numstat` reporting `0 0` for those three paths is how you confirm you changed no content. Do not commit `actual-output.txt`, `temp/`, `testruns/` or `bin/`.
 - **Do not create any document other than `RUN-1A-HANDOFF.md`.** No status reports, no progress summaries, no setup guides, no validation guides.
 - **No temporal planning anywhere** in your handoff — no estimates, no durations, no dates. Sequencing is expressed only as `BLOCKED-BY`.
 - **No outreach of any kind.** Do not contact anyone, and do not propose doing so. This is a solo-maintainer project with agent support; optimize for automation and minimal human decision points.
@@ -2553,6 +2728,8 @@ cobc --version
 "$JDK11_HOME/bin/java" -version
 echo "$COB_CFLAGS"                  # must contain exactly ONE -D_FORTIFY_SOURCE
 JAVA_HOME=$JDK11_HOME ./gradlew --version
+( . /etc/os-release && echo "$PRETTY_NAME | $VERSION | $VERSION_CODENAME" )
+uname -srm                          # NOT `uname -a`: that prints the container hostname
 ```
 
 `core.autocrlf` is deliberately **not** probed in this block: it is clone-local state that a fresh clone does not carry, so it is set and verified in the repository block below rather than asserted before anything has set it. Probing it here would report a spurious failure on a clean clone — the same class of probe error the paragraph above warns about.
@@ -2607,8 +2784,15 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 case "$BRANCH" in
   Developer|main|master|HEAD) echo "FATAL: refusing to work on '$BRANCH' - cut a run branch first"; exit 1 ;;
 esac
-test -z "$(git status --porcelain)" \
+# The entry gate stays strict everywhere EXCEPT the file modes of the three harness
+# scripts, which step 9 grants and which therefore make the tree legitimately dirty for
+# the rest of the run. A CONTENT change to any of them, or any other dirty path, is still
+# fatal: `git diff --numstat` reports 0/0 for a difference that is only a file mode.
+test -z "$(git status --porcelain -- . ':!approvaltest' ':!cobolcheck' ':!scripts/linux_gnucobol_run_tests')" \
   || { echo 'FATAL: working tree is dirty at entry - commit, stash or restore before starting'; exit 1; }
+test -z "$(git diff --numstat -- approvaltest cobolcheck scripts/linux_gnucobol_run_tests \
+           | awk '$1 != 0 || $2 != 0')" \
+  || { echo 'FATAL: a harness script differs in CONTENT, not only in file mode'; exit 1; }
 
 # 4. Line-ending translation OFF, repository-locally. Column-significant fixed-format
 #    COBOL is corrupted by translation, and every golden file depends on this.
@@ -2681,7 +2865,32 @@ cold_tree_reset() {
 }
 cold_tree_reset
 
-echo 'Repository, remotes and pull-request heads verified; cold-tree reset available.'
+# 9. Grant the harness its execute bits. REQUIRED, and not housekeeping: three tracked
+#    scripts ship at mode 0644 and the harness cannot execute a single COBOL program
+#    without them. Measured on a clean checkout after a full build:
+#      * `approvaltest` (0644) is the ONLY one the build chmods for you, at its own
+#        `.execute()` site in build.gradle.
+#      * `cobolcheck` (0644) is copied to `temp/approvalTest/cobolcheck` by
+#        `copyRunScripts`, and Gradle's `Copy` PRESERVES the source mode -- so the copy
+#        is 0644 as well, all six harness invocations die with
+#        `./approvaltest: line N: ./temp/approvalTest/cobolcheck: Permission denied`,
+#        the harness exits 126, `actual-output.txt` is 0 bytes and ZERO programs compile.
+#        Granting +x HERE, before the build, is what makes the copy executable; chmodding
+#        the copy afterwards works too but must be redone after every `copyRunScripts`.
+#      * `scripts/linux_gnucobol_run_tests` (0644) is exec'd once per program by the
+#        launcher. Without +x every launch fails with `ERR023: Process failed to start
+#        with arguments: scripts/linux_gnucobol_run_tests,...`, caused by
+#        `java.io.IOException: error=13, Permission denied` -- while STILL logging
+#        `INF008: About to launch process` first, which is exactly why an
+#        `About to launch process` count is not evidence that anything ran.
+#    These are file-MODE changes to tracked files and change no file content. Your output
+#    contract says what to do with them before you commit.
+chmod +x ./approvaltest ./cobolcheck ./scripts/linux_gnucobol_run_tests
+for _f in approvaltest cobolcheck scripts/linux_gnucobol_run_tests; do
+  test -x "$_f" || { echo "FATAL: $_f is not executable"; exit 1; }
+done
+
+echo 'Repository, remotes, pull-request heads and harness execute bits verified; cold-tree reset available.'
 ```
 
 **The fork's default branch is `Developer`.** Take that from the captured API metadata — `upstream-harvest/pulls.json` → `repository_metadata.default_branch` — and **not** from `git symbolic-ref refs/remotes/origin/HEAD`, which reports whatever branch your clone was created on and in an agent clone is normally the working branch rather than `Developer`. If your `origin/HEAD` disagrees with `Developer`, that is expected and is not a finding; if the captured metadata disagrees with `Developer`, that **is** a finding — report it.
@@ -2701,7 +2910,7 @@ echo 'Repository, remotes and pull-request heads verified; cold-tree reset avail
 
 Four operational hazards, all measured:
 
-1. **`./gradlew clean` deletes tracked files.** `build/distributions/cobol-check-0.2.19.zip` and `build/libs/cobol-check-0.2.19.jar` are both **tracked**, and `clean` removes them. The build also changes the file mode of the tracked `approvaltest`, and a harness run changes the mode of the tracked `scripts/linux_gnucobol_run_tests`. Expect a dirty tree and restore deliberately.
+1. **`./gradlew clean` deletes tracked files, and the distribution task set rewrites a third one.** `build/distributions/cobol-check-0.2.19.zip` and `build/libs/cobol-check-0.2.19.jar` are both **tracked**, and `clean` removes them. The build also changes the file mode of the tracked `approvaltest`, and step 9 of the block above changes the modes of the tracked `cobolcheck` and `scripts/linux_gnucobol_run_tests` deliberately. **And `prepareDistribution` rewrites the tracked binary `vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar`**: it declares `dependsOn copyJarToBin, copyJarToExtension, copyRunScripts`, and `copyJarToExtension` in turn `dependsOn clearExtensionJar`, a `Delete` over that directory's jars. Measured: after `clean build fatJar copyJarToBin copyRunScripts prepareDistribution`, `git status --porcelain` reports that path as ` M` alongside the two `build/` paths. It is the jar whose digest the baseline cites as evidence that the two committed jars are byte-identical, and it is the easiest of the three to commit by accident because nothing in the build's own output names it. **Expect a dirty tree, restore deliberately, and check that path explicitly.**
 2. **Do not pipe Gradle output into `tail`, `head` or `grep`.** The daemon holds the pipe open and your shell will hang. Redirect to a file and read the file.
 3. **Two tracked paths in this repository are inert planning artifacts, not product, and not authority.** `PROGRAM-PLAN.md` and everything under `upstream-harvest/` were committed by the planning run that wrote your prompt. Nothing in the tool reads them, no test references them, and no build task touches them. **Do not modify them, do not delete them, and do not treat either as evidence** — the governing evidence rule is that only source code and observed execution establish behaviour, and where a document and an executed result disagree the executed result wins. That rule applies to `PROGRAM-PLAN.md` itself exactly as it applies to the upstream wiki. Their removal from the working tree is itemized to a later run and is not yours.
 4. **`clean` does not remove `bin/`, `temp/`, `testruns/` or `actual-output.txt`.** To reproduce a genuinely cold tree, run `cold_tree_reset` from step 8 of section 1 first. **Do not type a bare relative `rm -rf bin temp testruns actual-output.txt`**: a relative delete inherits whatever directory the shell is in, so from `/` it targets `/bin` and from anywhere else it destroys unrelated data. The guarded function resolves and sentinel-checks the repository root first and deletes only paths built from it.
@@ -2750,6 +2959,8 @@ Packaged  Jul 28 2023 17:02:56 UTC
 C version "15.2.0"
 ```
 
+**The host operating system, and why it is recorded but not gated.** The planning run observed `Ubuntu 25.10 (Questing Quokka)` — `PRETTY_NAME="Ubuntu 25.10"`, `VERSION_CODENAME=questing` — on kernel `6.12.85+`. Three sources disagreed about this at planning time: the platform setup document said Ubuntu 22.04, the carried-forward ground truth said 25.10, and that same ground truth's observed column said 24.04.4 LTS. **Record what your own host reports in your handoff; do not try to change it, and do not install anything.** If your OS differs from the value above but `cobc --version` matches character for character, that is a recorded observation and you continue. If `cobc --version` differs, stop and report regardless of the OS: the compiler is the golden-file anchor and the distribution name is only a drift signal. Never paste `uname -a` into a handoff — it carries the container hostname; use `uname -srm`.
+
 **Two environment facts that make golden files non-reproducible if unrecorded. Both are invisible in the repository, and both must be established before any capture.**
 
 1. **`COB_CFLAGS` must carry exactly one `-D_FORTIFY_SOURCE` value.** Debian-family GnuCOBOL packaging defines it twice, the C compiler then emits a redefinition warning on **stderr**, and `ProcessOutputWriter.writeOutPutToConsole()` prints the child's stderr to `System.out` — verified at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L111-L114]`, with `System.out.println(processInput)` at `L112` and `System.out.println(processError)` at `L113`. The warning would therefore be written into `actual-output.txt` and into every golden file you capture. The activation script already exports a de-duplicated value; **verify it and record it verbatim before capturing anything.**
@@ -2797,18 +3008,27 @@ Exception in thread "main" java.lang.RuntimeException: java.io.FileNotFoundExcep
 
 **A structural non-equivalence you must record rather than repair.** `[approvaltest]` is mode `0644`, has no shebang, and issues **six separate** processes. `[approvaltestWin.cmd]` is mode `0644` and issues **one** process passing all six program names. Yet CI compares both against the same `expected-output.txt` across three operating systems, per `[.github/workflows/VerifyAction.yml:L13]` (`os: [ubuntu-22.04, windows-latest, macos-latest]`) and `[:L30]` (`./gradlew clean approvalTest`).
 
-**The baseline you are regenerating.** `expected-output.txt` is 234 lines / 12,336 bytes. A real harness run produces **332 lines / 27,269 bytes** — a delta of **+98 lines / +14,933 bytes**. The first divergence is at line 5 and is a result-format change: the baseline carries `EXPECTED <value>, WAS <value>` on one line where the current code emits two lines. A byte-identical second copy exists at `src/test/approvalTest/expected-output.txt`; if you regenerate one, decide and record what happens to the other.
+**The baseline you are regenerating.** `expected-output.txt` is 234 lines / 12,336 bytes. A real harness run produces **332 lines** — a delta of **+98 lines**. The first divergence is at line 5 and is a result-format change: the baseline carries `EXPECTED <value>, WAS <value>` on one line where the current code emits two lines. A byte-identical second copy exists at `src/test/approvalTest/expected-output.txt`; if you regenerate one, decide and record what happens to the other.
+
+**The single most important property of the file you are about to promote into a baseline: it is machine-specific, and you are the run that must stop it being so.** `actual-output.txt` embeds the absolute repository root **13 times**, at lines **162, 163, 169, 292, 293, 299, 300, 301, 307, 308, 309, 326 and 327** — twelve GnuCOBOL diagnostics of the form `<root>/./testruns/CC##99.CBL: in paragraph '2000-SPEAK':` and `<root>/./testruns/CC##99.CBL:661: warning: ignoring redundant . [-Wothers]`, plus `WARNING in file: : <root>/src/test/cobol/MOCKTEST/MockCallTest.cut:173:12:`. They arrive there because the compiler writes to **stderr** and `ProcessOutputWriter.writeOutPutToConsole()` prints the child's stderr to `System.out` at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/ProcessOutputWriter.java:L113]`. Consequences, each measured:
+
+- The size is `26,216 + 13 × (length of your repository root)`: 27,269 bytes at 81 characters, 27,672 at 112, 26,554 at 26 — **and 332 lines in every one of them.** Byte counts are not oracles here; line counts are.
+- The **currently committed** `expected-output.txt` contains **zero** absolute paths and zero `CC##99` references, so today's comparison is accidentally portable. The moment you regenerate it from real output, it stops being portable — unless your filter canonicalizes the path.
+- Your own success oracle depends on this: "the comparison genuinely matched" would hold only on this container, and criterion 7's CI leg runs on a different checkout path entirely, on three operating systems, against one baseline.
+
+**So the normalization filter carries a fifth normalization: the absolute repository root → the literal `<REPO>`.** Apply it to the canonical real path of the repository root and to nothing shorter, so a path that merely shares a prefix is untouched. **Do not solve this by deleting the diagnostic lines** — their presence and position are exactly what a characterization baseline exists to record; only the machine-specific prefix may go.
 
 **The CI gap you are closing.** `[.github/workflows/VerifyAction.yml]` is exactly 30 lines. It runs `./gradlew clean test` at `L28` and `./gradlew clean approvalTest` at `L30`, across `os: [ubuntu-22.04, windows-latest, macos-latest]` at `L13` with `java-version: [11]` at `L14`. **A recursive search for `cobc` or `gnucobol` across all of `.github` returns nothing**, and hosted runners do not ship a COBOL compiler. `[.travis.yml:L8]` — `- sudo apt -y install gnucobol` — is the only file that ever installed it, and it is dead. **Without a GnuCOBOL install step, no run's green claim is CI-verifiable, so this cannot be deferred further.**
 
-**The identifier strings your normalization filter must canonicalize.** These are decided and fixed; do not invent alternatives and do not defer them.
+**The token pairs your normalization filter must canonicalize.** The four identifier pairs are decided and fixed; do not invent alternatives and do not defer them. The fifth is the repository path established above.
 
-| Surface | Old token | New token |
-| --- | --- | --- |
-| Java package namespace | `org.openmainframeproject.cobolcheck` | `io.blitzy.cbltest` |
-| Gradle group | `org.openmainframeproject` | `io.blitzy` |
-| Artifact ID / `productName` | `cobol-check` | `cbltest` |
-| Product display name | `Cobol Check` / `COBOL Check` | `Blitzy COBOL Test` |
+| # | Surface | Old token | New token |
+| --- | --- | --- | --- |
+| 1 | Java package namespace | `org.openmainframeproject.cobolcheck` | `io.blitzy.cbltest` |
+| 2 | Gradle group | `org.openmainframeproject` | `io.blitzy` |
+| 3 | Artifact ID / `productName` | `cobol-check` | `cbltest` |
+| 4 | Product display name | `Cobol Check` / `COBOL Check` | `Blitzy COBOL Test` |
+| 5 | Absolute repository root (**not** an identifier — see the paragraph above) | the canonical real path of the repository root, e.g. `/some/where/blitzy-cobol-check` | `<REPO>` |
 
 The rename itself happens in a **later** run. You are building the filter **before** the rename precisely so that the later run's byte-identical oracle is enforceable: if the filter did not already canonicalize the new tokens, every golden file would diff after the rename for a reason indistinguishable from a migration defect.
 
@@ -2823,11 +3043,12 @@ The rename itself happens in a **later** run. You are building the filter **befo
 1. **The characterization corpus at `src/test/corpus/`.** Cover all 15 COBOL programs, the copybook fixtures they need, and the 23 `.cut` suites. Corpus programs exercising `DFHEIBLK.CPY` or `SQLCA.cpy` must take them from a corpus-local path.
 2. **The golden-file set at `src/test/golden/`**, one golden file per corpus program, capturing current behaviour **including current defects**.
 3. **The regenerated approval baseline**, which is one of the golden files. Regenerate `expected-output.txt` from a real harness run so that full green is restored.
-4. **The golden-file normalization filter at `src/test/java/io/blitzy/cbltest/golden/`**, canonicalizing the four identifier token pairs in both directions, **plus a test of the filter itself** proving it normalizes only those four token pairs and nothing else — in particular that it does not alter COBOL source content, numeric values, file paths that merely resemble the tokens, or any other text.
+4. **The golden-file normalization filter at `src/test/java/io/blitzy/cbltest/golden/`**, canonicalizing the four identifier token pairs in both directions **and the absolute repository root to `<REPO>`** — five normalizations, per the table in §3 — **plus a test of the filter itself** proving it normalizes only those five and nothing else: it must not alter COBOL source content, numeric values, **relative** paths, absolute paths outside the repository root, a path that merely shares a prefix with the root, text that merely resembles an identifier token, or any other content. **Plus a second test asserting the property the filter exists for:** no golden file and no regenerated baseline contains an absolute repository path once filtered. That test is what makes the byte-level oracle portable to the CI runner in item 6.
 5. **Widening the approval harness** from six programs toward the fifteen, so the nine currently-unexercised programs gain end-to-end coverage. Where widening changes the harness scripts, keep the Linux and Windows forms's structural difference recorded rather than silently unified.
 6. **The GnuCOBOL install step in `.github/workflows/VerifyAction.yml`**, so that the approval leg can genuinely compile COBOL in CI. Add it for every matrix operating system on which it is achievable, and record explicitly any leg on which it is not.
 7. **The verified/provisional register**, created here as the shared artifact later runs append to. Seed it only with what your corpus actually demonstrates. Every entry is `verified`, `provisional` or `UNKNOWN`; every `verified` entry names its source and the corpus program covering it.
 8. **New tests, freely.** Adding tests is always in scope and never counts against any enumeration.
+9. **The durable execute bits for `cobolcheck` and `scripts/linux_gnucobol_run_tests`** — `git update-index --chmod=+x cobolcheck scripts/linux_gnucobol_run_tests`, a mode change from `100644` to `100755` with **zero** content change, itemized in advance on your declared `S2·PRES` secondary surface. **Why this is yours and why it cannot wait.** Both files ship at `0644`; `build.gradle` chmods only `./approvaltest`; `copyRunScripts` copies `cobolcheck` into `temp/approvalTest/` and Gradle's `Copy` preserves the source mode. So on a fresh checkout the harness's six invocations fail with `./approvaltest: line N: ./temp/approvalTest/cobolcheck: Permission denied`, the harness exits **126**, `actual-output.txt` is **0 bytes** and **zero** programs compile; grant the copy alone and every launch instead fails with `ERR023: Process failed to start with arguments: scripts/linux_gnucobol_run_tests,...` caused by `java.io.IOException: error=13, Permission denied`, still logging `About to launch process` five times. Run 1a granted these in-session and committed neither. **A CI runner is a fresh checkout and restores modes from the index**, so item 6 above — giving CI a compiler — buys you nothing until these bits are committed: the compiler would sit there while the harness refused to start. Verify with `git diff <start-commit> HEAD -- cobolcheck scripts/linux_gnucobol_run_tests` showing *old mode 100644 / new mode 100755* and `git diff --numstat` showing `0	0` for both, then with a fresh clone of your final commit running `./approvaltest` to a non-zero `INF009` count with no manual `chmod`. **Do not "fix" this with a `chmod` step in the workflow instead** — that repairs CI and leaves every human and agent checkout broken in exactly the way that let this defect survive.
 
 **Explicitly OUT of scope. Do not touch any of these:**
 
@@ -2872,7 +3093,7 @@ Behavior discipline: PRES preserving (any observable change is a defect) · CORR
 
 **Applied to you — this paragraph is application, not rule text; the verbatim rule text is the fenced block above and nothing outside it.** `S1` means tests, golden files, the corpus, the harness and CI configuration are your surface, and no production code is — and `S1` explicitly includes CI, which is why the GnuCOBOL install step is yours. `PRES` means **any observable change in the tool's behaviour is a defect**. You are capturing behaviour, not improving it. The one apparent exception is not one: regenerating `expected-output.txt` changes a *recorded expectation* to match the tool's *actual current* behaviour, which is the definition of characterization rather than a behaviour change — and the previous run's handoff records the measured delta so the regeneration is auditable.
 
-**Declared secondary surface: `S2·PRES`, bounded to the build script and nothing else.** `INFERENCE` — the primary surface cannot cover this run's own work, so declaring it is mandatory rather than optional; reasoning: registering a new test source set and wiring a golden-file comparison task requires editing `build.gradle`, which the surface vocabulary classifies as `S2` peripheral production, and a run that edits `S2` under an `S1`-only label has no oracle for the edit it actually made. **Exactly what the secondary surface permits:** adding declarations to `build.gradle` that (i) register the new test classes and the golden-file comparison so Gradle executes them, and (ii) declare the corpus and golden directories as task inputs and outputs. **Nothing else.** No dependency change, no wrapper change, no plugin change, no JaCoCo or Sonar change, no `fatJar` change, no modification to the behaviour of any pre-existing task. **Its own oracle, checkable independently of the `S1` oracle:** `git diff <start-commit> HEAD -- build.gradle` consists solely of added lines registering test execution or golden comparison — no line is deleted and no pre-existing line is modified — and `./gradlew tasks` reports every task that existed at the start commit with the same name and the same `dependsOn` set. The discipline stays `PRES` on both surfaces: the build script gains the ability to run new tests and gains nothing else.
+**Declared secondary surface: `S2·PRES`, bounded to the build script plus two file modes and nothing else.** `INFERENCE` — the primary surface cannot cover this run's own work, so declaring it is mandatory rather than optional; reasoning: registering a new test source set and wiring a golden-file comparison task requires editing `build.gradle`, which the surface vocabulary classifies as `S2` peripheral production, and a run that edits `S2` under an `S1`-only label has no oracle for the edit it actually made. **Exactly what the secondary surface permits:** adding declarations to `build.gradle` that (i) register the new test classes and the golden-file comparison so Gradle executes them, and (ii) declare the corpus and golden directories as task inputs and outputs. **Nothing else.** No dependency change, no wrapper change, no plugin change, no JaCoCo or Sonar change, no `fatJar` change, no modification to the behaviour of any pre-existing task. **Its own oracle, checkable independently of the `S1` oracle:** `git diff <start-commit> HEAD -- build.gradle` consists solely of added lines registering test execution or golden comparison — no line is deleted and no pre-existing line is modified — and `./gradlew tasks` reports every task that existed at the start commit with the same name and the same `dependsOn` set. The discipline stays `PRES` on both surfaces: the build script gains the ability to run new tests and gains nothing else. **The two file modes are the second item, and they are itemized in §4 item 9:** `cobolcheck` and `scripts/linux_gnucobol_run_tests` move from `100644` to `100755` with **zero** content change, because a CI runner restores modes from the index and your own CI criterion is unreachable while the harness cannot execute from a fresh checkout.
 
 **Second disciplines must be declared in advance** with their own oracle. Two *undeclared* disciplines are the defect. Note that your secondary declaration is a second **surface**, not a second discipline: the discipline is `PRES` on both, so nothing about the tool's observable behaviour may change on either. If you find you cannot capture behaviour without changing it, **stop and report** rather than proceeding.
 
@@ -2897,17 +3118,19 @@ Behavior discipline: PRES preserving (any observable change is a defect) · CORR
 | # | Criterion | How it is checked | Required result |
 | --- | --- | --- | --- |
 | 1 | Unit suite green | `JAVA_HOME=$JDK11_HOME ./gradlew clean test`, then read the JUnit XML under `build/test-results/test/` | **457 or more tests, 0 failures, 0 errors** |
-| 2 | The harness runs COBOL, and you say how much | Count `About to launch process` occurrences | **Non-zero, stated explicitly.** It must be **greater than the 5 inherited**, because you are widening the harness |
+| 2 | The harness **compiles and executes** COBOL, and you say how much | Capture the harness's combined output (`./approvaltest > harness.log 2>&1`, or the Gradle log) and count `INF009: Process linux_gnucobol_run_tests ended with exit code`; then count `^TESTSUITE:` blocks in `actual-output.txt`. **Do NOT count `About to launch process`** — it is logged before the child starts and reads 5 even when zero programs compiled, and both `INF` families go to **stderr** rather than into `actual-output.txt` | **`INF009` non-zero and stated, `TESTSUITE:` non-zero.** `INF009` must be **greater than the 5 inherited**, because you are widening the harness; name the programs and give each child's exit code |
 | 3 | Real output produced | `wc -c actual-output.txt` | **Non-zero** |
 | 4 | The comparison genuinely matches | `JAVA_HOME=$JDK11_HOME ./gradlew clean approvalTest` | **PASSES**, against a baseline regenerated from real output |
 | 5 | Golden coverage is complete | Compare the golden-file set against the 15 programs in `src/main/cobol/` | **Every** corpus program has a golden file; any program deliberately excluded is named with its reason |
-| 6 | The normalization filter is correct **and** minimal | Run the filter's own test | It normalizes all four token pairs in both directions **and** provably alters nothing else |
+| 6 | The normalization filter is correct **and** minimal | Run the filter's own test | It normalizes all **five** token pairs — the four identifier pairs in both directions **and** the absolute repository root to `<REPO>` — **and** provably alters nothing else, including relative paths, absolute paths outside the root, and a path that merely shares a prefix with the root |
 | 7 | CI can compile COBOL | Inspect `.github/workflows/VerifyAction.yml`; then `grep -rni -e cobc -e gnucobol .github/`. **Use the two `-e` forms exactly as written.** A single alternation pattern is unsafe here: a `\|` copied out of this table is a *literal pipe* to `grep -E`, so the search silently returns nothing and the criterion appears to fail even after a correct workflow change | The search now **returns matches**, and the approval leg has a compiler available on every matrix leg where that is achievable; any leg where it is not is named with its reason |
 | 8 | Determinism proven, not assumed | Run the full capture **twice** on a cold tree (`cold_tree_reset` from step 8 of section 1 between runs, never a bare relative `rm -rf`) and diff the two outputs | **Byte-identical after normalization.** If not, you have an unrecorded environment dependency — find it before proceeding |
+| 8b | Portability proven, because criterion 8 cannot prove it | `grep -rlF "$(git rev-parse --show-toplevel)" src/test/golden/ expected-output.txt` after filtering, and the second filter test from §4 item 4 | **No matches, and the test passes.** Two captures on the *same* machine agree even when both embed that machine's path, so criterion 8 is blind to exactly this defect; this criterion is what makes criterion 4's comparison and criterion 7's CI leg reachable from another checkout path |
 | 9 | No production code changed | `git diff --name-status <start-commit> HEAD -- src/main/java` | **Empty** |
 | 10 | No pre-existing assertion altered | Review `git diff <start-commit> HEAD -- src/test/java` and confirm every change is an addition | No modification, rename, deletion or narrowing of any existing test |
 | 11 | Copybook provenance recorded | Read your own handoff | Every corpus program exercising `DFHEIBLK.CPY` or `SQLCA.cpy` is named, with the corpus-local path it takes the file from |
 | 12 | The declared `S2·PRES` secondary surface stayed inside its bounds | `git diff <start-commit> HEAD -- build.gradle` | **Added lines only** — every added line registers test execution, wires the golden comparison, or declares a corpus/golden directory as a task input or output. **No deleted line and no modified pre-existing line.** No dependency, wrapper, plugin, JaCoCo, Sonar or `fatJar` change appears in the diff |
+| 12b | The two itemized mode changes are mode-only, and they work from a fresh checkout | `git diff <start-commit> HEAD -- cobolcheck scripts/linux_gnucobol_run_tests`, then `git diff --numstat` over the same two paths, then `git ls-files -s`, then clone your final commit into a scratch directory and run `./approvaltest` there **without any `chmod`** | The diff shows **old mode 100644 / new mode 100755** for both and `numstat` shows `0` insertions and `0` deletions for both; `ls-files -s` reports `100755`; and the scratch clone's harness reaches a **non-zero `INF009` count**. A content change on either path is a defect |
 | 13 | No pre-existing task's behaviour changed | `./gradlew tasks` at the start commit and at HEAD, compared | Every task present at the start commit is still present with the **same name** and the **same `dependsOn` set**. New tasks may be added; none may be renamed, removed or re-wired |
 
 **Criterion 8 deserves emphasis.** A golden-file set that has never been shown to reproduce is not a safety net; it is a source of false alarms that later runs will learn to ignore. Running the capture twice is the cheapest available proof that the three environment facts — the compiler version, the single `-D_FORTIFY_SOURCE`, and `core.autocrlf=false` — are sufficient. If the two captures differ, the difference **is** the finding.
@@ -2950,13 +3173,24 @@ unperformable if the ending hash was never written down.
 `cobc --version` verbatim, all lines.
 COB_CFLAGS verbatim (must contain exactly one -D_FORTIFY_SOURCE).
 `git config --get core.autocrlf` (must be false). Daemon JDK, test JDK(s), Gradle version.
+Host OS: PRETTY_NAME, VERSION and VERSION_CODENAME from /etc/os-release, plus `uname -srm`.
+  Do NOT paste `uname -a`: it carries the container hostname. The prompt carries
+  Ubuntu 25.10 (Questing Quokka), kernel 6.12.85+. This line is NOT gated: if the OS
+  differs but `cobc --version` is identical, record it in section 11 and CONTINUE.
+  Record the CI runner's OS and its resolved `cobc --version` here too, because you are
+  the run that gives CI a compiler and `ubuntu-22.04` is a different archive from this host.
 Does this anchor match RUN-1A-HANDOFF.md's anchor?  YES / NO
+  (The gate is `cobc --version`, COB_CFLAGS and core.autocrlf, not the OS line.)
 If NO: that is a finding. Stop and report; every golden file captured here is suspect.
 
 ## 3. Green status, stated mechanically
 `clean test`: <n> tests, <n> failures, <n> skipped        (must be >= 457 with 0 failures)
 COBOL programs compiled and EXECUTED by the harness: <n>  (REQUIRED. Must exceed the
-  5 inherited from Run 1a. State which programs, by name.)
+  5 inherited from Run 1a. State which programs, by name. Count `INF009: Process
+  linux_gnucobol_run_tests ended with exit code` in the harness's COMBINED output;
+  corroborate with `TESTSUITE:` blocks in actual-output.txt. Do NOT count
+  `About to launch process` -- it reads 5 even with zero programs compiled.)
+Each executed child's exit code, by program:
 `actual-output.txt`: <bytes> bytes, <lines> lines          (must be non-empty)
 Comparison against the approved baseline: MATCHED        (must be MATCHED)
 Overall: GREEN
@@ -2966,15 +3200,22 @@ Determinism: two cold-tree captures diffed byte-identical after normalization?  
 | File | Change | Why | Itemized in advance? |
 
 ## 5. Golden-file status, itemized
-One row per golden file: its program, its size, and whether it records a known defect.
+One row per golden file: its program, its LINE COUNT, its byte count, and whether it records
+a known defect. Give the line count first and treat it as the portable figure: a captured
+byte count is a function of this checkout's path length until the filter has been applied
+(26,216 + 13 x root length for actual-output.txt), so quote your own root length,
+printf %s "$(git rev-parse --show-toplevel)" | wc -c, beside any byte figure.
 State explicitly which golden files capture defective current behaviour and what the
 defect is, so a later run cannot mistake an intentional repair for a regression.
+State the result of the no-absolute-path assertion over the filtered set.
 Also state the disposition of the byte-identical second baseline at
 src/test/approvalTest/expected-output.txt.
 
 ## 6. Architecture decisions later runs must respect
-- The four identifier token pairs the normalization filter canonicalizes, verbatim.
-- The filter's location and the guarantee its own test provides.
+- The five token pairs the normalization filter canonicalizes, verbatim: the four identifier
+  pairs and the absolute repository root to the literal <REPO>.
+- The filter's location and the guarantee its own test provides, including the second test
+  asserting that no filtered golden file contains an absolute repository path.
 - The corpus layout, and the corpus-local copybook rule with the reason behind it.
 - The verified/provisional register: its location, its schema, and the append-only
   discipline with one owning run per entry.
@@ -3029,7 +3270,7 @@ defect you characterized but did not repair, naming the golden file that records
 
 - **Commit to this repository.** Your in-repo changes plus `RUN-1B-HANDOFF.md`, and nothing else.
 - **Tag the final commit `run-1b-characterization`.** The tag is immutable once created: never move, delete or re-point it, and never rewrite the history it names.
-- **Do not commit build output or working-tree churn.** Restore the two tracked archives under `build/` and the file modes of `approvaltest` and `scripts/linux_gnucobol_run_tests` to their committed states before committing. Do not commit `temp/`, `testruns/` or `bin/`. `actual-output.txt` is build output; the **approved baseline** `expected-output.txt` is the artifact you commit.
+- **Do not commit build output or working-tree churn.** Restore the two tracked archives under `build/`, the tracked **`vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar`** that `prepareDistribution` rewrites, and `approvaltest`'s file mode to their committed states before committing. Do not commit `temp/`, `testruns/` or `bin/`. `actual-output.txt` is build output; the **approved baseline** `expected-output.txt` is the artifact you commit. **Two mode changes are the exception and ARE committed by you, because §4 item 9 itemizes them:** `cobolcheck` and `scripts/linux_gnucobol_run_tests` move to mode `100755` with zero content change.
 - **Do not create any document other than `RUN-1B-HANDOFF.md`.** No status reports, no progress summaries, no setup guides, no validation guides. The corpus, the golden files, the filter and the register are code and data, not documents.
 - **No temporal planning anywhere** in your handoff — no estimates, no durations, no dates. Sequencing is expressed only as `BLOCKED-BY`. The performance measurements in section 12 are measurements of work performed, which is different and is required.
 - **No outreach of any kind.** Do not contact anyone and do not propose doing so. This is a solo-maintainer project with agent support; optimize for automation and minimal human decision points.
