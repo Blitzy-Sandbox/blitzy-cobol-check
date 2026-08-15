@@ -53,8 +53,17 @@ class BuildHelper{
             println("Error while comparing: ${e.message}")
             return -1
         } finally{
-            if (reader1 != null) reader1.close()
-            if (reader2 != null) reader2.close()
+            // The two closes are nested rather than sequential so that BOTH are always
+            // attempted. Written as two statements in a row, a throw from the first close
+            // leaves the finally block immediately and the second reader is never closed -
+            // a descriptor leaked for the lifetime of a Gradle daemon that outlives the
+            // build. The inner finally still lets a failing close propagate, and Groovy
+            // 2.5.12 - the version Gradle 6.9.4 embeds - has no try-with-resources.
+            try{
+                if (reader1 != null) reader1.close()
+            } finally{
+                if (reader2 != null) reader2.close()
+            }
         }
     }
 }
