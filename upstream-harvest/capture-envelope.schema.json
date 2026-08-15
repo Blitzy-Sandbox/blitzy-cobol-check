@@ -1,0 +1,752 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://blitzy.invalid/schemas/upstream-harvest/capture-envelope-1.2.0.json",
+  "title": "Upstream harvest capture envelope",
+  "description": "The single normative shape of the `_capture` audit envelope carried by every JSON artifact in upstream-harvest/. It exists because the ten sibling captures were written by separate sessions and drifted: `tooling` was a string in one artifact and an object in the others, per-call rate-limit header values were strings in three artifacts and integers in the rest, `records_returned` on /rate_limit rows carried three different meanings (0, null and 1), and the `family` label appeared only on pull-request review calls. Every envelope in this folder validates against this schema; a capture that does not validate is a defect in the capture, not in the schema. The schema constrains the audit envelope ONLY - the harvested GitHub payloads (issues, pulls, reviews, review_comments, issue_comments, issue, pull_request, repository_metadata) are stored exactly as the API returned them and are deliberately left unconstrained so that no schema rule can ever motivate editing raw third-party data. VERSION 1.1.0 adds exactly two normative constraints to 1.0.0 and changes nothing else: `credential_transport_exposure` becomes a required three-valued classification, so an artifact can no longer leave the credential's transport exposure unstated or attest it away in prose; and `notes` must contain a PUBLIC-DATA GOVERNANCE entry, so the public-data handling contract in HARVEST-MANIFEST.md section 12 is enforced per artifact by a validator rather than remembered by a human. VERSION 1.2.0 adds nine cross-field invariants and changes nothing else, because 1.0.0 and 1.1.0 constrained the type, value and vocabulary of each field in isolation and therefore accepted internally contradictory provenance: a capture could claim `authenticated` true beside an observed 60-request ceiling, claim `audit_status` COMPLETE over a PARTIAL call record or an unretained body, retain a body from a 401 response, or present a zero-record family with no statement of whether the zero is a true count or a silently truncated page - the exact failure mode HARVEST-MANIFEST.md section 1 names, in which an exhausted unauthenticated quota returns empty bodies rather than errors. The nine are C1-C6 on `capture` and K5-K7 on `call`, each carrying its own `description`. Two further invariants that belong to the same family are deliberately NOT here and are enforced by the validator command in HARVEST-MANIFEST.md section 4.4 instead: reconciling `record_counts` and per-call `records_persisted` against the real length of the persisted data arrays, and comparing `records_persisted` against `records_returned` on the same call. Neither is expressible in draft-07, which can compare a value against a constant but not against a sibling property or the length of an array in another subtree; stating that boundary here is what stops a reader from assuming the schema checks arithmetic it cannot see. Every constraint at every version governs the audit envelope only; none can be satisfied by editing a harvested payload.",
+  "type": "object",
+  "required": [
+    "_capture"
+  ],
+  "properties": {
+    "_capture": {
+      "$ref": "#/definitions/capture"
+    }
+  },
+  "definitions": {
+    "capture": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "envelope_schema",
+        "envelope_schema_version",
+        "repository",
+        "captured_at_utc",
+        "authenticated",
+        "rate_limit_observed",
+        "credential_transport_exposure",
+        "calls",
+        "record_counts",
+        "tooling",
+        "failures",
+        "notes",
+        "audit_status",
+        "omissions"
+      ],
+      "properties": {
+        "envelope_schema": {
+          "description": "Relative path from this artifact to the schema it validates against.",
+          "type": "string",
+          "enum": [
+            "capture-envelope.schema.json",
+            "../capture-envelope.schema.json"
+          ]
+        },
+        "envelope_schema_version": {
+          "type": "string",
+          "const": "1.2.0"
+        },
+        "credential_transport_exposure": {
+          "description": "How the read-only API credential reached the HTTP request for THIS artifact, classified rather than asserted. `in_process_client_only` is permitted only where the artifact's own recorded client is an in-process library (python3 urllib.request), which cannot place a header in a process argument vector. `argv_exposed` records a transport known to have placed the credential in the argument vector, where /proc/<pid>/cmdline can read it for the lifetime of the request. `UNKNOWN` is required wherever the recorded transport is curl without a retained invocation transcript, wherever two client fields disagree, and wherever no client was recorded at capture time - an unprovable claim of non-exposure is a false provenance claim and this enum exists to make it unwritable. The value constrains provenance only; it never licenses editing a harvested payload.",
+          "type": "string",
+          "enum": [
+            "in_process_client_only",
+            "argv_exposed",
+            "UNKNOWN"
+          ]
+        },
+        "repository": {
+          "description": "The harvested repository, hard-pinned. A value other than this one means the wrong repository was captured.",
+          "type": "string",
+          "const": "openmainframeproject/cobol-check"
+        },
+        "captured_at_utc": {
+          "description": "ISO-8601 UTC instant, as recorded by the capture that produced the artifact.",
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+        },
+        "authenticated": {
+          "description": "Derived from the OBSERVED x-ratelimit-limit ceiling (5000 authenticated, 60 unauthenticated), never from the presence of a credential in the environment.",
+          "type": "boolean"
+        },
+        "rate_limit_observed": {
+          "description": "The authentication-gate reading. Integers only - these are numeric quantities and were serialized as strings in three of the ten artifacts before normalization.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "limit",
+            "remaining",
+            "reset"
+          ],
+          "properties": {
+            "limit": {
+              "type": "integer"
+            },
+            "remaining": {
+              "type": "integer"
+            },
+            "reset": {
+              "type": "integer"
+            }
+          }
+        },
+        "calls": {
+          "description": "Every HTTP request issued while producing the artifact, in the order issued. One entry per request, including pagination pages and the /rate_limit gate probe.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/call"
+          }
+        },
+        "record_counts": {
+          "description": "Per-artifact counts and cross-checks. Keys differ legitimately by artifact type, so only the object shape is constrained.",
+          "type": "object"
+        },
+        "tooling": {
+          "description": "Tools observed in the capture container, never assumed. An object in every artifact - one capture recorded it as a prose string, whose exact text is preserved under provenance_note.",
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "capture_driver",
+            "nothing_installed"
+          ],
+          "properties": {
+            "capture_driver": {
+              "type": "string"
+            },
+            "nothing_installed": {
+              "type": "boolean",
+              "const": true
+            },
+            "provenance_note": {
+              "type": "string"
+            }
+          }
+        },
+        "failures": {
+          "description": "Attempted-and-failed requests. Empty by observation, never by omission. A recording gap is NOT a failure and belongs in omissions.",
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "notes": {
+          "description": "Authored provenance and completeness notes. Every note must open with its evidence label so no authored claim reads as raw captured data. Raw GitHub bodies are never labelled or edited - they are not notes. Since 1.1.0 the array must also carry a PUBLIC-DATA GOVERNANCE entry pointing at the handling, retention, disposal and secondary-use contract in HARVEST-MANIFEST.md section 12, so that the contract travels with the data it governs instead of living only in a sibling document a reader may never open.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(FACT|INFERENCE|UNKNOWN)\\b"
+          },
+          "contains": {
+            "type": "string",
+            "pattern": "^FACT: PUBLIC-DATA GOVERNANCE\\b"
+          }
+        },
+        "audit_status": {
+          "description": "COMPLETE only when every call in this artifact carries a COMPLETE record_status and every response body that this artifact is the home of is retained. Any PARTIAL call makes the artifact PARTIAL, regardless of how complete the harvested payload itself is.",
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "PARTIAL"
+          ]
+        },
+        "omissions": {
+          "description": "Every recording gap, stated plainly. An empty array asserts there are none.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/omission"
+          }
+        },
+        "issue_number": {
+          "type": "integer"
+        },
+        "pull_request_number": {
+          "type": "integer"
+        }
+      },
+      "allOf": [
+        {
+          "description": "C1 - the authentication gate, positive direction. `authenticated` is DERIVED from the observed x-ratelimit-limit ceiling, where 5000 denotes an authenticated quota and 60 an unauthenticated one, so a true value beside a ceiling of 60 or less is a contradiction rather than a stricter reading. Before 1.2.0 the derivation was documented on the `authenticated` property and enforced nowhere, which is what let a capture keep `authenticated: true` while its own gate reading was falsified down to 60.",
+          "if": {
+            "properties": {
+              "authenticated": {
+                "const": true
+              }
+            },
+            "required": [
+              "authenticated"
+            ]
+          },
+          "then": {
+            "properties": {
+              "rate_limit_observed": {
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "exclusiveMinimum": 60
+                  }
+                },
+                "required": [
+                  "limit"
+                ]
+              }
+            },
+            "required": [
+              "rate_limit_observed"
+            ]
+          }
+        },
+        {
+          "description": "C2 - the authentication gate, negative direction. An unauthenticated capture must show a ceiling of 60 or less AND may not claim COMPLETE, because the documented failure mode of an exhausted unauthenticated quota is an empty response body rather than an error: completeness cannot be established from the inside of a capture that was not authenticated, so PARTIAL is the only honest audit status for one.",
+          "if": {
+            "properties": {
+              "authenticated": {
+                "const": false
+              }
+            },
+            "required": [
+              "authenticated"
+            ]
+          },
+          "then": {
+            "properties": {
+              "rate_limit_observed": {
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "maximum": 60
+                  }
+                },
+                "required": [
+                  "limit"
+                ]
+              },
+              "audit_status": {
+                "const": "PARTIAL"
+              }
+            },
+            "required": [
+              "rate_limit_observed",
+              "audit_status"
+            ]
+          }
+        },
+        {
+          "description": "C3 - COMPLETE means what `audit_status` says it means. The property's own description already defines COMPLETE as every call carrying a COMPLETE record_status and every body this artifact is the home of retained, and an omission is by definition a recording gap; this makes both halves checkable instead of conventional. Its practical effect is that a falsification cannot downgrade one call record, or add a gap, while leaving the artifact-level verdict untouched.",
+          "if": {
+            "properties": {
+              "audit_status": {
+                "const": "COMPLETE"
+              }
+            },
+            "required": [
+              "audit_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "calls": {
+                "items": {
+                  "properties": {
+                    "record_status": {
+                      "const": "COMPLETE"
+                    }
+                  },
+                  "required": [
+                    "record_status"
+                  ]
+                }
+              },
+              "omissions": {
+                "maxItems": 0
+              }
+            },
+            "required": [
+              "calls",
+              "omissions"
+            ]
+          }
+        },
+        {
+          "description": "C4 - a PARTIAL artifact must itemise what is missing. PARTIAL arises only from a null field, an unretained body or an unwritten call record, and the `omission` vocabulary covers exactly those two kinds, so a PARTIAL verdict with an empty omissions array withholds the one thing a later reader needs. It also closes the escape route from C5: PARTIAL cannot be used as a blanket excuse for a zero-record family without stating a gap that has a label, a kind, a URL, a consequence and a remedy.",
+          "if": {
+            "properties": {
+              "audit_status": {
+                "const": "PARTIAL"
+              }
+            },
+            "required": [
+              "audit_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "omissions": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "omissions"
+            ]
+          }
+        },
+        {
+          "description": "C5 - a zero-record data family must be classified, never left to speak for itself. Where any data-family call retained its body verbatim and returned zero records, `notes` must carry an entry opening `FACT: ZERO-RECORD CORROBORATION` or `UNKNOWN: ZERO-RECORD CORROBORATION`. The reason is that a genuinely empty thread and a silently truncated page produce byte-identical artifacts - HTTP 200, an empty array, a zero count - so the distinction cannot be read out of the shape and has to be asserted with its evidence. FACT requires corroboration the capture did not choose, in practice GitHub's own comment or review counter travelling in a different payload; UNKNOWN records that no such corroboration exists, and C6 then forbids the COMPLETE claim. This is the same device as `credential_transport_exposure`: a three-valued statement makes the unprovable claim unwritable, where prose could assert it without evidence.",
+          "if": {
+            "properties": {
+              "calls": {
+                "contains": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "family": {
+                          "enum": [
+                            "repository",
+                            "issues_list",
+                            "pulls_list",
+                            "pull_reviews",
+                            "pull_review_comments",
+                            "issue_comments",
+                            "pull",
+                            "issue"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "family"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "response_body_retention": {
+                          "const": "retained_verbatim"
+                        }
+                      },
+                      "required": [
+                        "response_body_retention"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "records_returned": {
+                          "const": 0
+                        }
+                      },
+                      "required": [
+                        "records_returned"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "calls"
+            ]
+          },
+          "then": {
+            "properties": {
+              "notes": {
+                "contains": {
+                  "type": "string",
+                  "pattern": "^(FACT|UNKNOWN): ZERO-RECORD CORROBORATION\\b"
+                }
+              }
+            },
+            "required": [
+              "notes"
+            ]
+          }
+        },
+        {
+          "description": "C6 - an uncorroborated zero cannot be claimed COMPLETE. Where the zero-record classification required by C5 is written as UNKNOWN, the artifact's own audit status must be PARTIAL, so that the doubt recorded in one field cannot be contradicted by the verdict in another.",
+          "if": {
+            "properties": {
+              "notes": {
+                "contains": {
+                  "type": "string",
+                  "pattern": "^UNKNOWN: ZERO-RECORD CORROBORATION\\b"
+                }
+              }
+            },
+            "required": [
+              "notes"
+            ]
+          },
+          "then": {
+            "properties": {
+              "audit_status": {
+                "const": "PARTIAL"
+              }
+            },
+            "required": [
+              "audit_status"
+            ]
+          }
+        }
+      ]
+    },
+    "call": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "family",
+        "url",
+        "method",
+        "http_status",
+        "x_ratelimit_limit",
+        "x_ratelimit_remaining",
+        "x_ratelimit_reset",
+        "paginated",
+        "link_next",
+        "records_returned",
+        "records_persisted",
+        "response_body_retention",
+        "response_body_location",
+        "record_status",
+        "unknown_fields"
+      ],
+      "properties": {
+        "family": {
+          "description": "Canonical endpoint family. Fixed vocabulary so that call counts can be aggregated across artifacts without string matching on URLs.",
+          "type": "string",
+          "enum": [
+            "rate_limit",
+            "repository",
+            "issues_list",
+            "pulls_list",
+            "pull_reviews",
+            "pull_review_comments",
+            "issue_comments",
+            "pull",
+            "issue"
+          ]
+        },
+        "family_label_as_originally_recorded": {
+          "description": "Present only where normalization changed the recorded label, so the original value stays auditable.",
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://api\\.github\\.com/"
+        },
+        "method": {
+          "description": "Read-only harvest: GET is the only method any capture in this folder may record.",
+          "type": "string",
+          "const": "GET"
+        },
+        "http_status": {
+          "description": "Observed HTTP status, or null where it was genuinely not recorded - in which case \"http_status\" must appear in unknown_fields and record_status must be PARTIAL.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "x_ratelimit_limit": {
+          "type": "integer"
+        },
+        "x_ratelimit_remaining": {
+          "type": "integer"
+        },
+        "x_ratelimit_reset": {
+          "type": "integer"
+        },
+        "paginated": {
+          "description": "True for collection endpoints, where link_next null means pagination was exhausted. False for /rate_limit and single-document endpoints, where link_next null means not applicable.",
+          "type": "boolean"
+        },
+        "link_next": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "records_returned": {
+          "description": "ONE meaning, everywhere: the number of top-level records in the response payload - the array length for a collection endpoint, and 1 for a single-document endpoint including /rate_limit. null only where the value was genuinely not recorded, which requires the field to appear in unknown_fields.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "records_persisted": {
+          "description": "How many of those records are stored in THIS artifact. 0 for a call whose body was not retained and for /rate_limit, whose payload is transport metadata rather than harvested data. Per artifact, the sum over data-family calls equals the length of the persisted data array - that identity is the page-loss check.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "response_body_retention": {
+          "description": "retained_verbatim - the payload is stored in this artifact exactly as returned. summarized_metadata_only - the payload is transport metadata (/rate_limit) whose salient triple is recorded in _capture.rate_limit_observed. not_retained - the payload was observed but not persisted anywhere; it must NOT be reconstructed, and re-querying is prohibited because the upstream repository is archived and read-only.",
+          "type": "string",
+          "enum": [
+            "retained_verbatim",
+            "summarized_metadata_only",
+            "not_retained"
+          ]
+        },
+        "response_body_location": {
+          "description": "Where the body lives in this artifact, as a top-level key path, or null when nothing is retained.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "record_status": {
+          "description": "COMPLETE when every field of this call record was observed and its body retention is accounted for; PARTIAL when any field is unknown or the body was not retained.",
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "PARTIAL"
+          ]
+        },
+        "unknown_fields": {
+          "description": "Names of the fields on this call record that were genuinely not recorded. Empty array where everything was observed. A field listed here is never filled with a plausible value.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Provenance for any value on this record that was read from elsewhere in the same artifact rather than from the response itself.",
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "description": "A null http_status must be declared unknown.",
+          "if": {
+            "properties": {
+              "http_status": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "http_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "record_status": {
+                "const": "PARTIAL"
+              },
+              "unknown_fields": {
+                "contains": {
+                  "const": "http_status"
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "A null records_returned must be declared unknown.",
+          "if": {
+            "properties": {
+              "records_returned": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "records_returned"
+            ]
+          },
+          "then": {
+            "properties": {
+              "record_status": {
+                "const": "PARTIAL"
+              },
+              "unknown_fields": {
+                "contains": {
+                  "const": "records_returned"
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "An unretained body persists nothing and has no location.",
+          "if": {
+            "properties": {
+              "response_body_retention": {
+                "const": "not_retained"
+              }
+            },
+            "required": [
+              "response_body_retention"
+            ]
+          },
+          "then": {
+            "properties": {
+              "records_persisted": {
+                "const": 0
+              },
+              "response_body_location": {
+                "type": "null"
+              },
+              "record_status": {
+                "const": "PARTIAL"
+              }
+            }
+          }
+        },
+        {
+          "description": "A retained body must say where it is.",
+          "if": {
+            "properties": {
+              "response_body_retention": {
+                "const": "retained_verbatim"
+              }
+            },
+            "required": [
+              "response_body_retention"
+            ]
+          },
+          "then": {
+            "properties": {
+              "response_body_location": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "description": "K5 - a COMPLETE call record must carry a 2xx status. COMPLETE asserts that every field of the record was observed and its body retention is accounted for; a 401, 403 or 404 is a request that did not return the data the record claims to account for, and the pre-1.2.0 typing of `http_status` as integer-or-null accepted any integer whatsoever. Combined with the null-status rule above, a COMPLETE record now cannot be null, cannot be an error status, and cannot be a redirect.",
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "COMPLETE"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "http_status": {
+                "type": "integer",
+                "minimum": 200,
+                "exclusiveMaximum": 300
+              }
+            },
+            "required": [
+              "http_status"
+            ]
+          }
+        },
+        {
+          "description": "K6 - a body retained verbatim must have come from a 2xx response. This is the same invariant as K5 approached from the retention side rather than the status side, and it is stated separately because the two can be falsified independently: K5 catches a record that keeps its COMPLETE verdict over an error status, K6 catches a payload presented as harvested data when the response that carried it was not a success.",
+          "if": {
+            "properties": {
+              "response_body_retention": {
+                "const": "retained_verbatim"
+              }
+            },
+            "required": [
+              "response_body_retention"
+            ]
+          },
+          "then": {
+            "properties": {
+              "http_status": {
+                "type": "integer",
+                "minimum": 200,
+                "exclusiveMaximum": 300
+              }
+            },
+            "required": [
+              "http_status"
+            ]
+          }
+        },
+        {
+          "description": "K7 - a data request that observed an unauthenticated ceiling cannot be COMPLETE evidence. A ceiling of 60 or less on anything other than the `rate_limit` gate probe means that request carried no credential, which is precisely the condition under which an exhausted quota returns an empty body instead of an error. The `rate_limit` family is excluded deliberately: `upstream-harvest/issues.json` calls[1] is a declared unauthenticated control GET to /rate_limit whose whole purpose is to observe the 60 ceiling, and it harvests no records.",
+          "if": {
+            "properties": {
+              "family": {
+                "enum": [
+                  "repository",
+                  "issues_list",
+                  "pulls_list",
+                  "pull_reviews",
+                  "pull_review_comments",
+                  "issue_comments",
+                  "pull",
+                  "issue"
+                ]
+              },
+              "x_ratelimit_limit": {
+                "type": "integer",
+                "maximum": 60
+              }
+            },
+            "required": [
+              "family",
+              "x_ratelimit_limit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "record_status": {
+                "const": "PARTIAL"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          }
+        }
+      ]
+    },
+    "omission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "kind",
+        "call_index",
+        "url",
+        "what_is_missing",
+        "consequence",
+        "remedy"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "FACT",
+            "INFERENCE",
+            "UNKNOWN"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "per_call_record_not_written",
+            "response_body_not_retained"
+          ]
+        },
+        "call_index": {
+          "description": "Index into _capture.calls, or null where the gap is not attributable to a single recorded call.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://api\\.github\\.com/"
+        },
+        "what_is_missing": {
+          "type": "string"
+        },
+        "consequence": {
+          "type": "string"
+        },
+        "remedy": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
