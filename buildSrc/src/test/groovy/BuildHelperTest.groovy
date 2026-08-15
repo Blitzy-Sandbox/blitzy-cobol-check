@@ -23,9 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue
  * that the verdict is non-zero: -1 is a contract worth pinning precisely, but the caller already
  * treats it as failure.
  *
- * <p>Assertions are made on return values alone. The comparator reports its findings with
- * println only, and capturing stdout is deliberately out of scope - the diagnostics appear in
- * the test log for a human reader without becoming part of the asserted contract.
+ * <p>Every claim about the comparator is asserted on its return value alone. The comparator
+ * reports its findings with println only, and capturing stdout is deliberately out of scope - the
+ * diagnostics appear in the test log for a human reader without becoming part of the asserted
+ * contract. The one assertion that is not a return value guards a fixture precondition rather
+ * than the comparator: it proves the unreadable path really is absent before it is compared.
  *
  * <p>The class sits in the default package to match BuildHelper, which stays in the default
  * package so that the call site in build.gradle needs no import.
@@ -160,16 +162,34 @@ class BuildHelperTest {
 
     @Test
     void it_returns_minus_one_when_a_file_cannot_be_read() {
-        String expected = tempFileWith(["alpha"])
-        // createTempFile guarantees a unique base name, so suffixing a path it just produced
-        // yields a path that cannot exist. Naming the present file first is deliberate: the
-        // reader for it opens successfully and only the second open throws, which exercises the
-        // genuinely asymmetric cleanup case of one open reader and one that was never assigned.
-        String missing = tempFileWith(["alpha"]) + "-does-not-exist"
+        String present = tempFileWith(["alpha"])
+        // The unreadable path is derived UNDERNEATH a file that was just created as a regular
+        // file, so its absence is structural rather than probabilistic: a regular file cannot
+        // hold children, so this path cannot exist and cannot be created even by a concurrent
+        // process - the operating system answers ENOTDIR, which surfaces as the
+        // FileNotFoundException the comparator's catch arm converts into -1. Suffixing a temp
+        // path to form a sibling name would NOT be safe: createTempFile reserves only the path
+        // it returns, never a name derived from it, so a stale or concurrently created file at
+        // that sibling would silently turn this -1 into 0 or 1 and the failure would say
+        // nothing about the contract.
+        String unreadable = new File(present, "does-not-exist").absolutePath
+        assertTrue(!new File(unreadable).exists(),
+                "the fixture path must be absent, or -1 would not mean what this test claims")
 
-        int result = BuildHelper.compareFiles(expected, missing, true)
+        // Both argument orders are pinned, because they are different paths through the
+        // comparator's cleanup. Unreadable SECOND: the first reader opens, the second open
+        // throws, and the finally arm closes one reader while skipping the one never assigned.
+        int unreadableSecond = BuildHelper.compareFiles(present, unreadable, true)
 
-        assertEquals(-1, result)
+        assertEquals(-1, unreadableSecond, "an unreadable second file must surrender exactly -1")
+
+        // Unreadable FIRST: the first open throws, so neither reader is ever assigned and the
+        // finally arm skips both closes. This is the production-relevant direction - it is what
+        // happens when expected-output.txt itself is absent - and it must fail identically,
+        // because the caller treats -1 as failure exactly as it treats 1.
+        int unreadableFirst = BuildHelper.compareFiles(unreadable, present, true)
+
+        assertEquals(-1, unreadableFirst, "an unreadable first file must surrender exactly -1")
     }
 
     // -------------------------------------------------------------------------------------
