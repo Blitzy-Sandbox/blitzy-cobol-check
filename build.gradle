@@ -202,39 +202,52 @@ approvalTest = tasks.register("approvalTest", Test) {
     description 'Run approval test only'
     dependsOn copyJarToBin, copyRunScripts
 
-    def output = -1
-    def weRanATest = false
-    def runningOs = OS_NAME.toLowerCase()
+    // The harness invocation below MUST run as a task action, not in this registration
+    // closure. Gradle evaluates build scripts and only then builds the task graph, so
+    // configuration-phase code runs BEFORE copyJarToBin and copyRunScripts can have
+    // staged bin/cobol-check-<version>.jar and temp/approvalTest/cobolcheck. The harness
+    // therefore ran against a missing (exit 127) or non-executable (exit 126) launcher,
+    // produced a zero-byte actual-output.txt, and the comparison below passed vacuously.
+    // Inside doLast the dependsOn above is finally honoured.
+    doLast {
+        def output = -1
+        def weRanATest = false
+        def runningOs = OS_NAME.toLowerCase()
 
-    if (runningOs == "linux") {
-        println "Linux detected"
+        if (runningOs == "linux") {
+            println "Linux detected"
 
-        // grant execute permission to run script
-        def procChmod = "chmod +x ./approvaltest".execute()
-        procChmod.waitForProcessOutput(System.out, System.err)
+            // grant execute permission to run script
+            def procChmod = "chmod +x ./approvaltest".execute()
+            procChmod.waitForProcessOutput(System.out, System.err)
 
-        def proc = "./approvaltest".execute()
-        proc.waitForProcessOutput(System.out, System.err)
-        weRanATest = true
-    }
-    if (runningOs.contains("windows")) {
-        println "Windows detected"
-        def proc = "./approvaltestWin.cmd".execute()
-        proc.waitForProcessOutput(System.out, System.err)
-        weRanATest = true
-    }
+            def proc = "./approvaltest".execute()
+            proc.waitForProcessOutput(System.out, System.err)
+            weRanATest = true
+        }
+        if (runningOs.contains("windows")) {
+            println "Windows detected"
+            def proc = "./approvaltestWin.cmd".execute()
+            proc.waitForProcessOutput(System.out, System.err)
+            weRanATest = true
+        }
 
-    if (!weRanATest){
-        println "No prepared test for the OS detected: ${runningOs} - skipping"
-    } else {
-        output = new BuildHelper().compareFiles(approvalExpectedOutput, approvalActualOutput, true)
-        println "exit from compare: ${output}"
-
-        if (output != 0) {
-            println "*** FAIL ***"
-            throw new StopExecutionException("${approvalExpectedOutput} and ${approvalActualOutput} are different")
+        if (!weRanATest){
+            println "No prepared test for the OS detected: ${runningOs} - skipping"
         } else {
-            println "${approvalExpectedOutput} matches ${approvalActualOutput} - PASS"
+            output = new BuildHelper().compareFiles(approvalExpectedOutput, approvalActualOutput, true)
+            println "exit from compare: ${output}"
+
+            if (output != 0) {
+                println "*** FAIL ***"
+                // GradleException, not StopExecutionException: Gradle documents StopExecutionException as
+                // skipping the remaining actions and continuing WITHOUT failing the task or the build. It
+                // only appeared to work here because a throw from a configuration closure escapes as an
+                // ordinary script exception. From a task action it would silently swallow this FAIL verdict.
+                throw new GradleException("${approvalExpectedOutput} and ${approvalActualOutput} are different")
+            } else {
+                println "${approvalExpectedOutput} matches ${approvalActualOutput} - PASS"
+            }
         }
     }
 }
@@ -260,37 +273,3 @@ task osInfo {
     }
 }
 
-class BuildHelper{
-    static int compareFiles(String file1, String file2, boolean trimLines){
-        BufferedReader reader1
-        BufferedReader reader2
-        try{
-            reader1 = new BufferedReader(new FileReader(file1))
-            reader2 = new BufferedReader(new FileReader(file2))
-            int lineCount = 0
-            String line1 = ""
-            String line2 = ""
-            while ((line1 = reader1.readLine()) != null && (line2 = reader2.readLine()) != null){
-                lineCount++
-                if (trimLines){
-                    line1 = line1.trim()
-                    line2 = line2.trim()
-                }
-                if (!line1.equals(line2)){
-                    println("Difference on line ${lineCount}:")
-                    println("   ${file1}: ${line1}")
-                    println("   ${file2}: ${line2}")
-                    return 1
-                }
-            }
-            return 0
-        } catch( Exception e){
-            println("Error while comparing: ${e.message}")
-            return -1
-        } finally{
-            if (reader1 != null) reader1.close()
-            if (reader2 != null) reader2.close()
-        }
-
-    }
-}
