@@ -4,30 +4,56 @@ import static org.junit.jupiter.api.Assertions.assertEquals
 import static org.junit.jupiter.api.Assertions.assertTrue
 
 /**
- * Executable contract for {@link BuildHelper#compareFiles(String, String, boolean)}.
+ * Executable contract for BuildHelper.compareFiles(String, String, boolean).
  *
- * This class exists because the comparator is the ONLY gate on the COBOL approval harness's
- * generated output. Its previous loop guard advanced both readers inside a short-circuiting
- * &&, so a zero-byte actual-output.txt compared "equal" to the 234-line approved baseline and
- * the build reported PASS having compiled no COBOL at all. The two guarantees that repair
- * depends on - a length mismatch fails, and an empty stream fails - are pinned below, along
- * with the pre-existing behaviour that must NOT regress (equal-and-matching, equal-but-
- * differing, missing file, and trimming in both directions).
+ * <p>This class exists because that comparator is the ONLY gate on the output the COBOL
+ * approval harness generates. Its previous loop guard advanced both readers inside a
+ * short-circuiting "and" operator, so when the shorter stream ended the loop simply exited and
+ * control fell through to "return 0" - a match. A zero-byte actual-output.txt was therefore
+ * declared identical to the 234-line approved baseline and the build reported PASS having
+ * compiled no COBOL at all. The gate was mechanically incapable of failing.
  *
- * The class is in the default package to match BuildHelper, which stays default-package so
- * that build.gradle's call site needs no import.
+ * <p>The two guarantees the repair depends on are pinned here - a length mismatch fails, and an
+ * empty stream fails - together with the pre-existing behaviour that must NOT regress:
+ * equal-and-matching, equal-but-differing, an unreadable file, and trimming in both directions.
+ *
+ * <p><b>Return contract under test:</b> 0 = match, 1 = differ, -1 = error while comparing. The
+ * production call site tests "output != 0", so both 1 and -1 are FAIL and only 0 is PASS. That
+ * is why the unreadable-file case pins the exact -1 while every other failing case asserts only
+ * that the verdict is non-zero: -1 is a contract worth pinning precisely, but the caller already
+ * treats it as failure.
+ *
+ * <p>Assertions are made on return values alone. The comparator reports its findings with
+ * println only, and capturing stdout is deliberately out of scope - the diagnostics appear in
+ * the test log for a human reader without becoming part of the asserted contract.
+ *
+ * <p>The class sits in the default package to match BuildHelper, which stays in the default
+ * package so that the call site in build.gradle needs no import.
+ *
+ * <p>Every test method is declared void rather than def on purpose. JUnit Jupiter's
+ * testable-method predicate requires a void return type, and a Groovy def method returns the
+ * value of its last expression - such a method is silently NOT discovered, which would let a
+ * green build hide missing coverage and reproduce the very vacuous-pass class this test exists
+ * to eliminate. The run is verified by asserting the discovered test count, not just the colour.
  */
 class BuildHelperTest {
 
     /**
      * Writes the supplied lines to a throwaway file and returns its absolute path.
      *
-     * Explicit temp files are used rather than JUnit's @TempDir: @TempDir was still marked
-     * experimental in the 5.7.0 line and imposes a non-private-field requirement that Groovy's
-     * property semantics complicate, so this fixture is version-agnostic across the 5.x span.
-     * Lines are joined with the platform separator and no terminator is appended, mirroring
-     * expected-output.txt, which ends WITHOUT a trailing newline - BufferedReader.readLine()
-     * returns that unterminated final line normally, so no spurious mismatch arises.
+     * <p>An empty list yields a genuine zero-byte file, which is the literal production defect.
+     * A non-empty list is joined with the platform separator and no terminator is appended, so
+     * the fixture has no trailing newline - deliberately mirroring expected-output.txt, which
+     * ends without one. BufferedReader.readLine() returns that unterminated final line
+     * normally, so this is a faithful fixture rather than a source of spurious mismatches.
+     *
+     * <p>Explicit temp files are used in preference to JUnit's TempDir extension: TempDir was
+     * still marked experimental in the 5.7.0 line and imposes a non-private-field requirement
+     * that Groovy's property semantics complicate. This fixture is version-agnostic across the
+     * whole 5.x span the build may resolve.
+     *
+     * <p>Absolute paths are returned so no test depends on the process working directory, and
+     * deleteOnExit keeps the run hermetic without inter-test cleanup coupling.
      */
     private static String tempFileWith(List<String> lines) {
         File f = File.createTempFile("buildhelper-", ".txt")
@@ -36,39 +62,41 @@ class BuildHelperTest {
         return f.absolutePath
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Mandated guarantee (a): unequal stream lengths must fail - in BOTH directions, because
-    // asymmetry between them would itself be a defect.
-    // ---------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
+    // Mandated guarantee (a): unequal stream lengths must produce a failing verdict - in BOTH
+    // directions, because an asymmetry between them would itself be a new defect. Each fixture
+    // shares a matching prefix, so the failing verdict can only come from the length
+    // difference and not from a content difference.
+    // -------------------------------------------------------------------------------------
 
     @Test
-    void actualLongerThanExpectedIsReportedAsDifferent() {
+    void it_fails_when_the_actual_file_has_extra_trailing_lines() {
         String expected = tempFileWith(["alpha", "beta"])
         String actual = tempFileWith(["alpha", "beta", "gamma"])
 
         int result = BuildHelper.compareFiles(expected, actual, true)
 
-        assertTrue(result != 0, "extra trailing lines in the second file must not report a match")
+        assertTrue(result != 0, "extra trailing lines in the actual file must not report a match")
     }
 
     @Test
-    void expectedLongerThanActualIsReportedAsDifferent() {
+    void it_fails_when_the_actual_file_is_truncated() {
         String expected = tempFileWith(["alpha", "beta", "gamma"])
         String actual = tempFileWith(["alpha", "beta"])
 
         int result = BuildHelper.compareFiles(expected, actual, true)
 
-        assertTrue(result != 0, "a truncated second file must not report a match")
+        assertTrue(result != 0, "a truncated actual file must not report a match")
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Mandated guarantee (b): an empty stream must fail - on either side. The first case is
-    // the literal production defect: a zero-byte actual-output.txt against a populated
-    // expected-output.txt used to return 0 (MATCH).
-    // ---------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
+    // Mandated guarantee (b): an empty stream must produce a failing verdict - on either side.
+    // The first case is the literal production defect: a zero-byte actual-output.txt compared
+    // against a populated expected-output.txt used to return 0, meaning MATCH.
+    // -------------------------------------------------------------------------------------
 
     @Test
-    void emptyActualAgainstPopulatedExpectedIsReportedAsDifferent() {
+    void it_fails_when_the_actual_file_is_empty() {
         String expected = tempFileWith(["TESTSUITE:", "PASS:", "====="])
         String actual = tempFileWith([])
 
@@ -78,7 +106,7 @@ class BuildHelperTest {
     }
 
     @Test
-    void emptyExpectedAgainstPopulatedActualIsReportedAsDifferent() {
+    void it_fails_when_the_expected_file_is_empty() {
         String expected = tempFileWith([])
         String actual = tempFileWith(["TESTSUITE:", "PASS:", "====="])
 
@@ -87,14 +115,14 @@ class BuildHelperTest {
         assertTrue(result != 0, "an empty expected file must never match a populated capture")
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Both files empty: not a length mismatch, so this is the additional declared behaviour
-    // change (ii-b). A comparator that reports "match" having compared nothing is the exact
-    // defect class under repair.
-    // ---------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
+    // Two empty streams are not a length mismatch, so this pins the additional declared
+    // behaviour change: a comparator that reports "match" having compared nothing is the exact
+    // defect class under repair, and it is the sole gate on a generated artefact.
+    // -------------------------------------------------------------------------------------
 
     @Test
-    void twoEmptyFilesAreReportedAsDifferentBecauseNothingWasCompared() {
+    void it_fails_when_both_files_are_empty_because_nothing_was_compared() {
         String expected = tempFileWith([])
         String actual = tempFileWith([])
 
@@ -103,20 +131,25 @@ class BuildHelperTest {
         assertTrue(result != 0, "no vacuous match is possible when zero lines were compared")
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Pre-existing behaviour that must NOT regress.
-    // ---------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
+    // Pre-existing behaviour that must NOT regress. These cases guard the working path against
+    // the repair itself: the repaired loop must still recognise a genuine match, still report a
+    // content difference at equal length, and still surrender -1 when a file cannot be read.
+    // -------------------------------------------------------------------------------------
 
     @Test
-    void equalLengthIdenticalContentReturnsZero() {
-        String expected = tempFileWith(["TESTSUITE:", "PASS:", "====="])
-        String actual = tempFileWith(["TESTSUITE:", "PASS:", "====="])
+    void it_reports_a_match_for_identical_files_of_equal_length() {
+        List<String> content = ["TESTSUITE:", "     PASS:", "**** FAIL:", "====="]
+        String expected = tempFileWith(content)
+        String actual = tempFileWith(content)
 
-        assertEquals(0, BuildHelper.compareFiles(expected, actual, true))
+        int result = BuildHelper.compareFiles(expected, actual, true)
+
+        assertEquals(0, result)
     }
 
     @Test
-    void equalLengthDifferingContentIsReportedAsDifferent() {
+    void it_fails_when_content_differs_at_equal_length() {
         String expected = tempFileWith(["TESTSUITE:", "PASS:", "====="])
         String actual = tempFileWith(["TESTSUITE:", "**** FAIL:", "====="])
 
@@ -126,36 +159,41 @@ class BuildHelperTest {
     }
 
     @Test
-    void missingFileReturnsMinusOne() {
+    void it_returns_minus_one_when_a_file_cannot_be_read() {
         String expected = tempFileWith(["alpha"])
-        String actual = new File(System.getProperty("java.io.tmpdir"),
-                "buildhelper-absent-${System.nanoTime()}.txt").absolutePath
+        // createTempFile guarantees a unique base name, so suffixing a path it just produced
+        // yields a path that cannot exist. Naming the present file first is deliberate: the
+        // reader for it opens successfully and only the second open throws, which exercises the
+        // genuinely asymmetric cleanup case of one open reader and one that was never assigned.
+        String missing = tempFileWith(["alpha"]) + "-does-not-exist"
 
-        // -1 is the catch arm's contract; the caller's "output != 0" test already treats it
-        // as failure, so this pins the error path without changing its meaning.
-        assertEquals(-1, BuildHelper.compareFiles(expected, actual, true))
+        int result = BuildHelper.compareFiles(expected, missing, true)
+
+        assertEquals(-1, result)
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Trimming: the harness passes trimLines = true because the COBOL DISPLAY output is
-    // indented, so both directions of the flag are pinned.
-    // ---------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
+    // Trimming is load-bearing rather than decorative: the harness passes trimLines = true
+    // because the COBOL DISPLAY output is indented, so both settings of the flag are pinned.
+    // -------------------------------------------------------------------------------------
 
     @Test
-    void trimmingEnabledIgnoresSurroundingWhitespace() {
+    void it_ignores_surrounding_whitespace_when_trimming_is_enabled() {
         String expected = tempFileWith([" x "])
         String actual = tempFileWith(["x"])
 
-        assertEquals(0, BuildHelper.compareFiles(expected, actual, true))
+        int result = BuildHelper.compareFiles(expected, actual, true)
+
+        assertEquals(0, result)
     }
 
     @Test
-    void trimmingDisabledHonoursSurroundingWhitespace() {
+    void it_honours_surrounding_whitespace_when_trimming_is_disabled() {
         String expected = tempFileWith([" x "])
         String actual = tempFileWith(["x"])
 
         int result = BuildHelper.compareFiles(expected, actual, false)
 
-        assertTrue(result != 0, "with trimLines = false the whitespace difference must be reported")
+        assertTrue(result != 0, "with trimming disabled the whitespace difference must be reported")
     }
 }
