@@ -161,9 +161,9 @@ requirement.
 | Second discipline actually required | **none** | `FACT` | the diff is one Gradle build script, one Groovy build-logic class, its JUnit 5 test, one `buildSrc` build script and this document (section 4.5); **no product source and no pre-existing test under `src/test/java` was changed** (section 10) |
 | Destination branch this run's work is published under | `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9` — the name `origin` carries this run under, and the branch every commit in the ledger below is reachable from. Review remediation is carried out on platform-cut per-clone branches which the platform then reconciles onto this one, so those branches are ephemeral. **Resolve this run's tip through `HEAD`, or from `origin`, never through a hardcoded `refs/heads/…` name** — 1.1 records the measurement that makes that rule necessary | `FACT` | `git rev-parse --abbrev-ref HEAD`; `git ls-remote --heads origin`; `EVIDENCE/git-ledger.log` |
 | **Starting commit hash** | **`8640f8e4f78ce84496ad3542bb75f3d77e998191`** | `FACT` | `git rev-parse`; subject `Merge pull request #1`; `git merge-base --is-ancestor` returns 0 against `HEAD` |
-| **Ending commit hash** | **Not a literal — it resolves through `HEAD` as the destination branch's tip**, which is **ledger commit 6**, the final review-remediation checkpoint. See section 1.1 for why a literal is mechanically impossible and for the read-only resolving commands, and section 1.2 for the whole tag ledger | `FACT` | a commit cannot state its own hash; `git rev-parse HEAD`; `git ls-remote --heads origin` |
+| **Ending commit hash** | **Not a literal — it resolves through `HEAD` as the destination branch's tip**, which is **ledger commit 7**, the runtime-QA remediation checkpoint. See section 1.1 for why a literal is mechanically impossible and for the read-only resolving commands, and section 1.2 for the whole tag ledger | `FACT` | a commit cannot state its own hash; `git rev-parse HEAD`; `git ls-remote --heads origin` |
 | Tag mandated by the output contract | `run-1a-approval-harness-repair` (annotated), naming `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — **published, therefore immutable, and left byte-identical by every checkpoint of this run**. It is an **ancestor** of the ending commit but does **not name** it, so it is a valid entry gate and **not** a source of the final state | `FACT` | `git cat-file -t` returns `tag`; `git rev-list -n 1`; `[PROGRAM-PLAN.md:L2834]`; `EVIDENCE/tag-state.log` |
-| Additive tag names created during review remediation — **LOCAL-ONLY, and NOT published on `origin`** | `run-1a-approval-harness-repair-ending`, `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-final` — each annotated, each created **once** and never moved, and each **absent from `origin`**: a full `git ls-remote origin` returns eight refs carrying exactly **one** tag-name pair, the mandated name. **None of them is an ancestor of the ending commit** either (measured, `git merge-base --is-ancestor` returns rc=1 for all three), and `git branch -a --contains` is **empty** for each of the three commits they name, so each names an intermediate per-clone checkpoint state that no published ref reaches. **A fresh clone will not have these names at all** — the ledger in 1.2 states what each is and is not, and **the final state resolves from the tip, never from any of them** | `FACT` | `git ls-remote origin`; `git rev-list -n 1` per name; `git merge-base --is-ancestor`; `git branch -a --contains`; section 1.2 |
+| Additive tag names created during review remediation — **PUBLISHED ON `origin`, and NONE of them authoritative** | `run-1a-approval-harness-repair-ending`, `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-final` — each annotated, each created **once** and never moved, and **each one published on `origin`**: measured at this checkpoint, `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` prints **eight lines — four names**, and a full `git ls-remote origin` prints **277** refs and then **278** on a re-run inside this same checkpoint, so the count is a reading rather than a constant (11.11). **A fresh clone therefore resolves all three**, because `git clone` fetches tags by default. **Not one of them is an ancestor of the ending commit**: rc=1 is measured here for `-final`, whose commit `git branch -a --contains` reports on **no** branch, and rc=1 was measured for `-ending` and `-authoritative` by the checkpoint that created them, whose objects this clone does not hold. So each names an intermediate per-clone checkpoint state that the reconciled history does not reach, and **resolving is not authority** — the ledger in 1.2 states what each name is and is not, and **the final state resolves from the tip, never from any of them**. An earlier edition of this row called all three LOCAL-ONLY and unpublished; that is refuted and withdrawn (11.11) | `FACT` for the publication and `-final` measurements taken here; `UNKNOWN` here for the `-ending` and `-authoritative` ancestry, whose objects are absent from this clone | `git ls-remote --tags origin`; `git ls-remote origin \| wc -l`; `git show-ref --tags`; `git cat-file -e` per object; `git merge-base --is-ancestor`; `git branch -a --contains`; section 1.2; section 11.11 |
 | BLOCKED-BY tag started from | none (first run) | `FACT` | `[PROGRAM-PLAN.md:L2746]` |
 
 `FACT` — the working-branch name is the output of `git rev-parse --abbrev-ref HEAD` and the destination
@@ -187,29 +187,34 @@ push target, and no remote URL is reproduced anywhere in this document (4.7).
 | 3 | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` | Record Run 1a's approval-harness repair in RUN-1A-HANDOFF.md | `A RUN-1A-HANDOFF.md` — **this is the commit the mandated tag names** | `FACT` |
 | 4 | `80ca324eb5da64bb0f77d0324698eec7dec6a48e` | Harden the approval comparator's error contract and re-evidence the Run 1a handoff | `M RUN-1A-HANDOFF.md`, `M buildSrc/build.gradle`, `M buildSrc/src/test/groovy/BuildHelperTest.groovy` | `FACT` — `git show --name-status 80ca324eb5da64bb0f77d0324698eec7dec6a48e` |
 | 5 | `ddc0c3b522fbce71a48e5d27b120a94897a0c4e4` | The second review-remediation checkpoint — a literal here, because a further checkpoint has since become the tip and a commit can only be named as a literal once it is no longer the one being written. It carries four things. **(a)** The comparator's `finally` arm now attempts **both** closes, so a throw from the first can no longer leak the second reader (4.1, change iii). **(b)** Six itemized security deferrals, 13.12 to 13.17, together with the provenance and confidentiality corrections of 1.2, 2.6, 4.7 and 11.7. **(c)** The comment-and-docstring remediation: a comment that merely restated the `chmod +x` beneath it was deleted from `build.gradle`, and the comparator test's comments were cut from 93 lines to 17 — a 35-line class doc, a 17-line fixture doc and four separator banners removed, and two safety overclaims narrowed. **(d)** This document's git-provenance layer, evidence labels, temporal wording and end-of-file hygiene, plus every locator, file size, ledger row and re-measured `approvalTest` figure the comment edits moved. **No behaviour changed in (c): a filtered diff of every non-comment, non-blank line in both code files is empty**, and the ten test methods, the comparator contract and the `approvalTest` verdict are unchanged (4.1, 3.4, 3.8) | `M RUN-1A-HANDOFF.md`, `M build.gradle`, `M buildSrc/src/main/groovy/BuildHelper.groovy`, `M buildSrc/src/test/groovy/BuildHelperTest.groovy` | `FACT` — `git show --name-status ddc0c3b522fbce71a48e5d27b120a94897a0c4e4` for the paths and the hash; section 4.5 |
-| 6 | resolves as the destination branch's tip (section 1.1); **no tag names it** | The final review-remediation checkpoint, and the run's ending commit. It is the acceptance gate's remediation and it touches **this document only**. Five things. **(a)** The three additive tag names are restated as **local-only and unpublished** against a full `git ls-remote origin`, and every recovery command, ancestry claim and re-run expectation that named them is repointed at refs that exist on `origin` — the mandated tag, `origin`'s head of the destination branch, and `HEAD` (1.1, 1.2, 4.6, 11.7, 13.11, 14). **(b)** The lead-in of 1.2 no longer asserts an ancestry its own measured rows refute. **(c)** The withdrawn resolving command in 1.1 now names the **clone class** its measurement was taken in, so a reader in the destination checkout is not misled. **(d)** Seven `build.gradle` locators in 13.13 and 13.14 are re-anchored by one line, 4.2's `StopExecutionException` grep is restated in its stable **scoped** form, 6.4's `> Task :buildSrc:test` line number is corrected against the log it came from, and 4.7's URL enumeration gains its fourth class. **(e)** The two unmandated code edits are classified as deviations **D7** and **D8** (11.9). **No code file is touched by this commit**: `git diff --stat` against ledger commit 5 names this document alone, so `build.gradle`, `buildSrc/build.gradle` and both `buildSrc` sources are byte-identical to the tree ledger commit 5 published | `M RUN-1A-HANDOFF.md` | `FACT` for the path (section 4.5); the hash is not a literal for the reason in section 1.1 |
+| 6 | `9a57a21661895a1e75081b7cb12b63a1fdfa03cf` — a literal here, because a further checkpoint has since become the tip | The acceptance-gate remediation, and **no longer the run's ending commit**: ledger commit 7 below supersedes it as the tip. It touches **this document only**. Five things. **(a)** The three additive tag names are restated as **local-only and unpublished** against a full `git ls-remote origin`, and every recovery command, ancestry claim and re-run expectation that named them is repointed at refs that exist on `origin` — the mandated tag, `origin`'s head of the destination branch, and `HEAD` (1.1, 1.2, 4.6, 11.7, 13.11, 14). **That restatement is REFUTED by live measurement and withdrawn by ledger commit 7** (1.2, 11.11): all four names are on `origin`, and the reading this commit recorded as durable was a reading of a live ref set. **(b)** The lead-in of 1.2 no longer asserts an ancestry its own measured rows refute. **(c)** The withdrawn resolving command in 1.1 now names the **clone class** its measurement was taken in, so a reader in the destination checkout is not misled. **(d)** Seven `build.gradle` locators in 13.13 and 13.14 are re-anchored by one line, 4.2's `StopExecutionException` grep is restated in its stable **scoped** form, 6.4's `> Task :buildSrc:test` line number is corrected against the log it came from, and 4.7's URL enumeration gains its fourth class. **(e)** The two unmandated code edits are classified as deviations **D7** and **D8** (11.9). **No code file is touched by this commit**: `git diff --stat` against ledger commit 5 names this document alone, so `build.gradle`, `buildSrc/build.gradle` and both `buildSrc` sources are byte-identical to the tree ledger commit 5 published | `M RUN-1A-HANDOFF.md` | `FACT` for the path (section 4.5) and for the hash, which is quotable now that a later commit is the one being written |
+| 7 | resolves as the destination branch's tip (section 1.1); **no tag names it** | The runtime-QA remediation checkpoint, and the run's ending commit. It touches **this document only**, and it carries four things. **(a)** The tag-publication premise of 1.2 is **re-measured live and withdrawn**: `origin` publishes **all four** run-prefix names, a full `git ls-remote origin` returns **277** refs rather than eight, and two of the four names resolve on `origin` while being absent from this clone's object store — so the caution derived from the withdrawn premise is rewritten around the rule that survives measurement, that a name's resolvability is not its authority and the destination tip is (1.2, and every repetition in 1, 1.1, 4.1, 4.5, 4.6, 11.7, 13.11 and 14, with the whole correction itemized in the new 11.11). **(b)** `buildSrc/build/` is promoted from a disclosure into an **executable, root-anchored, sentinel-guarded removal instruction** naming all four artefacts that surface as untracked residue, so a later commit gate cannot inherit the omission (13.9, 11.8, 4.4). **(c)** Two precision statements replace two claims a reader could over-read: 3.7 now names the configuration-time `println` output that legitimately remains during `./gradlew tasks` — the phase is harness-silent, not silent — and 3.3 separates the single literal `not found` in the combined log, which is the deferred `-p FILECOPY` case-resolution failure, from RC1's launcher signature, whose probe set is measured at zero. **(d)** This ledger row, the tip, the ahead-count and the seven-commit total are brought forward with it. **No code file is touched by this commit**: `git diff --stat` against ledger commit 6 names this document alone, so `build.gradle`, `buildSrc/build.gradle` and both `buildSrc` sources are byte-identical to the tree ledger commit 6 published | `M RUN-1A-HANDOFF.md` | `FACT` for the path (section 4.5); the hash is not a literal for the reason in section 1.1 |
 
-`FACT` — **four of those six commits touch code or test paths — 1, 2, 4 and 5 — and two do not:
-commit 3 adds this document and commit 6 revises it.** Earlier editions said "two code commits", then
-"three of six", then "four of five"; each was the measured record of a narrower ledger at the time, and
-the ledger above supersedes them.
-`FACT` — **a git commit is a snapshot rather than a diff, so the tree of commit 6 — the tip — carries the
+`FACT` — **four of those seven commits touch code or test paths — 1, 2, 4 and 5 — and three do not:
+commit 3 adds this document and commits 6 and 7 revise it.** Earlier editions said "two code commits",
+then "three of six", then "four of five", then "four of six"; each was the measured record of a narrower
+ledger at the time, and the ledger above supersedes them.
+`FACT` — **a git commit is a snapshot rather than a diff, so the tree of commit 7 — the tip — carries the
 final state of all five in-scope paths**; the proof is one read-only command whose output is exactly five
 lines (1.1, 4.5). `FACT` — **of the four tag names in the ledger of 1.2, only the mandated
 `run-1a-approval-harness-repair` is an ancestor of the tip**: `git merge-base --is-ancestor` returns rc=0
-for it and rc=1 for each of the other three. So satisfy a gate from that tag, and resolve the final state
-from the tip as `origin` reports it, running the two-direction test in 1.2 first rather than assuming
-which of two refs is later.
+for it, rc=1 for `-final` measured here, and rc=1 for `-ending` and `-authoritative` as measured by the
+checkpoint that created them — this clone does not hold their objects, so it cannot re-run those two
+(1.2, 11.11). **That ancestry, and not which names `origin` happens to publish, is what disqualifies the
+other three.** So satisfy a gate from the mandated tag, and resolve the final state from the tip as
+`origin` reports it, running the two-direction test in 1.2 first rather than assuming which of two refs is
+later.
 
-`FACT` — **the ledger is six commits rather than one, and that is a departure from the output
+`FACT` — **the ledger is seven commits rather than one, and that is a departure from the output
 contract** `[PROGRAM-PLAN.md:L2833]`, which asks for the in-repo changes and this document to be
-committed together. `INFERENCE` — it cannot be closed from inside a session; reasoning: commits 1 to 5
+committed together. `INFERENCE` — it cannot be closed from inside a session; reasoning: commits 1 to 6
 are published history, and the only two routes to a single-commit ledger are rewriting that history —
 forbidden at `[PROGRAM-PLAN.md:L2834]` — or reverting four correct files and re-applying them to
 manufacture a diff, which is a fabricated change no file needed and which would put a commit that
 un-does the repair on the branch. It is recorded as OPEN in 13.11 for a platform-directed lineage.
-`FACT` — each review-remediation checkpoint was nevertheless delivered as exactly **one** commit:
-commit 4 for the first, commit 5 for the second and commit 6 for the last. `INFERENCE` — what the multi-commit ledger costs a
+`FACT` — each remediation checkpoint was nevertheless delivered as exactly **one** commit:
+commit 4 for the first review, commit 5 for the second, commit 6 for the acceptance gate and commit 7 for
+the runtime-QA findings. `INFERENCE` — what the multi-commit ledger costs a
 downstream run is **nothing**, because recovery resolves a commit to a tree and reads the tree, never the
 per-commit diffs; reasoning: `git diff --name-status <start> <tip>` prints all five paths at their final
 state regardless of how many commits produced them (1.1).
@@ -226,28 +231,33 @@ hash.
 
 `FACT` — **the field is therefore neither omitted nor invented: the commands below resolve it, every one
 of them is READ-ONLY, every one is executable as written, and every one is clone-independent.** The first
-names the branch being read and the ending commit — the destination branch's tip, ledger commit 6 — both
-locally and as `origin` publishes it; the second proves what that commit recovers; the third shows what
-`origin` actually publishes under this run's tag prefix, which is **one** name and not four; the fourth
-places the mandated tag against the tip and counts the gap; the fifth reads `origin` for that tag and for
-both branch heads:
+names the branch being read and the ending commit — the destination branch's tip, ledger commit 7 — as
+`HEAD` resolves it in a clone holding this run, and as `origin` publishes it once the platform's
+reconciler has advanced the destination branch; the second proves what that commit recovers; the third
+**measures** what `origin` publishes under this run's tag prefix rather than asserting it, because that
+ref set is live: at this checkpoint it is **four** names and eight lines (1.2, 11.11); the fourth places
+the mandated tag against the tip and counts the gap; the fifth reads `origin` for that tag and for both
+branch heads:
 
 ```bash
-# 1. the run's ending commit - the destination branch's tip, which NO tag names (ledger commit 6).
+# 1. the run's ending commit - the destination branch's tip, which NO tag names (ledger commit 7).
 #    Resolve it through HEAD, never through a hardcoded refs/heads/... name: a per-clone workspace
-#    can hold a branch of the destination's name at the STARTING commit (measured below).
+#    can hold a branch of the destination's name at the STARTING commit (measured below). The third
+#    command lags HEAD until the platform's reconciler advances the destination branch; on a
+#    difference, run the two-direction test of 1.2 rather than assuming which ref is later.
 git rev-parse --abbrev-ref HEAD
 git rev-parse HEAD                                                          # in a clone holding this run
-git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9 | cut -f1   # the same commit on origin
+git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9 | cut -f1   # the same branch on origin
 
 # 2. what that commit recovers - exactly the five in-scope paths, against the starting commit
 git diff --name-status 8640f8e4f78ce84496ad3542bb75f3d77e998191 HEAD
 
-# 3. what origin publishes under this run's tag prefix: ONE line pair, the mandated name (measured).
-#    The three additive names of 1.2 are LOCAL-ONLY and print NOTHING here, so do not resolve
-#    anything from them - in a fresh clone they do not exist at all.
+# 3. MEASURE what origin publishes under this run's tag prefix - do not assume it. At this
+#    checkpoint it printed EIGHT lines: all FOUR names, each as its tag object and its peeled
+#    commit. Three of the four are non-authoritative and one of those three names a commit no
+#    branch contains, so a name that resolves here proves nothing about authority (1.2, 11.11).
 git ls-remote --tags origin 'run-1a-approval-harness-repair*'
-git tag -l 'run-1a-approval-harness-repair*'          # local names only, in the clone that made them
+git tag -l 'run-1a-approval-harness-repair*'          # what THIS clone holds, which can be a subset
 
 # 4. the mandated tag, and how far behind the tip it sits
 git rev-list -n 1 run-1a-approval-harness-repair
@@ -304,21 +314,82 @@ and it needs a platform-directed lineage rather than a session.
 
 `FACT` — **four** tag names in this repository begin with `run-1a-approval-harness-repair`, they name
 **different** commits, and they do **not** serve the same purpose. **One — the mandated name — is the
-contract's entry gate: it is the only one `origin` publishes, and the only one that is an ancestor of the
-ending commit. The other three are LOCAL-ONLY**: each names an intermediate per-clone checkpoint state,
-each is absent from `origin`, and **none of the three is an ancestor of the ending commit.** Measured:
-`git merge-base --is-ancestor` returns rc=0 for the mandated name and rc=1 for each of the other three,
-`git branch -a --contains` is empty for each of the three commits they name, and a full
-`git ls-remote origin` returns eight refs carrying exactly one tag-name pair. **So no name in this table
-is the state to work from — resolve the final state from the tip (1.1), and read the table to learn what
-each name can and cannot do.** Read the whole table before resolving anything:
+contract's entry gate, and it is the only one of the four that is an ancestor of the ending commit.**
+
+`FACT` — **which of those names `origin` carries is a LIVE property of the remote rather than a durable
+property of this run, and this document no longer states it as one.** Measure it before relying on it;
+all three commands are read-only, and the first needs nothing but the remote's answer:
+
+```bash
+git ls-remote --tags origin 'run-1a-approval-harness-repair*'   # what origin publishes when you ask
+git show-ref --tags | grep run-1a-approval-harness-repair       # what THIS clone happens to hold
+git ls-remote origin | wc -l                                   # the whole ref set, for context
+```
+
+`FACT` — **measured at this checkpoint, `origin` publishes ALL FOUR names.** The first command printed
+**eight lines — four names, each as its annotated tag object and again as its peeled commit**:
+
+```console
+$ git ls-remote --tags origin 'run-1a-approval-harness-repair*'
+85db4fa31b4e0d08f7a03f19dd229bbc7ba0f90f	refs/tags/run-1a-approval-harness-repair
+0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b	refs/tags/run-1a-approval-harness-repair^{}
+8e74dc35fb6d82a164221393a0b92faff41a587e	refs/tags/run-1a-approval-harness-repair-authoritative
+a9ca7ab05cbbe90258b7d4e7c46a532de143d117	refs/tags/run-1a-approval-harness-repair-authoritative^{}
+bbeac332fd7619e22adf302de6f5c047867a5fec	refs/tags/run-1a-approval-harness-repair-ending
+da2450a05239c0185cf1fb5a438a3621c2108e3c	refs/tags/run-1a-approval-harness-repair-ending^{}
+1c77a595c5206b492253ecdb4c134c1882d35ca0	refs/tags/run-1a-approval-harness-repair-final
+eef4c953e470ca307c171a4823fb9a929bf92e24	refs/tags/run-1a-approval-harness-repair-final^{}
+```
+
+`FACT` — the third command printed **277** the first time it was run at this checkpoint and **278** when it was
+re-run within the same checkpoint: the shared clone `origin` names is written by other work, so even the
+size of its ref set moved while this section was being corrected. **The tag reading was stable across both
+runs — the same four names, the same eight lines — and the branch count was not.** `FACT` — the second
+command printed only **two** of the four names in
+this clone, `refs/tags/run-1a-approval-harness-repair` and
+`refs/tags/run-1a-approval-harness-repair-final`, and `git cat-file -e` reports the tag and commit objects
+behind `-ending` and `-authoritative` **absent from this clone's object store**. **So those two names
+resolve on `origin` and resolve nowhere locally at the same time: publication and local presence are
+independent, and each must be measured on its own.**
+
+`FACT` — **an earlier edition of this section — and of 1.1, 4.6, 11.7, 13.11 and 14 — asserted the
+opposite as a measured `FACT`: that `origin` published exactly one of the four names, that a full
+`git ls-remote origin` returned eight refs, and that the other three were LOCAL-ONLY and would "not
+resolve at all" in a fresh clone. The measurement above refutes every part of that, and all of it is
+WITHDRAWN** — restated here, in 11.11, and at every site that repeated it. `UNKNOWN` — why the two
+readings differ: whether the three additive names were pushed after the earlier reading was taken, and by
+which clone, is not decidable read-only from here. The corrected claim does not depend on the answer.
+
+`INFERENCE` — **what actually needed correcting is the CLASS of the claim rather than the number.**
+Reasoning: the ref set a remote publishes changes whenever anything pushes to it, so it is a reading and
+never an invariant — which is why the instruction above is a command rather than a count, and why no
+safety rule in this document is allowed to rest on it.
+
+`INFERENCE` — **and the hazard runs the opposite way from what the withdrawn text implied: `git clone`
+fetches tags by default, so a fresh clone WILL resolve all four names — including
+`run-1a-approval-harness-repair-final`, which names `eef4c953…`, a commit no branch contains and which
+this document classifies as DEAD.** Reasoning: resolvability is a property of the ref set, while authority
+is a property of the commit's position in the branch's history; the two are unrelated, so a name that
+resolves cleanly can still name a superseded or orphaned tree. **Never read authority from the fact that
+a name resolves. The mandated name is the ENTRY GATE, the destination branch's tip (1.1) is the only
+authority, and every other name in the table below is disqualified whether or not `origin` carries it.**
+
+`FACT` — what does **not** depend on the remote's ref set, because it is measured against commits:
+`git merge-base --is-ancestor` returns **rc=0** for the mandated name against `HEAD` and **rc=1** for
+`run-1a-approval-harness-repair-final`, and `git branch -a --contains eef4c953…` is **empty**. `FACT` —
+that same ancestry test **cannot be run in this clone for `-ending` or `-authoritative`**, because
+`git merge-base` needs both endpoints present in the local object store and theirs are absent; the rc=1
+readings recorded for those two names were taken by the checkpoint that created them, in the clone that
+held them. **So no name in the table below is the state to work from — resolve the final state from the
+tip (1.1), and read the table to learn what each name can and cannot do.** Read the whole table before
+resolving anything:
 
 | Tag | Object type | Commit it names | Status | Label |
 | --- | --- | --- | --- | --- |
-| `run-1a-approval-harness-repair` | annotated (`git cat-file -t` → `tag`, object `85db4fa31b4e0d08f7a03f19dd229bbc7ba0f90f`) | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — ledger commit 3 | **The mandated name, and the ENTRY GATE.** Published on `origin` and therefore IMMUTABLE. **Not moved, not deleted, not re-pointed, not re-fetched over, by this checkpoint.** It is an **ancestor** of the ending commit, so the next run's gate passes on it — but it is **stale**: it precedes ledger commits 4, 5 and 6, so its tree is **not** this run's final state. Use it to satisfy the gate; do **not** read code, tests or this document from it | `FACT` |
-| `run-1a-approval-harness-repair-ending` | annotated, created **once**, only after the commit it names existed, message carrying that commit's full 40-character SHA | `da2450a05239c0185cf1fb5a438a3621c2108e3c` — an intermediate review-remediation state | **A LOCAL-ONLY CHECKPOINT ANCHOR: absent from `origin`, NOT the ending commit, and NOT an ancestor of it.** Measured — `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` prints **only** the mandated name, and `git merge-base --is-ancestor` returns rc=1 against the tip, because the reconciled tip supersedes the per-clone state this name was cut from. **In a fresh clone this name does not resolve at all**, so nothing may be recovered through it and no command in this document depends on it. Its tree does carry **all five** in-scope paths, but the comparator's nested-close fix, six of this document's seventeen deferral items and the whole of ledger commit 6 landed after it. Created because the mandated name is published at a stale commit and moving it is forbidden `[PROGRAM-PLAN.md:L2834]`; it **adds** an identity and destroys none, and no later checkpoint moved it. **Resolve the final state from the tip (1.1), never from this name** | `FACT` for the creation contract, the commit it names, the `ls-remote` measurement and the ancestry measurement; `UNKNOWN` whether it was ever pushed and later removed — that is not decidable read-only from here, and what governs a downstream run is that it is absent from `origin` now |
-| `run-1a-approval-harness-repair-authoritative` | annotated, created **once** and **never moved** | `a9ca7ab05cbbe90258b7d4e7c46a532de143d117` — an earlier intermediate review-remediation state | **SUPERSEDED and LOCAL-ONLY, and not an ancestor of the ending commit** (measured, rc=1; and absent from `origin`, so it does not resolve in a fresh clone). It was created after what was then believed to be the run's final commit; the two-direction staleness test above was then found to be directionally unsafe, the correction landed in a further commit, and **re-pointing a tag once created is the defect this whole section exists to prevent** `[PROGRAM-PLAN.md:L2834]` — so it was left exactly where it was and the row above was created instead. **Use the tip (1.1)** | `FACT` |
-| `run-1a-approval-harness-repair-final` | annotated (object `1c77a595c5206b492253ecdb4c134c1882d35ca0`) | `eef4c953e470ca307c171a4823fb9a929bf92e24` | **DEAD — not authoritative, not a recovery point, and not an ancestor** (measured, `git merge-base --is-ancestor` returns rc=1 against the tip), so a range taken from it is not merely stale but meaningless. It names an intermediate revision produced during review remediation and superseded by ledger commit 4. **It is also LOCAL-ONLY**: measured, `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` does **not** list it, so it resolves nowhere in a fresh clone. It carries a name the contract does not define and no ref on `origin`, so it guarantees nothing at all. **Resolve nothing from it, and do NOT resolve `START` from it** | `FACT` for the measurements; an earlier edition of this row stated that `git ls-remote --tags origin` still listed it, and the live measurement refutes that |
+| `run-1a-approval-harness-repair` | annotated (`git cat-file -t` → `tag`, object `85db4fa31b4e0d08f7a03f19dd229bbc7ba0f90f`) | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — ledger commit 3 | **The mandated name, and the ENTRY GATE.** Published on `origin` and therefore IMMUTABLE. **Not moved, not deleted, not re-pointed, not re-fetched over, by this checkpoint.** It is an **ancestor** of the ending commit, so the next run's gate passes on it — but it is **stale**: it precedes ledger commits 4, 5, 6 and 7, so its tree is **not** this run's final state. It is also **not the only name `origin` carries** — measured at this checkpoint the remote publishes all four names in this table — so it is distinguished by its ancestry and by the contract, never by being the only one that resolves (11.11). Use it to satisfy the gate; do **not** read code, tests or this document from it | `FACT` |
+| `run-1a-approval-harness-repair-ending` | annotated, created **once**, only after the commit it names existed, message carrying that commit's full 40-character SHA | `da2450a05239c0185cf1fb5a438a3621c2108e3c` — an intermediate review-remediation state | **PUBLISHED ON `origin` AND NON-AUTHORITATIVE: it is NOT the ending commit and NOT an ancestor of it.** Measured at this checkpoint, `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` **does** print it — `bbeac332…` peeling to the commit at left — so **a fresh clone will resolve this name**; an earlier edition said it would not, and that is withdrawn (11.11). Its objects are nevertheless **absent from this clone**, so the ancestry test cannot be re-run here: the **rc=1** reading against the tip was taken by the checkpoint that created it, in the clone that held it, and the reason it holds is structural — the reconciled tip supersedes the per-clone state this name was cut from. Its tree does carry **all five** in-scope paths, but the comparator's nested-close fix, six of this document's seventeen deferral items, the whole of ledger commit 6 and this checkpoint's ledger commit 7 landed after it. Created because the mandated name is published at a stale commit and moving it is forbidden `[PROGRAM-PLAN.md:L2834]`; it **adds** an identity and destroys none, and no later checkpoint moved it. **Resolve the final state from the tip (1.1), never from this name** | `FACT` for the creation contract, the commit it names and the `ls-remote` measurement taken here; `FACT` for the rc=1 ancestry as measured by the checkpoint that created it; `UNKNOWN` here for that ancestry, because the objects are absent from this clone, and `UNKNOWN` when and by which clone the name reached `origin` — neither is decidable read-only from here |
+| `run-1a-approval-harness-repair-authoritative` | annotated, created **once** and **never moved** | `a9ca7ab05cbbe90258b7d4e7c46a532de143d117` — an earlier intermediate review-remediation state | **SUPERSEDED, PUBLISHED ON `origin`, and not an ancestor of the ending commit.** Measured at this checkpoint, `origin` **does** carry it — `8e74dc35…` peeling to the commit at left — so **a fresh clone will resolve this name too**, while its objects are **absent from this clone** and the **rc=1** ancestry reading therefore stands as the measurement of the checkpoint that created it rather than as a reading re-taken here (11.11). Despite the name, it is **not** authoritative: it was created after what was then believed to be the run's final commit; the two-direction staleness test above was then found to be directionally unsafe, the correction landed in a further commit, and **re-pointing a tag once created is the defect this whole section exists to prevent** `[PROGRAM-PLAN.md:L2834]` — so it was left exactly where it was and the row above was created instead. **Use the tip (1.1)** | `FACT` for the creation contract, the commit it names and the `ls-remote` measurement taken here; `UNKNOWN` here for the ancestry, whose objects this clone does not hold |
+| `run-1a-approval-harness-repair-final` | annotated (object `1c77a595c5206b492253ecdb4c134c1882d35ca0`) | `eef4c953e470ca307c171a4823fb9a929bf92e24` | **DEAD, AND PUBLISHED — which is the most dangerous combination in this table.** Not authoritative, not a recovery point and **not an ancestor**: measured here, `git merge-base --is-ancestor eef4c953… HEAD` returns **rc=1** and `git branch -a --contains eef4c953…` is **empty**, so no branch reaches that commit and a range taken from it is not merely stale but meaningless. It names an intermediate revision produced during review remediation and superseded by ledger commit 4. **And `origin` publishes it**: measured at this checkpoint, `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` lists `1c77a595…` peeling to that commit, and this clone holds the ref too — so **it resolves cleanly both locally and in a fresh clone while guaranteeing nothing**, because the name is one the contract does not define and the commit it names is on no branch. **Resolve nothing from it, and do NOT resolve `START` from it** | `FACT` for every measurement in this row, all re-taken at this checkpoint; two earlier editions contradicted each other about whether `origin` listed it — one said it did, the next said it did not — and the live measurement settles it: it **is** listed (11.11) |
 
 `INFERENCE` — **a tag names a snapshot, so ANY tag in this table can be overtaken by a later
 checkpoint's commit; detect that rather than trusting it.** Reasoning: that is exactly how the mandated
@@ -329,8 +400,10 @@ was created, and it is how the `-ending` name was overtaken by the checkpoints t
 it:
 
 ```bash
-# READ-ONLY. The tag named below is the MANDATED one - the only name origin publishes (1.2). Never
-# run this test against the three local-only names: in a fresh clone they do not resolve at all.
+# READ-ONLY. The tag named below is the MANDATED one - the contract's entry gate (1.2). Run this test
+# against that name and against NO other. The three additive names are published on origin too, so
+# they WILL resolve here and in a fresh clone - and resolving is not authority: -final names a commit
+# no branch contains. Authority is the destination branch's tip, never a tag name.
 # Step 1 - what the mandated tag names, and what origin publishes as the destination head
 git rev-list -n 1 run-1a-approval-harness-repair
 git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9 | cut -f1
@@ -390,12 +463,16 @@ ref and `origin`'s resolve to the same object; (5) it names the run's **final** 
 | Tag | Satisfies | Fails | Label |
 | --- | --- | --- | --- |
 | `run-1a-approval-harness-repair` | 1, 2, 3, 4, 7 — `git cat-file -t` prints `tag` rather than `commit`; the message carries `0fce8cec…`, quoted in full above; `git ls-remote --tags origin` lists it; this clone's ref and `origin`'s resolve to the same object `85db4fa3…` | **5** — it names ledger commit 3, not the ending commit; **6** — it was re-pointed once before publication (the lineage is below) | `FACT` |
-| `run-1a-approval-harness-repair-ending` | 1, 2, 6 — annotated, created **once** after the commit it names existed, naming it, with that commit's SHA in its message | **3** — it is **NOT present on `origin`**: measured, a full `git ls-remote origin` returns eight refs carrying exactly one tag-name pair, the mandated name; **4** — with no ref on `origin` there is nothing for the local ref to agree with; **5 and 7** — it does not carry the mandated name and it names an intermediate per-clone checkpoint state rather than the run's final commit, and measured it is not even an ancestor of the tip (rc=1; 1.2) | `FACT` for the creation contract, the `ls-remote` measurement and the ancestry measurement; the resolved SHA is re-measured rather than quoted here (1.1) |
+| `run-1a-approval-harness-repair-ending` | 1, 2, 3, 6 — annotated, created **once** after the commit it names existed, naming it, with that commit's SHA in its message, and **present on `origin`**: measured at this checkpoint, `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` prints it as `bbeac332…` peeling to `da2450a0…` | **4** — this clone holds **no** local ref and not even the objects for it, so local and remote resolution cannot be shown to agree from here; **5 and 7** — it does not carry the mandated name and it names an intermediate per-clone checkpoint state rather than the run's final commit, and it is not an ancestor of the tip (rc=1, as measured by the checkpoint that created it; 1.2) | `FACT` for the creation contract and for the `ls-remote` measurement taken here; `UNKNOWN` here for criterion 4 and for the ancestry, because this clone holds neither the ref nor the objects; the resolved SHA is re-measured rather than quoted (1.1) |
 
 `FACT` — every one of those failures is recorded as **OPEN** in 13.11 rather than argued away. `FACT` —
-**an earlier edition of this table credited the additive name with (3) and (4)**, describing it as pushed
-to `origin` by explicit name; the live `git ls-remote origin` measurement above **refutes that**, the row
-is corrected here rather than elsewhere, and 1.2, 4.6, 11.7 and 13.11 are corrected to match.
+**this row has now been stated three ways across three editions, and the live measurement settles it.** An
+early edition credited the additive name with (3) and (4); the acceptance-gate edition struck both on a
+reading that `origin` carried only the mandated name; and the measurement at this checkpoint — the
+`ls-remote` output quoted in 1.2 — restores **(3)** while leaving **(4)** unestablished, because
+publication and local presence are independent and this clone holds neither the ref nor the objects. The
+lesson is recorded in 11.11: a criterion whose subject is a remote's ref set has to be re-measured at read
+time, and 1.2, 4.6, 11.7, 13.11 and 14 are corrected to match rather than left to disagree.
 
 `INFERENCE` — the reason the shortfall cannot be collapsed into a single compliant tag is mechanical
 rather than a matter of preference. Reasoning: making the mandated *name* resolve the final commit
@@ -420,26 +497,27 @@ holds, rc=0), then takes its own `NOTE: HEAD is ahead of the tag by N commit(s) 
 handoff` branch `FACT [PROGRAM-PLAN.md:L3090-L3096]`, followed by `test -f RUN-1A-HANDOFF.md`
 `FACT [PROGRAM-PLAN.md:L3097-L3098]`, which also holds. Reasoning: the gate's failure conditions are a
 missing tag, a tag that is not an ancestor, and a missing handoff; none of the three obtains. `FACT` —
-`N` is **3** at the tip that carries this edition, and the three commits ahead are ledger commits 4, 5
-and 6.
+`N` is **4** at the tip that carries this edition, and the four commits ahead are ledger commits 4, 5, 6
+and 7.
 `INFERENCE` — `N` is a property of the refs it is measured against and not a constant of this run, so it
 is stated from the ledger and must be **re-run** rather than believed; reasoning: a probe taken before a
 commit exists cannot count it — an earlier edition recorded a probe value taken before the commit that
 carried it, which is precisely how a stale count arises, and it is why the gate's own `NOTE` branch
 prints a **measured** count.
 
-`FACT` — **the danger the ahead-by-three carries** is narrow and real: a run that checks out the mandated
+`FACT` — **the danger the ahead-by-four carries** is narrow and real: a run that checks out the mandated
 tag *itself* — rather than the tip — gets the tree as of ledger commit 3, which carries the
 pre-remediation `BuildHelperTest.groovy` fixture (4.2), the nine-line comment since removed from
 `buildSrc/build.gradle`, a comparator whose `finally` arm attempts only the **first** close if that close
 throws — closed in ledger commit 5 and described in 4.1, change iii — the comment set that ledger commit
 5 also trimmed, and a materially superseded edition of this document: one that lacks six of its
 seventeen deferral items, whose git identity section still advertised the withdrawn resolving command of
-1.1, whose tag ledger still described three local-only names as published on `origin`, and which carries
-none of the deviation classifications D7 and D8 (11.9). `INFERENCE` — starting from the mandated tag alone
+1.1, whose tag ledger stated the publication of the three additive names as a durable fact in one
+direction and then in the other — neither of them the live reading of 1.2 — and which carries none of the
+deviation classifications D7 and D8 (11.9). `INFERENCE` — starting from the mandated tag alone
 would therefore inherit a different test contract, a different comparator and unsafe recovery
-instructions; reasoning: none of ledger commits 4, 5 and 6 is reachable from ledger commit 3, so the tip
-resolution and the range commands in 1.1 are not optional.
+instructions; reasoning: none of ledger commits 4, 5, 6 and 7 is reachable from ledger commit 3, so the
+tip resolution and the range commands in 1.1 are not optional.
 
 #### The lineage, including the deviation that is NOT closed
 
@@ -471,14 +549,18 @@ and neither ever moved** — `run-1a-approval-harness-repair-authoritative`, and
 staleness-detection correction that followed it, `run-1a-approval-harness-repair-ending`, whose message
 carries the full 40-character SHA of the commit it names. The first was **left exactly where it was rather
 than re-pointed**, because re-pointing a published ref is the defect this section exists to prevent, and
-it is recorded in the ledger above as a superseded anchor. `FACT` — **but neither additive name reached
-`origin`**: measured live, a full `git ls-remote origin` returns eight refs carrying exactly one tag-name
-pair — the mandated `run-1a-approval-harness-repair`, annotated `85db4fa3…` peeling to `0fce8cec…`. So
-the only refs `origin` carries from this run are the publishing branches and that one tag, no push used
-`--force`, and neither of the last two checkpoints created a tag at all (11.7). `UNKNOWN` — whether a push
-of either additive name was ever attempted or later removed: that is not decidable read-only from here,
-and it does not change the operative fact, which is that a downstream clone will not find them. Part
-three: the residual — the mandated *name*
+it is recorded in the ledger above as a superseded anchor. `FACT` — **and both additive names ARE on
+`origin`**: measured at this checkpoint, `git ls-remote --tags origin 'run-1a-approval-harness-repair*'`
+prints all **four** names — `bbeac332…` → `da2450a0…` for `-ending`, `8e74dc35…` → `a9ca7ab0…` for
+`-authoritative`, `1c77a595…` → `eef4c953…` for `-final`, alongside the mandated `85db4fa3…` →
+`0fce8cec…` — and a full `git ls-remote origin` prints **277** refs, then **278** on a re-run within this
+same checkpoint. So the refs `origin` carries from this
+run are the publishing branches and **four** tags, and no push used `--force`; the acceptance-gate
+checkpoint and this one created no tag at all (11.7). `UNKNOWN` — when, and from which clone, each additive
+name reached `origin`: not decidable read-only from here. `INFERENCE` — the operative consequence is the
+opposite of what an earlier edition drew: a downstream clone **will** find all four names, so each one has
+to be disqualified on its ancestry rather than on its absence, which is what the ledger above now does
+(11.11). Part three: the residual — the mandated *name*
 does not resolve the final commit, it was not created once, and **no** tag resolves the final commit — is
 recorded as **OPEN** in this section, in 11.7 and as the itemized action in 13.11.
 
@@ -499,8 +581,8 @@ by a session or by a human:
 | `git fetch --tags --force origin` | **This is a ref WRITE, not a read.** `--force` is documented to overwrite existing local tag refs, so it can silently re-point **every** local tag — including this run's recovery point — to whatever object the remote publishes under that name. An earlier edition of this document listed it as part of a "read-only fix"; that classification was wrong and is withdrawn | `FACT` |
 | `git update-ref <ref> <new> <old>` on any `run-1a-*` tag | **Also a ref WRITE**, and specifically a write to the recovery ref under discussion. The old-value guard makes it *safer* than a blind force, not read-only, and a session that rewrites its own recovery point can no longer prove what it inherited. Withdrawn from this document's guidance for the same reason | `FACT` |
 | `git rebase`, `git commit --amend`, `git reset --hard` or a force-push over the tagged commit | Rewrites the history the tag names, which the same clause forbids | `FACT` |
-| Treating `run-1a-approval-harness-repair-authoritative` or `run-1a-approval-harness-repair-ending` as the ending commit | Neither is the ending commit, and neither is an ancestor of it (measured, rc=1): each names an intermediate review-remediation state, so a reader who resolves one of them gets a superseded comparator, a superseded comment set or a superseded edition of this document — and **both are local-only, so in a fresh clone they do not resolve at all**. Both are kept in the clone that created them only because deleting a recovery name destroys evidence. Resolve the destination branch's tip (1.1) | `FACT` |
-| Treating `run-1a-approval-harness-repair-final` as this run's recovery point | It is not an ancestor of the branch tip (measured, rc=1) and names a superseded revision, so a range taken from it is not merely stale but meaningless. The **one** name this document puts to use is the mandated `run-1a-approval-harness-repair`, and it is the entry gate rather than the final state; the three additive names in the ledger above are recorded there only to be ruled out, and a name the ledger does not list at all carries no guarantee about what it points at | `FACT` |
+| Treating `run-1a-approval-harness-repair-authoritative` or `run-1a-approval-harness-repair-ending` as the ending commit | Neither is the ending commit, and neither is an ancestor of it (rc=1, as measured by the checkpoint that created them): each names an intermediate review-remediation state, so a reader who resolves one of them gets a superseded comparator, a superseded comment set or a superseded edition of this document. **And both DO resolve — `origin` publishes both, measured at this checkpoint — so a clean resolution is exactly what makes this the trap it is.** Both are kept only because deleting a recovery name destroys evidence. Resolve the destination branch's tip (1.1) | `FACT` for the publication measurement taken here; `FACT` for the ancestry as measured where the objects exist |
+| Treating `run-1a-approval-harness-repair-final` as this run's recovery point | It is not an ancestor of the branch tip (measured here, rc=1), `git branch -a --contains` finds it on **no** branch, and it names a superseded revision — so a range taken from it is not merely stale but meaningless. **`origin` publishes it and this clone holds it, so it resolves without complaint**: the failure mode is silent, which is why it is named here explicitly. The **one** name this document puts to use is the mandated `run-1a-approval-harness-repair`, and it is the entry gate rather than the final state; the three additive names in the ledger above are recorded there only to be ruled out, and a name the ledger does not list at all carries no guarantee about what it points at | `FACT` |
 
 `FACT` — **the operational hazard a later session may meet, and how to DETECT it without writing a
 single ref.** A clone cut before publication can carry `refs/tags/run-1a-approval-harness-repair` at the
@@ -534,9 +616,10 @@ are each read-only:
    of section 1.1 must print exactly the five in-scope paths, and where two refs are in play the
    two-direction test above must resolve which of them is later before you work from either.
 3. **Never read code, tests or this document from the mandated tag's tree**, and never from
-   `run-1a-approval-harness-repair-ending`, `-authoritative` or `-final` — all three are **local-only**
-   and will not even resolve in a fresh clone, and the tag ledger above states what each of those names
-   is and is not.
+   `run-1a-approval-harness-repair-ending`, `-authoritative` or `-final` — **all three are published on
+   `origin` and will resolve cleanly in a fresh clone, which is precisely why they must be ruled out by
+   name rather than trusted because they resolve**; the tag ledger above states what each of those names
+   is and is not, and 11.11 records the measurement.
 
 The resolving commands are in 1.1; the required lineage repair is 13.11.
 
@@ -901,6 +984,7 @@ assurance.
 | **(a) `INF009` must never be counted from `actual-output.txt`** | `grep -c 'INF009' actual-output.txt` → **0** | `write()` is `System.err.println("CobolCheck: " ...)` at `[src/main/java/org/openmainframeproject/cobolcheck/services/log/Log.java:L53]`, so every log record goes to **stderr**, while `actual-output.txt` captures only the redirected **stdout** of each invocation `[approvaltest:L1-L6]`. The count there reads 0 no matter how many programs ran | `FACT` — `EVIDENCE/approval-oracles.log` for the count; source read for the mechanism |
 | **(b) `INF008` / `About to launch process` is not evidence** | `grep -c 'INF008: About to launch process'` on the combined log → **5** — numerically *identical* to the `INF009` count, which is exactly what makes it worthless | `Log.info(Messages.get("INF008", ...))` is emitted **before** `processBuilder.start()` at `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/LinuxProcessLauncher.java:L76]`, so it reads 5 even when zero programs compile. Only `INF009` proves execution, because `[src/main/java/org/openmainframeproject/cobolcheck/features/launcher/LauncherController.java:L46]` emits it **after** the child exits, carrying the exit code | `FACT` — same log; source read for the mechanism |
 | **Control: no process failed to start** | `grep -c 'ERR023'` on the combined log → **0** | `ERR023` is the launch-failure message `[src/main/resources/org/openmainframeproject/cobolcheck/messages/messages.properties:L25]`; zero occurrences means the execute-bit grants of section 4.4 did their job | `FACT` — same log |
+| **(c) the literal string `not found` is not, by itself, an RC1 signature** | `grep -n 'not found'` over **both** streams of the `clean approvalTest` run → **exactly one** occurrence, in **stderr**: `ReplaceStatementLocator(): File not found: src/main/cobol/FILECOPY (No such file or directory)`. Every RC1-specific probe is **0** in both streams — `^\./approvaltest: [0-9]\+:`, `cobolcheck: not found`, `Permission denied`, `ERR023`, `Unable to access jarfile`, `no main manifest`, `error=13`, `exit code 126` and `exit code 127` | RC1's launcher failure reads `./approvaltest: N: ./temp/approvalTest/cobolcheck: not found` — a `/bin/sh` exit 127 emitted six times by the shell that cannot find the staged launcher `[PROGRAM-PLAN.md:L2591]`. The one occurrence measured here is a different thing entirely: the product's own message from the deferred `-p FILECOPY` case-resolution failure (3.2, 13.3), on which the accepted `TESTSUITE:` count of **11** actually *depends*. **So the marker check must be the specific probe set, never the bare substring**, or a deferred product defect reads as a resurrected RC1 | `FACT` — measured at this checkpoint over both streams |
 
 ### 3.4 The comparison verdict
 
@@ -963,6 +1047,26 @@ character for character. `FACT` — the oracles of 3.2 and 3.5 came out identica
 same failing region, the same throw line and the same four oracles a checkpoint that touched only this
 document would be expected to leave untouched, and `git diff` confirms the four code paths are
 byte-identical (4.5).
+
+`FACT` — **the runtime-QA checkpoint (ledger commit 7) re-ran the same cold-tree sweep in its own clone and
+reproduced every one of those results.** After the guarded reset of 13.9 and a session-local `+x` grant,
+`./gradlew --console=plain clean approvalTest` returned **exit 1**; in the stdout log
+`> Configure project :` is line **17** and `> Task :clean` line **28**, both *before*
+`> Task :approvalTest FAILED` at line **49**, with `Linux detected` at **50**, `Difference on line 5:` at
+**51**, `exit from compare: 1` at **54** and `*** FAIL ***` at **55**; the harness-marker count over lines
+1-28 is **0**; the closing summary again reads `11 actionable tasks: 10 executed, 1 up-to-date`; and stderr
+carries `* Where:` naming `build.gradle` line **246**, `Execution failed for task ':approvalTest'.`, the
+cause `./expected-output.txt and ./actual-output.txt are different` and `BUILD FAILED`. `FACT` — the oracles
+in that run: `grep -c '^TESTSUITE:'` = **11**, `wc -l` = **332**, `wc -c` = **27,347** at a root length of
+**87** — `26,216 + 13 × 87` to the byte, with the root literal embedded **13** times — `INF009` = **5** from
+**stderr** with child exit codes **4, 0, 0, 4, 0**, `INF009` counted from `actual-output.txt` = **0**, and
+`build/test-results/approvalTest/` holding **no** `TEST-*.xml`, so that task's own `Test` action again
+discovered zero tests and succeeded trivially. `FACT` — both baselines were `git hash-object`-checked
+immediately afterwards and both still read `018e799c982eb53cd9c80137103c99740dd5aa32`. `INFERENCE` — the same failing region has now been produced in
+clones whose roots are **81** and **87** characters long, at **27,269** and **27,347** bytes respectively,
+and the **332**-line count is identical in both; reasoning: only the 13 embedded root literals differ
+between them and `26,216 + 13 × root-length` absorbs exactly that difference, which is why the line count is
+the portable oracle and the byte count is not (2.6, 3.5).
 
 **An honest limit on what this proves.** `FACT` — the FAIL verdict was produced by the *pre-existing*
 content-difference branch `[buildSrc/src/main/groovy/BuildHelper.groovy:L45-L50]`, not by the new
@@ -1159,6 +1263,40 @@ caused.
 reporting `UP-TO-DATE`, because the guarded reset removed `buildSrc/build` first. **Both states are the
 expected consequence of introducing `buildSrc`, not a regression** — see section 6.4.
 
+**The configuration phase is harness-silent, NOT silent — state it precisely or a reader will over-read
+it.** `FACT` — re-measured at this checkpoint on a clean tree, `./gradlew --console=plain tasks` again
+returned **exit 0** with a combined harness-marker count of **0** across **both** streams — the probe was
+widened to `Linux detected`, `exit from compare`, `*** FAIL ***`, `not found` and `Permission denied`, and
+every one of them is absent from stdout and stderr — and `actual-output.txt`, `temp/` and `testruns/` were
+all still absent afterwards. `FACT` — what **does** print under `> Configure project :` is two
+**pre-existing** configuration-time `println` sites this change was never asked to move: the
+`copyRunScripts` banner `Copied with jar version 0.2.19 to approvalTest directory` `[build.gradle:L174]`
+and the `defaultProperties` block `[build.gradle:L254-L264]`, whose lines include this checkout's absolute
+project and build directories (redacted here as `<REPO_ROOT>`, per the preamble):
+
+```console
+> Configure project :
+Copied with jar version 0.2.19 to approvalTest directory
+Project: root project 'cobol-check'
+Name: defaultProperties
+Path: :defaultProperties
+Project directory: <REPO_ROOT>
+Build directory: <REPO_ROOT>/build
+Version: unspecified
+Group: org.openmainframeproject
+Description: Unit testing framework for Cobol
+```
+
+`FACT` — neither site is on the plan's repair list: the itemized change is to relocate the **harness** body,
+and `[PROGRAM-PLAN.md:L2646-L2654]` leaves the rest of the build script alone. `INFERENCE` — the claim this
+section is entitled to make is therefore the narrower one, and it is the one the criterion asks for:
+configuration performs **no harness work** — no COBOL is compiled, no capture file is written and no
+comparison is run — rather than that configuration prints nothing at all. Reasoning: RC1's signature is
+harness execution during evaluation `[PROGRAM-PLAN.md:L2591]`, and a `println` that predates this change and
+survives it cannot compile a COBOL program. `FACT` — the same two sites appear under
+`> Configure project :` in the `clean approvalTest` log at lines 23-32, where 3.6 accounts for them line by
+line, so the two sections agree.
+
 ### 3.8 The `buildSrc` test ran green — with a refuted invocation form
 
 > **`buildSrc` test: 10 tests, 0 failures, 0 errors, 0 skipped. GREEN. All ten methods passed.**
@@ -1270,7 +1408,7 @@ row of its own for the same reason. **Eight data rows: five paths plus ii-a, ii-
 | ↳ same file | **(ii-b)** **Two** empty streams also return a failing verdict, via the `lineCount == 0` guard inside the both-`null` branch at `[buildSrc/src/main/groovy/BuildHelper.groovy:L25-L28]`, printing `Both <f1> and <f2> are empty - nothing was compared` | **NOT a length mismatch, and therefore an ADDITIONAL DECLARED BEHAVIOUR CHANGE that exceeds the literal mandate.** Declared separately for that reason. Justified: a comparator that reports "match" having compared nothing is the exact defect class under repair, and it is the sole gate on a generated artefact. It cannot affect any legitimate input, because `expected-output.txt` is a tracked 12,336-byte file (measured, section 5) that can only be empty if it has been destroyed | **NO — declared here as an addition** | `FACT` |
 | `buildSrc/src/test/groovy/BuildHelperTest.groovy` | **CREATE**, 141 lines: **ten** JUnit 5 `void @Test` methods across seven case families, exactly three imports, default package to match `BuildHelper`, a `private static tempFileWith(List<String>)` fixture using `File.createTempFile` + `deleteOnExit()` and appending **no** trailing terminator, and an unreadable-path fixture derived *underneath* a freshly created regular file | Makes the two guarantees executable rather than reviewed, and pins the pre-existing behaviour the repair must not break: equal-and-matching → `0`, equal-but-differing → non-zero, unreadable → exactly `-1` in **both** argument orders, and trimming in both directions. Every method is declared `void`, because a Groovy `def` method is silently **not discovered** by Jupiter — which would let a green build hide missing coverage and reproduce the very vacuous pass under repair. All ten ran and passed (3.8) | **YES** | `FACT` |
 | ↳ `buildSrc/src/main/groovy/BuildHelper.groovy` | **(iii)** The `finally` arm's two null-guarded `close()` calls are **nested** rather than sequential at `[buildSrc/src/main/groovy/BuildHelper.groovy:L55-L67]`: `try{ if (reader1 != null) reader1.close() } finally{ if (reader2 != null) reader2.close() }` | **Not itemized in advance, and it is a fix rather than a new behaviour.** Written as two statements in a row, a throw from the first `close()` leaves the `finally` block immediately and the second reader is never closed — a descriptor leaked for the lifetime of a Gradle daemon that outlives the build. Nesting is what makes "both readers are closed on every exit path" true even when the first close throws; both null-guarded `close()` calls are preserved verbatim. The inner `finally` still lets the failing close propagate, so the `-1`-on-exception behaviour `[PROGRAM-PLAN.md:L2628]` requires is unchanged, and Groovy 2.5.12 — the version Gradle 6.9.4 embeds (2.4) — has no try-with-resources, so nesting is the only available form. Verdicts, printed output and return values are untouched: the comparator's ten tests pass unchanged (3.8). The review finding that prescribed this arrangement, the baseline sequential form it departs from, and the residual case where **both** closes throw are recorded as deviation **D8** in 11.9 | **NO** — directed by a review checkpoint's CWE-772 resource-management finding and carried by ledger commit 5; classified as deviation D8 | `FACT` |
-| `RUN-1A-HANDOFF.md` | **CREATE**, then revised by **three** review-remediation checkpoints — ledger commit 4; ledger commit 5, which repaired this document's git-provenance layer, its evidence labels, its temporal wording and its end-of-file hygiene, added the six security deferrals 13.12-13.17 with the confidentiality redactions of 2.6 and 4.7, corrected two code-comment inaccuracies inside its fenced examples, and re-anchored every locator, file size, ledger row and re-measured `approvalTest` figure the comment remediation moved; and ledger commit 6, the acceptance gate's remediation, which restates the three additive tag names as **local-only and unpublished** against a live `git ls-remote origin` and repoints every recovery command, ancestry claim and re-run expectation at refs that exist there (1.1, 1.2, 4.6, 11.7, 13.11, 14), names the **clone class** behind the withdrawn command of 1.1, re-anchors seven `build.gradle` locators in 13.13 and 13.14, restates 4.2's `StopExecutionException` grep in its stable **scoped** form, corrects 6.4's `> Task :buildSrc:test` line against the log it came from, completes 4.7's URL enumeration, and classifies the two unmandated code edits as deviations **D7** and **D8** (11.9) — touching **no** code file (section 1) | The run's only document and the next run's entry precondition | **YES** | `FACT` |
+| `RUN-1A-HANDOFF.md` | **CREATE**, then revised by **four** remediation checkpoints — ledger commit 4; ledger commit 5, which repaired this document's git-provenance layer, its evidence labels, its temporal wording and its end-of-file hygiene, added the six security deferrals 13.12-13.17 with the confidentiality redactions of 2.6 and 4.7, corrected two code-comment inaccuracies inside its fenced examples, and re-anchored every locator, file size, ledger row and re-measured `approvalTest` figure the comment remediation moved; and ledger commit 6, the acceptance gate's remediation, which restates the three additive tag names as **local-only and unpublished** against a live `git ls-remote origin` and repoints every recovery command, ancestry claim and re-run expectation at refs that exist there (1.1, 1.2, 4.6, 11.7, 13.11, 14), names the **clone class** behind the withdrawn command of 1.1, re-anchors seven `build.gradle` locators in 13.13 and 13.14, restates 4.2's `StopExecutionException` grep in its stable **scoped** form, corrects 6.4's `> Task :buildSrc:test` line against the log it came from, completes 4.7's URL enumeration, and classifies the two unmandated code edits as deviations **D7** and **D8** (11.9); and ledger commit 7, the runtime-QA remediation, which **withdraws that local-only restatement against a live measurement** showing all four run-prefix names on `origin` and rebuilds the derived caution around ancestry rather than resolvability (1.2, 11.11), turns `buildSrc/build/` from a disclosure into an executable guarded removal instruction (13.9), and adds the two precision statements of 3.7 and 3.3 — **neither commit touching any** code file (section 1) | The run's only document and the next run's entry precondition | **YES** | `FACT` |
 
 `FACT` — **no other file was modified.** Specifically and deliberately: no `settings.gradle` edit
 (`[settings.gradle:L1]` is a single `rootProject.name = 'cobol-check'` assignment with no `include`
@@ -1523,21 +1661,21 @@ M  buildSrc/src/main/groovy/BuildHelper.groovy
 M  buildSrc/src/test/groovy/BuildHelperTest.groovy
 ```
 
-`FACT` — and the same command immediately before **ledger commit 6**, the run's final commit, printed
-exactly **one** line, because that checkpoint is the acceptance gate's remediation of this document and
-touches no code file:
+`FACT` — and the same command immediately before **ledger commit 6** and again immediately before
+**ledger commit 7**, the run's final commit, printed exactly **one** line each time, because both of those
+checkpoints remediate this document and touch no code file:
 
 ```text
 M  RUN-1A-HANDOFF.md
 ```
 
-`FACT` — that one-line list is corroborated by `git diff --stat HEAD -- build.gradle buildSrc/` being
+`FACT` — each one-line list is corroborated by `git diff --stat HEAD -- build.gradle buildSrc/` being
 **empty** in the same working tree: `build.gradle`, `buildSrc/build.gradle` and both `buildSrc` sources
-are byte-identical to the tree ledger commit 5 published, so the three root-cause repairs, the ten-test
-contract and the comparator's contract are untouched by that commit.
+are byte-identical to the tree the preceding commit published, so the three root-cause repairs, the
+ten-test contract and the comparator's contract are untouched by either commit.
 
-`FACT` — those three lists are the three review remediations (section 1), and every path in any of them is
-already in scope. `FACT` — in **all three** cases the six restore targets of 4.4 were returned with a
+`FACT` — those four lists are the four remediations (section 1), and every path in any of them is
+already in scope. `FACT` — in **all four** cases the six restore targets of 4.4 were returned with a
 **targeted**
 `git checkout --`, the three harness scripts were reverted to mode `0644`, and the untracked run residue —
 `actual-output.txt`, `temp/`, `testruns/` and `buildSrc/build/` (13.9) — was removed, which is why **no**
@@ -1587,12 +1725,14 @@ summary: the mandated annotated tag `run-1a-approval-harness-repair` names ledge
 on `origin`, is an ancestor of the branch tip, and is **immutable — not moved, not deleted, not
 re-pointed, not force-fetched over by this checkpoint**, so it is the **entry gate** and not a source of
 the final state; the three additive tag names `run-1a-approval-harness-repair-ending`,
-`-authoritative` and `-final` were each created **once** and never moved, but each is **LOCAL-ONLY and
-absent from `origin`** (measured: a full `git ls-remote origin` returns eight refs carrying exactly one
-tag-name pair, the mandated one), each names an intermediate per-clone
-checkpoint state and **none of them is an ancestor of the tip** (measured, rc=1), so the **recovery point
-is the tip itself**, whose tree carries all five in-scope paths and which one read-only command resolves; and the OPEN conditions (the mandated name's pre-publication
-re-point, that name not resolving the final commit, and the six-commit ledger) are itemized for a
+`-authoritative` and `-final` were each created **once** and never moved, and **each is published on
+`origin`** — measured at this checkpoint, the prefix `ls-remote` prints all **four** names in eight lines
+and a full `git ls-remote origin` prints **277** refs and then **278** on a re-run, which refutes and withdraws the earlier
+local-only claim (1.2, 11.11) — while each still names an intermediate per-clone checkpoint state and
+**none of them is an ancestor of the tip**, so what disqualifies them is that ancestry and not their
+absence; the **recovery point is the tip itself**, whose tree carries all five in-scope paths and which one
+read-only command resolves; and the OPEN conditions (the mandated name's pre-publication
+re-point, that name not resolving the final commit, and the seven-commit ledger) are itemized for a
 platform-directed lineage in 13.11.
 
 `FACT` — the commands a later run should re-run, and what each must show:
@@ -1601,10 +1741,10 @@ platform-directed lineage in 13.11.
 | --- | --- | --- |
 | `git rev-list -n 1 run-1a-approval-harness-repair` | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — ledger commit 3, the **entry gate** and **not** the ending commit | `FACT` — measured; section 1.2 |
 | `git cat-file -p run-1a-approval-harness-repair` | a **tag** object whose message contains that same 40-character SHA | `FACT` — measured; quoted in full in section 1.2 |
-| `git rev-parse HEAD` | the run's ending commit — ledger commit 6, the destination branch's tip, which **no** tag names. **Use `HEAD`, not a literal `refs/heads/…` name**: 1.1 records the measured case where the literal form resolved to the *starting* commit instead | `FACT` — the command is executable as written and clone-independent; its output is not asserted here for the reason below |
+| `git rev-parse HEAD` | the run's ending commit — ledger commit 7, the destination branch's tip, which **no** tag names. **Use `HEAD`, not a literal `refs/heads/…` name**: 1.1 records the measured case where the literal form resolved to the *starting* commit instead | `FACT` — the command is executable as written and clone-independent; its output is not asserted here for the reason below |
 | `git diff --name-status 8640f8e4f78ce84496ad3542bb75f3d77e998191 HEAD` | **exactly five lines** — the five in-scope paths of section 4.1, with no sixth entry | `FACT` — same |
-| `git rev-list --count run-1a-approval-harness-repair..HEAD` | **3**, and `git log --oneline` over the same range names ledger commits 4, 5 and 6 | `FACT` — same |
-| `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` | **exactly ONE name** under `refs/tags/` — the mandated `run-1a-approval-harness-repair`, printed as its annotated object and its peeled commit. **No line for `-ending`, `-authoritative` or `-final`**: measured live, those three are **local-only** and `origin` carries no ref for any of them, so a fresh clone cannot resolve them and nothing may be recovered through them (1.2). An earlier edition of this row expected four names; the measurement refutes it | `FACT` — measured with a full `git ls-remote origin`, which returns eight refs in total |
+| `git rev-list --count run-1a-approval-harness-repair..HEAD` | **4**, and `git log --oneline` over the same range names ledger commits 4, 5, 6 and 7 | `FACT` — same |
+| `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` | **whatever `origin` publishes when the reader asks — this row states no expected count, because the ref set is live.** At this checkpoint it printed **eight lines: all four names**, each as its annotated object and its peeled commit (the output is quoted in full in 1.2). **Classify what you get; never infer authority from it**: only the mandated `run-1a-approval-harness-repair` is an ancestor of the tip, and `-final` names a commit `git branch -a --contains` finds on no branch. Two earlier editions of this row asserted a count — four names, then exactly one — and both were readings of a live remote presented as invariants (11.11) | `FACT` — measured at this checkpoint, with a full `git ls-remote origin` returning **277** refs in total |
 | `git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9` | one non-empty line under `refs/heads/` for the **destination** branch of section 1. **Read it from `origin`, never as a local ref** — the local ref of that name resolves the *starting* commit in a per-clone checkout (1.1) | `FACT` — same |
 | `git rev-parse --abbrev-ref HEAD` | the branch the reader is actually on. **A per-clone working branch is published under its own name and reconciled onto the destination branch** (section 1), so confirm it rather than assuming the two names are the same ref | `FACT` — same |
 
@@ -1620,10 +1760,14 @@ of any branch, and no history rewritten** — no commit was amended, rebased, re
 were made only on the platform-cut branch each checkpoint was given, never on any branch a checkpoint
 created: ledger commits 1-4 under the destination name `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9`,
 ledger commit 5 on a per-clone working branch the platform reconciles onto that same destination branch,
-and ledger commit 6 on the destination name itself (section 1). No branch was renamed and none was
-duplicated, and **the refs `origin` actually carries from this run are those branches and exactly one
-tag** — the mandated `run-1a-approval-harness-repair`, measured live; the three additive names of 1.2 are
-local-only and `origin` holds no ref for any of them, and no push used `--force`. `FACT` — remotes are reported by
+ledger commit 6 on the destination name itself, and ledger commit 7 on the platform-cut per-clone working
+branch `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9-w-001`, which the platform reconciles onto that same
+destination branch (section 1). No branch was renamed and none was
+duplicated, and **the refs `origin` carries from this run are those branches and FOUR tags** — the
+mandated `run-1a-approval-harness-repair` plus the three additive names of 1.2, all four measured at this
+checkpoint, which withdraws the earlier claim of exactly one (11.11) — and no push used `--force`, no tag
+was created, moved or deleted by the acceptance-gate or runtime-QA checkpoints, and nothing was pushed
+under any name other than the run branch each checkpoint was given. `FACT` — remotes are reported by
 **name** only and never by URL: four
 are configured — `origin` and the three fetch-only research remotes `upstream`, `gm` and `livingmf`,
 whose push URLs are disabled mechanically — and `origin` is the only push target.
@@ -2246,16 +2390,22 @@ force-pushed or force-fetched a tag, and none touched `refs/tags/run-1a-approval
 all**; no history was rewritten, no branch was force-pushed, and nothing was deleted from `origin`. What
 the git-provenance checkpoints created is two **new** annotated tag names, each once and neither ever
 moved — `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-ending`, both
-at intermediate review-remediation commits, and **neither an ancestor of the reconciled tip** (measured,
-rc=1; 1.2). `FACT` — **and neither of them, nor the earlier `-final` name, is on `origin`: measured live,
-a full `git ls-remote origin` returns eight refs carrying exactly one tag-name pair — the mandated name,
-annotated `85db4fa3…` peeling to `0fce8cec…`. All three additive names are therefore LOCAL-ONLY**, an
-earlier edition of this section and of 1.2 described them as published, and that description is
-**withdrawn**. `INFERENCE` — the practical consequence is narrower than it sounds but must not be
-understated: a fresh clone resolves none of the three, so any recovery instruction naming them would
-hard-fail there, which is why every command in 1.1, 1.2 and 4.6 now names only the mandated tag,
-`origin`'s head of the destination branch, or `HEAD`; reasoning: `git ls-remote` reports what a fresh
-clone would fetch, and it reports one tag. `FACT` — **the last two checkpoints created no tag at all**:
+at intermediate review-remediation commits, and **neither an ancestor of the reconciled tip** (rc=1, as
+measured by the checkpoint that created them; 1.2). `FACT` — **and all three additive names, `-ending`,
+`-authoritative` and the earlier `-final`, ARE on `origin`: measured at this checkpoint,
+`git ls-remote --tags origin 'run-1a-approval-harness-repair*'` prints eight lines carrying all four
+names, and a full `git ls-remote origin` prints 277 refs, then 278 on a re-run within this same checkpoint.
+An earlier edition of this section and of 1.2
+called all three LOCAL-ONLY and absent from `origin`, and that description is WITHDRAWN** (11.11).
+`INFERENCE` — the practical consequence is the inverse of what the withdrawn text drew, and it is the
+reason this correction matters rather than a pedantic one: a fresh clone fetches tags by default and
+therefore resolves **all four** names, so a recovery instruction that named an additive name would not
+hard-fail there — it would succeed and hand back a superseded or unreachable tree, silently. Reasoning:
+`git ls-remote` reports what a fresh clone would fetch, and it reports four names, of which three are
+non-authoritative and one, `-final`, peels to a commit `git branch -a --contains` finds on no branch. That
+is why every command in 1.1, 1.2 and 4.6 names only the mandated tag, `origin`'s head of the destination
+branch, or `HEAD`, and why each additive name is now disqualified **by ancestry** rather than by absence.
+`FACT` — **the acceptance-gate and runtime-QA checkpoints created no tag at all**:
 refs were read-only context for both, minting a further name would compound the very lineage defect this
 section records, and the two-direction test in 1.2 already detects a tag that a later commit has
 overtaken. **Consequence, stated plainly: no tag names the run's ending commit — resolve it as the
@@ -2263,13 +2413,14 @@ destination branch's tip (1.1).**
 
 `FACT` — **a second condition was OPEN alongside it and is now mitigated rather than closed: the
 mandated name does not name the run's final commit.** It peels to ledger commit 3 while the tip is ledger
-commit 6 (section 1), so the gap has widened from one commit to **three** — a property of an immutable tag
+commit 7 (section 1), so the gap has widened from one commit to **four** — a property of an immutable tag
 rather than a new defect. `FACT` — the difference between them is this document in successive editions,
 the nine comment lines removed from `buildSrc/build.gradle`, the comparator test's unreadable-path
 fixture, the comparator's nested-close fix (4.1, change iii), the comment remediation of ledger
 commit 5 — one deleted comment in `build.gradle` and the comparator test's comments cut from 93 lines to
-17 (4.1, 4.2) — and the git-provenance and locator corrections of ledger commit 6, including this
-section's own withdrawn publication claim — so the inheritance risk is documentary **and**, for a session
+17 (4.1, 4.2) — the git-provenance and locator corrections of ledger commit 6, and the runtime-QA
+corrections of ledger commit 7, which include this section's twice-restated publication claim now settled
+by live measurement (11.11) — so the inheritance risk is documentary **and**, for a session
 that checks out the mandated tag itself, both a different test contract and a comparator that can leak a
 descriptor. `FACT` — **what
 mitigates it is that the tip itself is resolvable read-only in one command, and what it recovers is
@@ -2292,11 +2443,13 @@ classification was wrong, and both are withdrawn** — they now sit in the do-no
 `git push --tags`. `FACT` — this clone does not exhibit the hazard: its ref and `origin`'s resolve to the
 same tag object.
 
-`FACT` — **a third additive tag name exists locally and is not authoritative.**
+`FACT` — **a third additive tag name exists both locally and on `origin`, and is not authoritative.**
 `run-1a-approval-harness-repair-final` resolves to `eef4c953…`, which `git merge-base --is-ancestor`
-reports is **not** an ancestor of the branch tip (rc=1); it names an intermediate revision superseded by
-ledger commit 4 and then by ledger commits 5 and 6, and like the other two additive names it is
-**absent from `origin`** (measured). `INFERENCE` — a later session should resolve the **mandated**
+reports is **not** an ancestor of the branch tip (rc=1, re-measured at this checkpoint) and which
+`git branch -a --contains` places on **no** branch; it names an intermediate revision superseded by
+ledger commit 4 and then by ledger commits 5, 6 and 7, and like the other two additive names it **is
+published on `origin`** (measured at this checkpoint — the earlier "absent" reading is withdrawn, 11.11),
+so it resolves cleanly for any reader while guaranteeing nothing. `INFERENCE` — a later session should resolve the **mandated**
 name or the working branch's `HEAD`, and treat any other name as unverified; reasoning: the contract
 defines exactly one tag name for this run `[PROGRAM-PLAN.md:L2834]`, so a name it does not define carries
 no guarantee about what it points at — and because this one is not an ancestor of the tip, a range taken
@@ -2313,6 +2466,17 @@ repository root, so it does not match `buildSrc/build`. `FACT` — the plan's re
 `FACT` — of those four, `bin/` **is** already ignored by `[.gitignore:L67]` (`bin/*`), so the ones that
 actually surface as untracked residue are `actual-output.txt`, `temp/`, `testruns/` and
 `buildSrc/build/`. All were removed before committing (4.4), and the gap is itemized in section 13.9.
+
+`FACT` — **re-measured at this checkpoint, and it is not confined to harness runs**: one read-only
+`./gradlew --console=plain tasks` on a clean tree left **ten** untracked entries under `buildSrc/build/` —
+`reports/tests/test/{index.html, classes/BuildHelperTest.html, packages/default-package.html,
+css/base-style.css, css/style.css, js/report.js}` and
+`test-results/test/{TEST-BuildHelperTest.xml, binary/output.bin, binary/output.bin.idx, binary/results.bin}` —
+and `git check-ignore -v buildSrc/build` **exited 1 with no output**, confirming that no pattern matches the
+nested directory. `FACT` — **the four-path removal list and the guarded command that applies it are written
+out in full in 13.9**, so a later commit gate can execute them rather than re-derive them; `[.gitignore]`
+itself is on the do-not-modify inventory `[PROGRAM-PLAN.md:L2643-L2654]` and the plan's artefact list lives
+in read-only programme inheritance, which is why the remedy is carried here.
 
 ### 11.9 Deviations D1 through D8, disclosed
 
@@ -2361,6 +2525,79 @@ as a gap rather than as a fact — an earlier edition of this paragraph labelled
 `[PROGRAM-PLAN.md:L2840]` permits only with a `path:locator` or a retrieved URL. `FACT` — the *decision*
 it was offered in support of rests on the independent grounds stated in that row, at
 `[build.gradle:L102-L103]`, rather than on the claim, so nothing in this run turns on resolving it.
+
+### 11.11 The additive tag names ARE on `origin` — the local-only claim is REFUTED and withdrawn
+
+`FACT` — **an earlier edition of this document asserted, as a measured `FACT` in six places, that `origin`
+published exactly one of this run's four tag names, that a full `git ls-remote origin` returned eight refs
+carrying one tag-name pair, and that the three additive names were LOCAL-ONLY and would "not resolve at
+all" in a fresh clone.** The identical commands, run at this checkpoint, refute every part of it:
+
+```console
+$ git ls-remote --tags origin 'run-1a-approval-harness-repair*' | wc -l
+8
+$ git ls-remote --tags origin 'run-1a-approval-harness-repair*' | cut -f2 | grep -v '\^{}'
+refs/tags/run-1a-approval-harness-repair
+refs/tags/run-1a-approval-harness-repair-authoritative
+refs/tags/run-1a-approval-harness-repair-ending
+refs/tags/run-1a-approval-harness-repair-final
+$ git ls-remote origin | wc -l
+277
+$ git ls-remote origin | wc -l          # re-run within this same checkpoint
+278
+```
+
+`FACT` — **four names, not one, and 277 refs — then 278 — not eight.** The peeled commits are quoted in full
+in 1.2. `FACT` — **the ref-set size moved between two runs of the same command inside this one
+checkpoint**, while the tag prefix reading stayed at four names and eight lines both times: the count that
+moved is the branch count, because the clone `origin` names is shared and other work publishes into it.
+`INFERENCE` — that is the refuted claim's own lesson demonstrated in-band rather than argued; reasoning: a
+figure that changes between two readings taken by the same session cannot be a durable property of this
+run, so the only sound form for it is a command the reader executes.
+`FACT` — the local side is the other way round from the published side, and the two must not be conflated:
+`git show-ref --tags` in this clone lists only `run-1a-approval-harness-repair` and
+`run-1a-approval-harness-repair-final`, and `git cat-file -e` reports the tag and commit objects behind
+`-ending` and `-authoritative` **absent from this clone's object store** — so those two names resolve on
+`origin` and resolve nowhere here at the same time.
+
+`FACT` — **the withdrawal is total and is applied at every site rather than noted in one place**: the
+identity table and the commit ledger of 1, the resolving commands of 1.1, the tag ledger, the derived
+caution, the seven-criteria table, the lineage narrative and the do-not-do table of 1.2, the summary and
+the command-expectation table of 4.6, the lineage narrative of 11.7, the required-action paragraph of
+13.11, and the reconciliation row of 14.
+
+| # | What the withdrawn text said | What is measured here | Consequence of the error | Label |
+| --- | --- | --- | --- | --- |
+| 1 | `origin` publishes only the mandated name | It publishes **all four** | The derived instruction — "never run this test against the three local-only names: in a fresh clone they do not resolve at all" — was **unsafe as written**: a reader who found one of those names resolving had been told that was impossible, and had no rule left to apply | `FACT` |
+| 2 | A full `git ls-remote origin` returns eight refs | It returned **277**, and **278** on a re-run inside this same checkpoint | The eight-ref figure was the prefix query's line count read as the whole ref set; a reader reproducing it would conclude the remote had been replaced | `FACT` |
+| 3 | The three additive names are LOCAL-ONLY | Each is on `origin`; two are **absent locally** | Exactly inverted for `-ending` and `-authoritative`, which are the two a recovery attempt would most plausibly reach for | `FACT` |
+| 4 | `-final` resolves nowhere in a fresh clone | `origin` carries it, and it peels to `eef4c953…`, a commit `git branch -a --contains` finds on **no** branch | **The most consequential of the four.** A downstream run could resolve `START` from a published name pointing at an unreachable tree, and every check it ran would succeed | `FACT` |
+| 5 | `git merge-base --is-ancestor` returns rc=1 for each of the other three | rc=1 is re-measured here for `-final`; for `-ending` and `-authoritative` the command **cannot run in this clone**, because their objects are absent | The ancestry conclusion stands, but its basis for two of the three names is the measurement of the checkpoint that created them, not a reading reproducible here | `FACT` for `-final`; `UNKNOWN` here for the other two |
+
+`UNKNOWN` — **why the two readings differ.** Whether the three additive names were pushed after the
+earlier reading was taken, and from which clone, is not decidable read-only from here: `git ls-remote`
+reports a remote's current refs and carries no history of them, and this clone's `origin` is the shared
+on-disk global clone the platform reconciles through rather than a public remote. **No attempt was made to
+resolve it by writing or deleting a ref.**
+
+`INFERENCE` — **the defect being corrected is the class of the claim, not the arithmetic.** Reasoning: the
+set of refs a remote publishes changes whenever anything pushes to it, so it is a reading with a
+`when` attached and never an invariant — which means the fix is not a better number but a **command** in
+place of the number, plus safety rules that hold whatever the command returns. Both are now in 1.2, and 14
+tells the next run to take the measurement itself.
+
+`INFERENCE` — **and the safety rule that survives measurement is the one that should have carried the
+weight all along: a name's resolvability is not its authority.** Reasoning: resolvability is a property of
+the ref set, while authority is a property of the commit's position in the branch's history; the two are
+independent, so the mandated tag is the entry gate because of its **ancestry** (rc=0 against the tip) and
+the other three are disqualified because of theirs (rc=1) — not because of which of them `origin` happens
+to carry. **The destination branch's tip is the only authority (1.1).**
+
+`FACT` — **nothing was done to the refs themselves.** No tag was created, moved, deleted, re-pointed,
+force-fetched or pushed by this checkpoint; the measurement above is `git ls-remote`, `git show-ref`,
+`git cat-file -e`, `git merge-base` and `git branch --contains`, all read-only. `FACT` — retiring the three
+published additive names remains OPEN and is 13.11's item, whose disposition this section corrects from
+bookkeeping to a recovery requirement.
 
 ---
 
@@ -2512,13 +2749,56 @@ bakes a one-character-truncated line into the approved artefact per programme; r
 is applied on every capture path at `L106-L107`, not only to compiler noise, and it is deterministic.
 `BLOCKED-BY` — nothing. **13.1 must take it up before approving a baseline.**
 
-### 13.9 `buildSrc/build/` is not ignored
+### 13.9 `buildSrc/build/` is not ignored — and the removal list every commit gate must use
 
 `FACT` — new in this run, and not on the plan's list: `build/*` at `[.gitignore:L68]` is anchored to the
-repository root and does not match `buildSrc/build` (11.8). It must be removed manually before every
-commit until addressed, and any later run adding `buildSrc` code inherits this. `FACT` — no
-`.gitignore` edit was made here, because that file is out of scope for this change. `BLOCKED-BY` —
-nothing.
+repository root and does not match `buildSrc/build` (11.8). `FACT` — measured at this checkpoint, one
+read-only `./gradlew --console=plain tasks` on a clean tree left **ten** untracked entries under
+`buildSrc/build/` — six under `reports/tests/test/` and four under `test-results/test/` — and
+`git check-ignore -v buildSrc/build` **exited 1 with no output**, i.e. no pattern matches it. `INFERENCE` —
+so **every** Gradle command dirties the tree, not only the ones that run the harness; reasoning: `buildSrc`
+compiles and tests on every invocation (6.4, D6), and its outputs land outside the reach of the root-anchored
+ignore pattern. It must be removed before every commit until addressed, and any later run adding `buildSrc`
+code inherits this.
+
+`FACT` — **the removal list is FOUR paths, not the plan's three**, and this is the list a commit gate has to
+use: `actual-output.txt`, `temp/`, `testruns/` **and `buildSrc/build/`**. `FACT` — `bin/` needs no removal
+because `[.gitignore:L67]` (`bin/*`) already covers it, and the two tracked build artefacts are *restored*
+rather than deleted (4.4, targets 1 and 2).
+
+`FACT` — the removal itself, exactly as every checkpoint of this run performed it — **root-anchored,
+sentinel-checked twice, and never a bare relative `rm -rf`** `[PROGRAM-PLAN.md:L2487-L2500]`:
+
+```bash
+# READ THE GUARD BEFORE RUNNING IT. Deletes only fixed literals under a root git itself resolves,
+# and refuses if that root is not this repository.
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+for sentinel in build.gradle expected-output.txt approvaltest; do
+  test -e "$ROOT/$sentinel" || { echo "REFUSING: $ROOT is not this repository ($sentinel missing)"; exit 1; }
+done
+for target in actual-output.txt temp testruns buildSrc/build; do
+  case "$ROOT/$target" in
+    "$ROOT"/*) rm -rf -- "$ROOT/$target" ;;
+    *) echo "REFUSING: $target escaped the root"; exit 1 ;;
+  esac
+done
+git status --porcelain=v1 -uall      # expect: only the paths this checkpoint means to commit
+```
+
+`FACT` — run at this checkpoint against the ten-entry state above, that block returned the tree to a single
+entry — this document — with **no** untracked residue, and `test -d buildSrc/build` was then false.
+`INFERENCE` — the fourth path is the only addition a downstream run needs to make to the plan's list;
+reasoning: the plan names `actual-output.txt`, `temp/`, `testruns/` and `bin/` `[PROGRAM-PLAN.md:L2835]`,
+`bin/` is already ignored, and `buildSrc/build/` is the one artefact `buildSrc` introduces that nothing
+covers.
+
+`FACT` — **no `.gitignore` edit was made here, and none may be**: that file is on the do-not-modify
+inventory `[PROGRAM-PLAN.md:L2643-L2654]`, and the plan's own artefact list sits in `PROGRAM-PLAN.md`, which
+is read-only programme inheritance — so the removal list above, carried in this document, is the only
+lawful remedy available to a session. `INFERENCE` — the durable fix belongs to whoever may edit `.gitignore`:
+a single `buildSrc/build/` line there would retire this item outright; reasoning: the pattern's only defect
+is that `build/*` is root-anchored, which a nested pattern fixes without touching any other behaviour.
+`BLOCKED-BY` — nothing.
 
 ### 13.10 Make the `COB_CFLAGS` anchor travel with the repository, or record it per host
 
@@ -2542,26 +2822,28 @@ run's final commit**, and no single commit carries all five paths together
 `[PROGRAM-PLAN.md:L2833-L2834]`. `FACT` — a third condition, stated below, rides on the same repair: two
 absolute shared-workspace paths are already published in earlier editions of this document.
 
-`FACT` — **what was already done, so the next reader does not redo it**: the one published tag — the
-mandated name, which a full `git ls-remote origin` shows is the **only** tag `origin` carries for this run
-— was left exactly as published by **all three** review checkpoints: no `git tag`, `git tag -f`,
+`FACT` — **what was already done, so the next reader does not redo it**: the mandated tag — which
+`git ls-remote` shows is **one of four** run-prefix tags `origin` carries, not the only one (1.2, 11.11)
+— was left exactly as published by **all four** remediation checkpoints: no `git tag`, `git tag -f`,
 `git tag -d`,
 `git push --tags` or forced write of any kind, and no local tag-ref rewrite either (1.2); the tag ref in
 each checkpoint's clone resolves to the same object `origin` carries, so local and remote resolution agree
-and no ref names an orphaned commit; and each review remediation was delivered as **one** commit, the
-last of which (ledger commit 6) carries the final state of all five paths in its tree (4.5, 4.6).
+and no ref names an orphaned commit; and each remediation was delivered as **one** commit, the
+last of which (ledger commit 7) carries the final state of all five paths in its tree (4.5, 4.6).
 `FACT` — two **additive** annotated tag names were also created during review remediation,
 `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-ending`, each exactly
-once and neither ever moved; both name intermediate checkpoint states, **neither is an ancestor of the
-reconciled tip** (measured, rc=1), **and neither is on `origin`** — they, and the earlier `-final` name,
-are local-only, which an earlier edition of this item did not say and which the ledger in 1.2 now states
-explicitly rather than leaving a reader to guess. `FACT` — and the resolving commands this document
+once and neither ever moved; both name intermediate checkpoint states and **neither is an ancestor of the
+reconciled tip** (rc=1, as measured where their objects exist), **and both are on `origin`** — they, and
+the earlier `-final` name, are all published, measured at this checkpoint, which withdraws the local-only
+reading an earlier edition of this item recorded and makes their retirement a real requirement rather than
+bookkeeping (11.11). `FACT` — and the resolving commands this document
 advertises are now clone-safe and
 read-only: the clone-unsafe `refs/heads/…` form is withdrawn (1.1), the two ref-**writing** commands an
-earlier edition mis-described as a read-only fix sit in the do-not-do table of 1.2, and no command names a
-ref that `origin` does not carry.
+earlier edition mis-described as a read-only fix sit in the do-not-do table of 1.2, and every remaining
+command either names the mandated tag, `origin`'s head of the destination branch or `HEAD`, or is a
+**measurement** of what `origin` publishes rather than an assertion about it.
 `FACT` — the consequence of leaving the tag alone is that the gap it must eventually close has widened
-from one commit to **three**, which is a property of an immutable tag rather than a new defect (1.2, 11.7).
+from one commit to **four**, which is a property of an immutable tag rather than a new defect (1.2, 11.7).
 
 `FACT` — **a third condition rides on the same lineage, and it is a confidentiality one.** Earlier editions
 of this document printed two absolute shared-workspace paths in full — the session evidence directory and
@@ -2582,18 +2864,20 @@ a human or of the platform**: cut a fresh lineage for this checkpoint in which t
 both absolute paths already redacted — are committed **together**, and the annotated tag
 `run-1a-approval-harness-repair` is created **once**, after that commit, with its message carrying that
 commit's SHA; then verify that the local ref, `origin` and `HEAD` all resolve to it, and that the three
-local-only additive names — `run-1a-approval-harness-repair-ending`, `-authoritative` and `-final` — are
+**published** additive names — `run-1a-approval-harness-repair-ending`, `-authoritative` and `-final` — are
 retired through platform governance rather than by a local delete, before any downstream run starts.
-`INFERENCE` — retiring them is bookkeeping rather than a recovery requirement now that they are measured
-absent from `origin`; reasoning: a name no remote carries cannot mislead a fresh clone, so what remains is
-to stop the clone that holds them from presenting them as recovery points, which the ledger in 1.2 already
-does in prose.
+`INFERENCE` — **retiring them is a recovery requirement rather than bookkeeping, and this is a correction
+of the earlier disposition**; reasoning: all three are measured **present on `origin`** (1.2, 11.11), a
+fresh clone fetches tags by default, and one of them peels to a commit no branch contains — so any of them
+can be resolved successfully by a downstream reader who never sees this document, which prose in 1.2 can
+warn about but cannot prevent. Until that retirement happens, the ledger in 1.2 disqualifying each name by
+ancestry is the only mitigation available from inside a session.
 
 `FACT` — **do not attempt to close this by moving the published tag, and do not rewrite a local tag ref
 either.** That is the original defect, and the do-not-do table in **1.2** lists every operation that repeats
 it, including the two ref-writing commands an earlier edition of this document mistakenly offered as a
 read-only fix. **Until a fresh lineage exists, the safe inheritance rule is the one in 11.7**: resolve
-`START` from the mandated tag, and read this document from the branch tip — which is three commits ahead.
+`START` from the mandated tag, and read this document from the branch tip — which is four commits ahead.
 `BLOCKED-BY` — nothing in this repository; it is blocked on a platform-directed lineage.
 
 ### 13.12 The comparator's mismatch diagnostics print whole lines, absolute repository root included
@@ -2836,8 +3120,8 @@ specified at `[PROGRAM-PLAN.md:L3099-L3106]`, and every input it needs is presen
 | Confirm the reported green status: `clean test` green at ≥ 457 with zero failures, and `approvalTest` **red** | 3.1 and 3.0/3.4. **The inherited red is expected and correct — do not treat it as breakage** | `FACT` |
 | Confirm the executed COBOL program count is **5**, not 6 | 3.2, with the complete `-p FILECOPY` trace that explains the missing sixth | `FACT` |
 | Confirm the capture is **332 lines**, and record its own byte count beside its own root length | 3.5 and 13.1 — the line count is the portable oracle and the byte count is `26,216 + 13 × root-length` `[PROGRAM-PLAN.md:L2712]` | `FACT` |
-| Resolve the starting point in the steps of 1.2: satisfy the gate's `START` from the mandated tag `run-1a-approval-harness-repair`; recover this document **and** the code from the destination branch's **tip**, which is the ending commit and which no tag names, resolving it through `HEAD` or from `origin` and **never** through a hardcoded `refs/heads/…` ref; and read nothing from the three additive tag names the ledger in 1.2 disqualifies — all three are **local-only and absent from `origin`** (measured), so in a fresh clone they do not resolve at all. Confirm the recovery before relying on it — the five-path proof and the ahead-count are both single read-only commands | 1.1, 1.2 and 4.6, with the clone-independent resolving commands, the five-path proof, the ahead-count and the staleness-detection rule | `FACT` |
+| Resolve the starting point in the steps of 1.2: satisfy the gate's `START` from the mandated tag `run-1a-approval-harness-repair`; recover this document **and** the code from the destination branch's **tip**, which is the ending commit and which no tag names, resolving it through `HEAD` or from `origin` and **never** through a hardcoded `refs/heads/…` ref; and read nothing from the three additive tag names the ledger in 1.2 disqualifies — **all three are published on `origin` and will resolve cleanly in your clone (measured at this checkpoint), so they must be ruled out by name and by ancestry rather than trusted because they resolve**, and one of them, `-final`, peels to a commit no branch contains. **Measure the published tag set yourself** with `git ls-remote --tags origin 'run-1a-approval-harness-repair*'`; it is a live property of the remote and this document states it as a reading, not an invariant (11.11). Confirm the recovery before relying on it — the five-path proof and the ahead-count are both single read-only commands | 1.1, 1.2 and 4.6, with the clone-independent resolving commands, the five-path proof, the ahead-count and the staleness-detection rule | `FACT` |
 | Take up **every** item in this section 13 deferral list and record each disposition | 13.1 through 13.17 — **seventeen items**. Three (13.9, 13.10, 13.11) are new in this run and not on the plan's carried list; **six (13.12 through 13.17) were raised by the security and supply-chain review checkpoint** and are security findings this run is not authorized to fix — an unsupported-OS fail-open, discarded process statuses, an up-to-date gate bypass, a symlink-following capture, a comparator that prints absolute paths, and a Jupiter line below JUnit's supported floor; 13.11 is the git-lineage item and is blocked on a platform-directed run, not on repository work | `FACT` |
-| Read section 11 and state whether anything there changes its plan | 11.1 through 11.10 — note especially the **confirmed** 332-line oracle and `+98` staleness (11.1), the **confirmed** `COB_CFLAGS` whose enforcement is still untracked (11.2, 13.10), the refuted `-p buildSrc test` invocation form (11.6), the tag lineage with its stale-ref hazard (11.7), and the two product defects characterised from source: the unconditional stderr `println` and the two-character `removeLastIndex` truncation (3.5, 13.8) | `FACT` |
+| Read section 11 and state whether anything there changes its plan | 11.1 through 11.11 — note especially the **confirmed** 332-line oracle and `+98` staleness (11.1), the **confirmed** `COB_CFLAGS` whose enforcement is still untracked (11.2, 13.10), the refuted `-p buildSrc test` invocation form (11.6), the tag lineage with its stale-ref hazard (11.7), **the withdrawn tag-publication claim and the measure-don't-carry rule it establishes (11.11)**, and the two product defects characterised from source: the unconditional stderr `println` and the two-character `removeLastIndex` truncation (3.5, 13.8) | `FACT` |
 | Read section 6 and respect every architecture decision | 6.1 through 6.4 — the `buildSrc` relocation and Groovy 2.5.12 coupling, the deliberate default package, `doLast` + `GradleException`, the explicit **NO** on child exit-status escalation, and the D6 side effects | `FACT` |
 | Verify sections 0, 2, 3, 5 and 6 are present and substantive, or **stop and report** | all five are present above and none is a stub | `FACT` |
