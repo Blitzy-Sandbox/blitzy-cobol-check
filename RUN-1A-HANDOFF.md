@@ -27,8 +27,11 @@ executed in this run and its unedited output written to a file under `<session-e
 session-local directory outside the repository, referred to below as **`EVIDENCE/`**. Its absolute path is
 withheld, for the reason at the end of this paragraph. `FACT` — the whole verification sweep of section 3 — `tasks`, `clean test`,
 `clean unitTest integrationTest`, two cold-tree `clean approvalTest` runs and the A/B control — was
-re-executed against the **final** state of all five in-scope paths in the checkout of section 2.6, and
-those logs are the ones cited. `FACT` — two experiments are deliberately **not** runs of the final state,
+re-executed against the **final** state of the four code and build paths in the checkout of section 2.6,
+and those logs are the ones cited. `INFERENCE` — the fifth path, this document, is not and cannot be part
+of what any such sweep exercises; reasoning: no Gradle task reads it, and a document that records a run
+is necessarily written after the run it records — which is why later checkpoints re-measure only the
+regions their edits move (3.4) rather than re-quoting the whole sweep. `FACT` — two experiments are deliberately **not** runs of the final state,
 and each says so where it is used: the JUnit `5.14.4` executor abort (4.3) required temporarily pinning a
 coordinate that was then restored, and the A/B control (3.5) required removing the environment anchor for
 one run. Their logs are preserved under the same directory and under the names cited, so every locator in
@@ -158,9 +161,9 @@ requirement.
 | Second discipline actually required | **none** | `FACT` | the diff is one Gradle build script, one Groovy build-logic class, its JUnit 5 test, one `buildSrc` build script and this document (section 4.5); **no product source and no pre-existing test under `src/test/java` was changed** (section 10) |
 | Destination branch this run's work is published under | `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9` — the name `origin` carries this run under, and the branch every commit in the ledger below is reachable from. Review remediation is carried out on platform-cut per-clone branches which the platform then reconciles onto this one, so those branches are ephemeral. **Resolve this run's tip through `HEAD`, or from `origin`, never through a hardcoded `refs/heads/…` name** — 1.1 records the measurement that makes that rule necessary | `FACT` | `git rev-parse --abbrev-ref HEAD`; `git ls-remote --heads origin`; `EVIDENCE/git-ledger.log` |
 | **Starting commit hash** | **`8640f8e4f78ce84496ad3542bb75f3d77e998191`** | `FACT` | `git rev-parse`; subject `Merge pull request #1`; `git merge-base --is-ancestor` returns 0 against `HEAD` |
-| **Ending commit hash** | **Not a literal — it resolves through `HEAD` as the destination branch's tip**, which is **ledger commit 5**, the final review-remediation checkpoint. See section 1.1 for why a literal is mechanically impossible and for the read-only resolving commands, and section 1.2 for the whole tag ledger | `FACT` | a commit cannot state its own hash; `git rev-parse HEAD`; `git ls-remote --heads origin` |
+| **Ending commit hash** | **Not a literal — it resolves through `HEAD` as the destination branch's tip**, which is **ledger commit 6**, the final review-remediation checkpoint. See section 1.1 for why a literal is mechanically impossible and for the read-only resolving commands, and section 1.2 for the whole tag ledger | `FACT` | a commit cannot state its own hash; `git rev-parse HEAD`; `git ls-remote --heads origin` |
 | Tag mandated by the output contract | `run-1a-approval-harness-repair` (annotated), naming `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — **published, therefore immutable, and left byte-identical by every checkpoint of this run**. It is an **ancestor** of the ending commit but does **not name** it, so it is a valid entry gate and **not** a source of the final state | `FACT` | `git cat-file -t` returns `tag`; `git rev-list -n 1`; `[PROGRAM-PLAN.md:L2834]`; `EVIDENCE/tag-state.log` |
-| Additive tag names published during review remediation | `run-1a-approval-harness-repair-ending`, `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-final` — each annotated, each created **once** and never moved, and **none of them an ancestor of the ending commit** (measured, `git merge-base --is-ancestor` returns rc=1 for all three): each names an intermediate checkpoint state the reconciled tip supersedes. The ledger in 1.2 states what each name is and is not — **resolve the final state from the tip, not from any of them** | `FACT` | `git rev-list -n 1` per name; `git merge-base --is-ancestor`; section 1.2 |
+| Additive tag names created during review remediation — **LOCAL-ONLY, and NOT published on `origin`** | `run-1a-approval-harness-repair-ending`, `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-final` — each annotated, each created **once** and never moved, and each **absent from `origin`**: a full `git ls-remote origin` returns eight refs carrying exactly **one** tag-name pair, the mandated name. **None of them is an ancestor of the ending commit** either (measured, `git merge-base --is-ancestor` returns rc=1 for all three), and `git branch -a --contains` is **empty** for each of the three commits they name, so each names an intermediate per-clone checkpoint state that no published ref reaches. **A fresh clone will not have these names at all** — the ledger in 1.2 states what each is and is not, and **the final state resolves from the tip, never from any of them** | `FACT` | `git ls-remote origin`; `git rev-list -n 1` per name; `git merge-base --is-ancestor`; `git branch -a --contains`; section 1.2 |
 | BLOCKED-BY tag started from | none (first run) | `FACT` | `[PROGRAM-PLAN.md:L2746]` |
 
 `FACT` — the working-branch name is the output of `git rev-parse --abbrev-ref HEAD` and the destination
@@ -183,12 +186,14 @@ push target, and no remote URL is reproduced anywhere in this document (4.7).
 | 2 | `ef4666f260814c548d7abb8e36133dd140c3ac5a` | Conform the approval comparator's unit tests to the house test idiom | `M buildSrc/src/test/groovy/BuildHelperTest.groovy` | `FACT` |
 | 3 | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` | Record Run 1a's approval-harness repair in RUN-1A-HANDOFF.md | `A RUN-1A-HANDOFF.md` — **this is the commit the mandated tag names** | `FACT` |
 | 4 | `80ca324eb5da64bb0f77d0324698eec7dec6a48e` | Harden the approval comparator's error contract and re-evidence the Run 1a handoff | `M RUN-1A-HANDOFF.md`, `M buildSrc/build.gradle`, `M buildSrc/src/test/groovy/BuildHelperTest.groovy` | `FACT` — `git show --name-status 80ca324eb5da64bb0f77d0324698eec7dec6a48e` |
-| 5 | resolves as the destination branch's tip (section 1.1); **no tag names it** | The final review-remediation checkpoint, and the run's ending commit. It carries four things. **(a)** The comparator's `finally` arm now attempts **both** closes, so a throw from the first can no longer leak the second reader (4.1, change iii). **(b)** Six itemized security deferrals, 13.12 to 13.17, together with the provenance and confidentiality corrections of 1.2, 2.6, 4.7 and 11.7. **(c)** The comment-and-docstring remediation: a comment that merely restated the `chmod +x` beneath it was deleted from `build.gradle`, and the comparator test's comments were cut from 93 lines to 17 — a 35-line class doc, a 17-line fixture doc and four separator banners removed, and two safety overclaims narrowed. **(d)** This document's git-provenance layer, evidence labels, temporal wording and end-of-file hygiene, plus every locator, file size, ledger row and re-measured `approvalTest` figure the comment edits moved. **No behaviour changed in (c): a filtered diff of every non-comment, non-blank line in both code files is empty**, and the ten test methods, the comparator contract and the `approvalTest` verdict are unchanged (4.1, 3.4, 3.8) | `M RUN-1A-HANDOFF.md`, `M build.gradle`, `M buildSrc/src/main/groovy/BuildHelper.groovy`, `M buildSrc/src/test/groovy/BuildHelperTest.groovy` | `FACT` for the paths (section 4.5); the hash is not a literal for the reason in section 1.1 |
+| 5 | `ddc0c3b522fbce71a48e5d27b120a94897a0c4e4` | The second review-remediation checkpoint — a literal here, because a further checkpoint has since become the tip and a commit can only be named as a literal once it is no longer the one being written. It carries four things. **(a)** The comparator's `finally` arm now attempts **both** closes, so a throw from the first can no longer leak the second reader (4.1, change iii). **(b)** Six itemized security deferrals, 13.12 to 13.17, together with the provenance and confidentiality corrections of 1.2, 2.6, 4.7 and 11.7. **(c)** The comment-and-docstring remediation: a comment that merely restated the `chmod +x` beneath it was deleted from `build.gradle`, and the comparator test's comments were cut from 93 lines to 17 — a 35-line class doc, a 17-line fixture doc and four separator banners removed, and two safety overclaims narrowed. **(d)** This document's git-provenance layer, evidence labels, temporal wording and end-of-file hygiene, plus every locator, file size, ledger row and re-measured `approvalTest` figure the comment edits moved. **No behaviour changed in (c): a filtered diff of every non-comment, non-blank line in both code files is empty**, and the ten test methods, the comparator contract and the `approvalTest` verdict are unchanged (4.1, 3.4, 3.8) | `M RUN-1A-HANDOFF.md`, `M build.gradle`, `M buildSrc/src/main/groovy/BuildHelper.groovy`, `M buildSrc/src/test/groovy/BuildHelperTest.groovy` | `FACT` — `git show --name-status ddc0c3b522fbce71a48e5d27b120a94897a0c4e4` for the paths and the hash; section 4.5 |
+| 6 | resolves as the destination branch's tip (section 1.1); **no tag names it** | The final review-remediation checkpoint, and the run's ending commit. It is the acceptance gate's remediation and it touches **this document only**. Five things. **(a)** The three additive tag names are restated as **local-only and unpublished** against a full `git ls-remote origin`, and every recovery command, ancestry claim and re-run expectation that named them is repointed at refs that exist on `origin` — the mandated tag, `origin`'s head of the destination branch, and `HEAD` (1.1, 1.2, 4.6, 11.7, 13.11, 14). **(b)** The lead-in of 1.2 no longer asserts an ancestry its own measured rows refute. **(c)** The withdrawn resolving command in 1.1 now names the **clone class** its measurement was taken in, so a reader in the destination checkout is not misled. **(d)** Seven `build.gradle` locators in 13.13 and 13.14 are re-anchored by one line, 4.2's `StopExecutionException` grep is restated in its stable **scoped** form, 6.4's `> Task :buildSrc:test` line number is corrected against the log it came from, and 4.7's URL enumeration gains its fourth class. **(e)** The two unmandated code edits are classified as deviations **D7** and **D8** (11.9). **No code file is touched by this commit**: `git diff --stat` against ledger commit 5 names this document alone, so `build.gradle`, `buildSrc/build.gradle` and both `buildSrc` sources are byte-identical to the tree ledger commit 5 published | `M RUN-1A-HANDOFF.md` | `FACT` for the path (section 4.5); the hash is not a literal for the reason in section 1.1 |
 
-`FACT` — **four of those five commits touch code or test paths — 1, 2, 4 and 5 — and one does not:
-commit 3 adds only this document.** Earlier editions said "two code commits" and then "three of six";
-both were the measured record of a narrower ledger at the time, and the ledger above supersedes them.
-`FACT` — **a git commit is a snapshot rather than a diff, so the tree of commit 5 — the tip — carries the
+`FACT` — **four of those six commits touch code or test paths — 1, 2, 4 and 5 — and two do not:
+commit 3 adds this document and commit 6 revises it.** Earlier editions said "two code commits", then
+"three of six", then "four of five"; each was the measured record of a narrower ledger at the time, and
+the ledger above supersedes them.
+`FACT` — **a git commit is a snapshot rather than a diff, so the tree of commit 6 — the tip — carries the
 final state of all five in-scope paths**; the proof is one read-only command whose output is exactly five
 lines (1.1, 4.5). `FACT` — **of the four tag names in the ledger of 1.2, only the mandated
 `run-1a-approval-harness-repair` is an ancestor of the tip**: `git merge-base --is-ancestor` returns rc=0
@@ -196,15 +201,15 @@ for it and rc=1 for each of the other three. So satisfy a gate from that tag, an
 from the tip as `origin` reports it, running the two-direction test in 1.2 first rather than assuming
 which of two refs is later.
 
-`FACT` — **the ledger is five commits rather than one, and that is a departure from the output
+`FACT` — **the ledger is six commits rather than one, and that is a departure from the output
 contract** `[PROGRAM-PLAN.md:L2833]`, which asks for the in-repo changes and this document to be
-committed together. `INFERENCE` — it cannot be closed from inside a session; reasoning: commits 1 to 4
+committed together. `INFERENCE` — it cannot be closed from inside a session; reasoning: commits 1 to 5
 are published history, and the only two routes to a single-commit ledger are rewriting that history —
 forbidden at `[PROGRAM-PLAN.md:L2834]` — or reverting four correct files and re-applying them to
 manufacture a diff, which is a fabricated change no file needed and which would put a commit that
 un-does the repair on the branch. It is recorded as OPEN in 13.11 for a platform-directed lineage.
 `FACT` — each review-remediation checkpoint was nevertheless delivered as exactly **one** commit:
-commit 4 for the first, commit 5 for the last. `INFERENCE` — what the multi-commit ledger costs a
+commit 4 for the first, commit 5 for the second and commit 6 for the last. `INFERENCE` — what the multi-commit ledger costs a
 downstream run is **nothing**, because recovery resolves a commit to a tree and reads the tree, never the
 per-commit diffs; reasoning: `git diff --name-status <start> <tip>` prints all five paths at their final
 state regardless of how many commits produced them (1.1).
@@ -221,13 +226,14 @@ hash.
 
 `FACT` — **the field is therefore neither omitted nor invented: the commands below resolve it, every one
 of them is READ-ONLY, every one is executable as written, and every one is clone-independent.** The first
-names the branch being read and the ending commit — the destination branch's tip, ledger commit 5 — both
-locally and as `origin` publishes it; the second proves what that commit recovers; the third lists the
-additive tag names and what they resolve to; the fourth places the mandated tag against the tip and counts
-the gap; the fifth reads `origin` for a tag and for both branch heads:
+names the branch being read and the ending commit — the destination branch's tip, ledger commit 6 — both
+locally and as `origin` publishes it; the second proves what that commit recovers; the third shows what
+`origin` actually publishes under this run's tag prefix, which is **one** name and not four; the fourth
+places the mandated tag against the tip and counts the gap; the fifth reads `origin` for that tag and for
+both branch heads:
 
 ```bash
-# 1. the run's ending commit - the destination branch's tip, which NO tag names (ledger commit 5).
+# 1. the run's ending commit - the destination branch's tip, which NO tag names (ledger commit 6).
 #    Resolve it through HEAD, never through a hardcoded refs/heads/... name: a per-clone workspace
 #    can hold a branch of the destination's name at the STARTING commit (measured below).
 git rev-parse --abbrev-ref HEAD
@@ -237,17 +243,19 @@ git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9 | cut -
 # 2. what that commit recovers - exactly the five in-scope paths, against the starting commit
 git diff --name-status 8640f8e4f78ce84496ad3542bb75f3d77e998191 HEAD
 
-# 3. the additive tag names, and the intermediate checkpoint states they resolve to (1.2 rules them out)
+# 3. what origin publishes under this run's tag prefix: ONE line pair, the mandated name (measured).
+#    The three additive names of 1.2 are LOCAL-ONLY and print NOTHING here, so do not resolve
+#    anything from them - in a fresh clone they do not exist at all.
 git ls-remote --tags origin 'run-1a-approval-harness-repair*'
-git rev-list -n 1 run-1a-approval-harness-repair-ending
+git tag -l 'run-1a-approval-harness-repair*'          # local names only, in the clone that made them
 
 # 4. the mandated tag, and how far behind the tip it sits
 git rev-list -n 1 run-1a-approval-harness-repair
 git rev-list --count run-1a-approval-harness-repair..HEAD
 git log --oneline run-1a-approval-harness-repair..HEAD
 
-# 5. origin is the authority for the ending tag and both branch heads
-git ls-remote --tags  origin run-1a-approval-harness-repair-ending
+# 5. origin is the authority for the published tag and for both branch heads
+git ls-remote --tags  origin run-1a-approval-harness-repair
 git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9
 git ls-remote --heads origin "$(git rev-parse --abbrev-ref HEAD)"
 ```
@@ -257,16 +265,25 @@ substitutes the head `origin` reports in command 1, and establishes the directio
 any tag it means to rely on with the two-direction test in 1.2 **before** working from either.
 
 `FACT` — **an earlier edition of this section resolved the ending commit with
-`git rev-parse refs/heads/blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9`, and that command is WITHDRAWN:
-in an agent clone it resolves the wrong commit.** That ref is the *destination* branch's **local** head,
-which a per-clone checkout never advances — measured in this clone it resolves
+`git rev-parse refs/heads/blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9`, and that command is WITHDRAWN
+because its answer depends on WHICH CLASS OF CLONE runs it — and the command itself does not say which
+one you are in.** That ref is the *destination* branch's **local** head. **Clone class 1 — a per-clone
+agent worktree**, checked out on a platform-cut working branch of the form `…-w-NNN` rather than on the
+destination name: such a worktree never advances that ref, and measured in one of them it resolved
 `8640f8e4f78ce84496ad3542bb75f3d77e998191`, the **starting** commit, while `origin`'s head of the same
-name resolves this run's work. `INFERENCE` — the mechanism is that commits are made on the per-clone run
-branch (section 1) while the destination branch is advanced on `origin` by the platform's reconciler, so
-a local ref carrying the destination name is only ever as fresh as the moment the clone was cut;
-reasoning: the two refs were measured to **different** values in the same clone, which is only possible
-if nothing local updates the destination head. **Resolve from the tag, or from `origin` — never from an
-unverified local head of the destination name.**
+name resolved this run's work. **Clone class 2 — the destination checkout itself**, where the current
+branch *is* `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9`: measured there, the withdrawn command,
+`git rev-parse HEAD` and `git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9` all
+resolve the **same** commit, so it would have answered correctly. `INFERENCE` — the mechanism is that
+commits are made on the per-clone run branch (section 1) while the destination branch is advanced on
+`origin` by the platform's reconciler, so a local ref carrying the destination name is only ever as fresh
+as the moment that clone was cut; reasoning: the two refs were measured to **different** values inside a
+single agent worktree, which is only possible if nothing local updates the destination head, and to the
+**same** value in the destination checkout, which is what a reconciled branch looks like. `INFERENCE` —
+the command stays withdrawn even though one clone class answers correctly; reasoning: a form that is
+right in only one class, with no in-command way to tell the classes apart, is strictly worse than `HEAD`
+or `origin`, which are right in both. **Resolve from `HEAD`, or from `origin` — never from an unverified
+local head of the destination name.**
 
 `INFERENCE` — `HEAD` is the correct handle for every such lookup in this document; reasoning: a per-clone
 workspace can carry a branch that shares the destination branch's name at a different commit, whereas
@@ -286,43 +303,49 @@ and it needs a platform-directed lineage rather than a session.
 ### 1.2 The tag chain, stated once and without contradiction
 
 `FACT` — **four** tag names in this repository begin with `run-1a-approval-harness-repair`, they name
-**different** commits, and they do **not** serve the same purpose: one is the contract's entry gate, one
-is the nearest ancestor of the tip, one is a superseded ancestor anchor, and one is dead. **Every one of
-them now names an ancestor of the ending commit, so none of them is the state to work from — resolve the
-final state from the tip (1.1) and use the table to know what each name is good for.** Read the whole
-table before resolving anything:
+**different** commits, and they do **not** serve the same purpose. **One — the mandated name — is the
+contract's entry gate: it is the only one `origin` publishes, and the only one that is an ancestor of the
+ending commit. The other three are LOCAL-ONLY**: each names an intermediate per-clone checkpoint state,
+each is absent from `origin`, and **none of the three is an ancestor of the ending commit.** Measured:
+`git merge-base --is-ancestor` returns rc=0 for the mandated name and rc=1 for each of the other three,
+`git branch -a --contains` is empty for each of the three commits they name, and a full
+`git ls-remote origin` returns eight refs carrying exactly one tag-name pair. **So no name in this table
+is the state to work from — resolve the final state from the tip (1.1), and read the table to learn what
+each name can and cannot do.** Read the whole table before resolving anything:
 
 | Tag | Object type | Commit it names | Status | Label |
 | --- | --- | --- | --- | --- |
-| `run-1a-approval-harness-repair` | annotated (`git cat-file -t` → `tag`, object `85db4fa31b4e0d08f7a03f19dd229bbc7ba0f90f`) | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — ledger commit 3 | **The mandated name, and the ENTRY GATE.** Published on `origin` and therefore IMMUTABLE. **Not moved, not deleted, not re-pointed, not re-fetched over, by this checkpoint.** It is an **ancestor** of the ending commit, so the next run's gate passes on it — but it is **stale**: it precedes ledger commits 4 and 5, so its tree is **not** this run's final state. Use it to satisfy the gate; do **not** read code, tests or this document from it | `FACT` |
-| `run-1a-approval-harness-repair-ending` | annotated, created **once**, only after the commit it names existed, message carrying that commit's full 40-character SHA | `da2450a05239c0185cf1fb5a438a3621c2108e3c` — an intermediate review-remediation state | **A PUBLISHED CHECKPOINT ANCHOR, and NOT the ending commit — and not an ancestor of it either** (measured, `git merge-base --is-ancestor` returns rc=1), because the reconciled tip supersedes the per-clone state this name was cut from. Its tree does carry **all five** in-scope paths, provably in one read-only command, but the comparator's nested-close fix and six of this document's seventeen deferral items landed after it. Created because the mandated name is published at a stale commit and moving it is forbidden `[PROGRAM-PLAN.md:L2834]`; it **adds** an identity and destroys none, and no later checkpoint moved it. **Resolve the final state from the tip (1.1), never from this name** | `FACT` for the creation contract, the commit it names and the ancestry measurement |
-| `run-1a-approval-harness-repair-authoritative` | annotated, created **once** and **never moved** | `a9ca7ab05cbbe90258b7d4e7c46a532de143d117` — an earlier intermediate review-remediation state | **SUPERSEDED, and not an ancestor of the ending commit** (measured, rc=1). It was created after what was then believed to be the run's final commit; the two-direction staleness test above was then found to be directionally unsafe, the correction landed in a further commit, and **re-pointing a published tag is the defect this whole section exists to prevent** `[PROGRAM-PLAN.md:L2834]` — so it was left exactly where it was and the row above was created instead. **Use the tip (1.1)** | `FACT` |
-| `run-1a-approval-harness-repair-final` | annotated (object `1c77a595c5206b492253ecdb4c134c1882d35ca0`) | `eef4c953e470ca307c171a4823fb9a929bf92e24` | **DEAD — not authoritative, not a recovery point, and not an ancestor** (measured, `git merge-base --is-ancestor` returns rc=1 against the tip), so a range taken from it is not merely stale but meaningless. It names an intermediate revision produced during review remediation and superseded by ledger commit 4, while `git ls-remote --tags origin` still lists the tag. It is published under a name the contract does not define, so it guarantees nothing. **Resolve nothing from it, and do NOT resolve `START` from it** | `FACT` for the measurements |
+| `run-1a-approval-harness-repair` | annotated (`git cat-file -t` → `tag`, object `85db4fa31b4e0d08f7a03f19dd229bbc7ba0f90f`) | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — ledger commit 3 | **The mandated name, and the ENTRY GATE.** Published on `origin` and therefore IMMUTABLE. **Not moved, not deleted, not re-pointed, not re-fetched over, by this checkpoint.** It is an **ancestor** of the ending commit, so the next run's gate passes on it — but it is **stale**: it precedes ledger commits 4, 5 and 6, so its tree is **not** this run's final state. Use it to satisfy the gate; do **not** read code, tests or this document from it | `FACT` |
+| `run-1a-approval-harness-repair-ending` | annotated, created **once**, only after the commit it names existed, message carrying that commit's full 40-character SHA | `da2450a05239c0185cf1fb5a438a3621c2108e3c` — an intermediate review-remediation state | **A LOCAL-ONLY CHECKPOINT ANCHOR: absent from `origin`, NOT the ending commit, and NOT an ancestor of it.** Measured — `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` prints **only** the mandated name, and `git merge-base --is-ancestor` returns rc=1 against the tip, because the reconciled tip supersedes the per-clone state this name was cut from. **In a fresh clone this name does not resolve at all**, so nothing may be recovered through it and no command in this document depends on it. Its tree does carry **all five** in-scope paths, but the comparator's nested-close fix, six of this document's seventeen deferral items and the whole of ledger commit 6 landed after it. Created because the mandated name is published at a stale commit and moving it is forbidden `[PROGRAM-PLAN.md:L2834]`; it **adds** an identity and destroys none, and no later checkpoint moved it. **Resolve the final state from the tip (1.1), never from this name** | `FACT` for the creation contract, the commit it names, the `ls-remote` measurement and the ancestry measurement; `UNKNOWN` whether it was ever pushed and later removed — that is not decidable read-only from here, and what governs a downstream run is that it is absent from `origin` now |
+| `run-1a-approval-harness-repair-authoritative` | annotated, created **once** and **never moved** | `a9ca7ab05cbbe90258b7d4e7c46a532de143d117` — an earlier intermediate review-remediation state | **SUPERSEDED and LOCAL-ONLY, and not an ancestor of the ending commit** (measured, rc=1; and absent from `origin`, so it does not resolve in a fresh clone). It was created after what was then believed to be the run's final commit; the two-direction staleness test above was then found to be directionally unsafe, the correction landed in a further commit, and **re-pointing a tag once created is the defect this whole section exists to prevent** `[PROGRAM-PLAN.md:L2834]` — so it was left exactly where it was and the row above was created instead. **Use the tip (1.1)** | `FACT` |
+| `run-1a-approval-harness-repair-final` | annotated (object `1c77a595c5206b492253ecdb4c134c1882d35ca0`) | `eef4c953e470ca307c171a4823fb9a929bf92e24` | **DEAD — not authoritative, not a recovery point, and not an ancestor** (measured, `git merge-base --is-ancestor` returns rc=1 against the tip), so a range taken from it is not merely stale but meaningless. It names an intermediate revision produced during review remediation and superseded by ledger commit 4. **It is also LOCAL-ONLY**: measured, `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` does **not** list it, so it resolves nowhere in a fresh clone. It carries a name the contract does not define and no ref on `origin`, so it guarantees nothing at all. **Resolve nothing from it, and do NOT resolve `START` from it** | `FACT` for the measurements; an earlier edition of this row stated that `git ls-remote --tags origin` still listed it, and the live measurement refutes that |
 
 `INFERENCE` — **a tag names a snapshot, so ANY tag in this table can be overtaken by a later
 checkpoint's commit; detect that rather than trusting it.** Reasoning: that is exactly how the mandated
-tag became stale — it was created when ledger commit 3 was the tip and four further commits landed
-afterwards — it is how the `-authoritative` name in the ledger above was superseded one commit after it
+tag became stale — it was created when ledger commit 3 was the tip and three further ledger commits
+landed afterwards — it is how the `-authoritative` name in the ledger above was superseded one commit after it
 was created, and it is how the `-ending` name was overtaken by the checkpoints that followed it, so
 "this tag is the tip" is not a durable property of a tag and must be re-measured by whoever depends on
 it:
 
 ```bash
-# READ-ONLY. Step 1 - what the ending tag names, and what origin publishes as the destination head
-git rev-list -n 1 run-1a-approval-harness-repair-ending
+# READ-ONLY. The tag named below is the MANDATED one - the only name origin publishes (1.2). Never
+# run this test against the three local-only names: in a fresh clone they do not resolve at all.
+# Step 1 - what the mandated tag names, and what origin publishes as the destination head
+git rev-list -n 1 run-1a-approval-harness-repair
 git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9 | cut -f1
 
 # Step 2 - EQUAL: the tag and that head are the same state; nothing further to establish.
 #          DIFFER: establish the DIRECTION before working from either. Never assume.
 #          (both objects must be present locally for these two to answer)
-git merge-base --is-ancestor run-1a-approval-harness-repair-ending <that head> ; echo rc=$?
+git merge-base --is-ancestor run-1a-approval-harness-repair <that head> ; echo rc=$?
 #   rc=0 -> the head is LATER than the tag: a further checkpoint committed after this run's tag.
 #           Work from the head, read this document from the head, and count the gap with
-#           git rev-list --count run-1a-approval-harness-repair-ending..<that head>
-git merge-base --is-ancestor <that head> run-1a-approval-harness-repair-ending ; echo rc=$?
+#           git rev-list --count run-1a-approval-harness-repair..<that head>
+git merge-base --is-ancestor <that head> run-1a-approval-harness-repair ; echo rc=$?
 #   rc=0 -> the head is EARLIER than the tag: the destination branch has not been advanced yet, or
-#           it was reset. The TAG is the LATER of these two, but it names a per-clone checkpoint
-#           state rather than the reconciled tip (1.1), so work from the freshest state you can
+#           it was reset. The TAG is the LATER of these two, but it still names ledger commit 3
+#           rather than the reconciled tip (1.1), so work from the freshest state you can
 #           verify and report the lag rather than silently adopting an older head.
 #   both non-zero -> the two have diverged. STOP AND REPORT; do not guess which is authoritative.
 ```
@@ -357,8 +380,9 @@ tagger Blitzy Agent <agent@blitzy.com> [timestamp elided]
 Run 1a ending commit: 0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b
 ```
 
-`FACT` — **the output contract asks seven things of this run's tag, and they are split across two tag
-objects rather than met by one** `[PROGRAM-PLAN.md:L2833-L2834]`. The seven: (1) annotated; (2) its
+`FACT` — **the output contract asks seven things of this run's tag, and no tag object meets all seven:
+the mandated name meets five of them and the nearest additive name meets four** `[PROGRAM-PLAN.md:L2833-L2834]`.
+The seven: (1) annotated; (2) its
 message carries the full 40-character SHA of the commit it names; (3) present on `origin`; (4) the local
 ref and `origin`'s resolve to the same object; (5) it names the run's **final** commit; (6) it was created
 **once** and never moved; (7) it carries the **mandated name**.
@@ -366,9 +390,12 @@ ref and `origin`'s resolve to the same object; (5) it names the run's **final** 
 | Tag | Satisfies | Fails | Label |
 | --- | --- | --- | --- |
 | `run-1a-approval-harness-repair` | 1, 2, 3, 4, 7 — `git cat-file -t` prints `tag` rather than `commit`; the message carries `0fce8cec…`, quoted in full above; `git ls-remote --tags origin` lists it; this clone's ref and `origin`'s resolve to the same object `85db4fa3…` | **5** — it names ledger commit 3, not the ending commit; **6** — it was re-pointed once before publication (the lineage is below) | `FACT` |
-| `run-1a-approval-harness-repair-ending` | 1, 2, 3, 4, 6 — created **once**, after the commit it names existed, naming it, with that commit's SHA in its message, pushed to `origin` by explicit name | **5 and 7** — it does not carry the mandated name, and it names an intermediate checkpoint state rather than the run's final commit; measured, it is not even an ancestor of the tip (rc=1; 1.2) | `FACT` for the creation contract and the ancestry measurement; the resolved SHA is re-measured rather than quoted here (1.1) |
+| `run-1a-approval-harness-repair-ending` | 1, 2, 6 — annotated, created **once** after the commit it names existed, naming it, with that commit's SHA in its message | **3** — it is **NOT present on `origin`**: measured, a full `git ls-remote origin` returns eight refs carrying exactly one tag-name pair, the mandated name; **4** — with no ref on `origin` there is nothing for the local ref to agree with; **5 and 7** — it does not carry the mandated name and it names an intermediate per-clone checkpoint state rather than the run's final commit, and measured it is not even an ancestor of the tip (rc=1; 1.2) | `FACT` for the creation contract, the `ls-remote` measurement and the ancestry measurement; the resolved SHA is re-measured rather than quoted here (1.1) |
 
-`FACT` — every one of those failures is recorded as **OPEN** in 13.11 rather than argued away.
+`FACT` — every one of those failures is recorded as **OPEN** in 13.11 rather than argued away. `FACT` —
+**an earlier edition of this table credited the additive name with (3) and (4)**, describing it as pushed
+to `origin` by explicit name; the live `git ls-remote origin` measurement above **refutes that**, the row
+is corrected here rather than elsewhere, and 1.2, 4.6, 11.7 and 13.11 are corrected to match.
 
 `INFERENCE` — the reason the shortfall cannot be collapsed into a single compliant tag is mechanical
 rather than a matter of preference. Reasoning: making the mandated *name* resolve the final commit
@@ -393,24 +420,26 @@ holds, rc=0), then takes its own `NOTE: HEAD is ahead of the tag by N commit(s) 
 handoff` branch `FACT [PROGRAM-PLAN.md:L3090-L3096]`, followed by `test -f RUN-1A-HANDOFF.md`
 `FACT [PROGRAM-PLAN.md:L3097-L3098]`, which also holds. Reasoning: the gate's failure conditions are a
 missing tag, a tag that is not an ancestor, and a missing handoff; none of the three obtains. `FACT` —
-`N` is **2** at the tip that carries this edition, and the two commits ahead are ledger commits 4 and 5.
+`N` is **3** at the tip that carries this edition, and the three commits ahead are ledger commits 4, 5
+and 6.
 `INFERENCE` — `N` is a property of the refs it is measured against and not a constant of this run, so it
 is stated from the ledger and must be **re-run** rather than believed; reasoning: a probe taken before a
 commit exists cannot count it — an earlier edition recorded a probe value taken before the commit that
 carried it, which is precisely how a stale count arises, and it is why the gate's own `NOTE` branch
 prints a **measured** count.
 
-`FACT` — **the danger the ahead-by-two carries** is narrow and real: a run that checks out the mandated
+`FACT` — **the danger the ahead-by-three carries** is narrow and real: a run that checks out the mandated
 tag *itself* — rather than the tip — gets the tree as of ledger commit 3, which carries the
 pre-remediation `BuildHelperTest.groovy` fixture (4.2), the nine-line comment since removed from
 `buildSrc/build.gradle`, a comparator whose `finally` arm attempts only the **first** close if that close
 throws — closed in ledger commit 5 and described in 4.1, change iii — the comment set that ledger commit
 5 also trimmed, and a materially superseded edition of this document: one that lacks six of its
-seventeen deferral items and whose git identity section still advertised the withdrawn resolving command
-of 1.1. `INFERENCE` — starting from the mandated tag alone would therefore inherit a different test
-contract, a different comparator and unsafe recovery instructions; reasoning: neither ledger commit 4 nor
-5 is reachable from ledger commit 3, so the tip resolution and the range commands in 1.1 are not
-optional.
+seventeen deferral items, whose git identity section still advertised the withdrawn resolving command of
+1.1, whose tag ledger still described three local-only names as published on `origin`, and which carries
+none of the deviation classifications D7 and D8 (11.9). `INFERENCE` — starting from the mandated tag alone
+would therefore inherit a different test contract, a different comparator and unsafe recovery
+instructions; reasoning: none of ledger commits 4, 5 and 6 is reachable from ledger commit 3, so the tip
+resolution and the range commands in 1.1 are not optional.
 
 #### The lineage, including the deviation that is NOT closed
 
@@ -442,9 +471,14 @@ and neither ever moved** — `run-1a-approval-harness-repair-authoritative`, and
 staleness-detection correction that followed it, `run-1a-approval-harness-repair-ending`, whose message
 carries the full 40-character SHA of the commit it names. The first was **left exactly where it was rather
 than re-pointed**, because re-pointing a published ref is the defect this section exists to prevent, and
-it is recorded in the ledger above as a superseded anchor. The only refs pushed to `origin` were the
-publishing branches and those two tags, each by explicit name and none with `--force`, and the final
-checkpoint created and pushed **no** tag at all (11.7). Part three: the residual — the mandated *name*
+it is recorded in the ledger above as a superseded anchor. `FACT` — **but neither additive name reached
+`origin`**: measured live, a full `git ls-remote origin` returns eight refs carrying exactly one tag-name
+pair — the mandated `run-1a-approval-harness-repair`, annotated `85db4fa3…` peeling to `0fce8cec…`. So
+the only refs `origin` carries from this run are the publishing branches and that one tag, no push used
+`--force`, and neither of the last two checkpoints created a tag at all (11.7). `UNKNOWN` — whether a push
+of either additive name was ever attempted or later removed: that is not decidable read-only from here,
+and it does not change the operative fact, which is that a downstream clone will not find them. Part
+three: the residual — the mandated *name*
 does not resolve the final commit, it was not created once, and **no** tag resolves the final commit — is
 recorded as **OPEN** in this section, in 11.7 and as the itemized action in 13.11.
 
@@ -465,7 +499,7 @@ by a session or by a human:
 | `git fetch --tags --force origin` | **This is a ref WRITE, not a read.** `--force` is documented to overwrite existing local tag refs, so it can silently re-point **every** local tag — including this run's recovery point — to whatever object the remote publishes under that name. An earlier edition of this document listed it as part of a "read-only fix"; that classification was wrong and is withdrawn | `FACT` |
 | `git update-ref <ref> <new> <old>` on any `run-1a-*` tag | **Also a ref WRITE**, and specifically a write to the recovery ref under discussion. The old-value guard makes it *safer* than a blind force, not read-only, and a session that rewrites its own recovery point can no longer prove what it inherited. Withdrawn from this document's guidance for the same reason | `FACT` |
 | `git rebase`, `git commit --amend`, `git reset --hard` or a force-push over the tagged commit | Rewrites the history the tag names, which the same clause forbids | `FACT` |
-| Treating `run-1a-approval-harness-repair-authoritative` or `run-1a-approval-harness-repair-ending` as the ending commit | Neither is the ending commit, and neither is an ancestor of it (measured, rc=1): each names an intermediate review-remediation state, so a reader who resolves one of them gets a superseded comparator, a superseded comment set or a superseded edition of this document. Both are kept only because re-pointing or deleting a published ref is forbidden. Resolve the destination branch's tip (1.1) | `FACT` |
+| Treating `run-1a-approval-harness-repair-authoritative` or `run-1a-approval-harness-repair-ending` as the ending commit | Neither is the ending commit, and neither is an ancestor of it (measured, rc=1): each names an intermediate review-remediation state, so a reader who resolves one of them gets a superseded comparator, a superseded comment set or a superseded edition of this document — and **both are local-only, so in a fresh clone they do not resolve at all**. Both are kept in the clone that created them only because deleting a recovery name destroys evidence. Resolve the destination branch's tip (1.1) | `FACT` |
 | Treating `run-1a-approval-harness-repair-final` as this run's recovery point | It is not an ancestor of the branch tip (measured, rc=1) and names a superseded revision, so a range taken from it is not merely stale but meaningless. The **one** name this document puts to use is the mandated `run-1a-approval-harness-repair`, and it is the entry gate rather than the final state; the three additive names in the ledger above are recorded there only to be ruled out, and a name the ledger does not list at all carries no guarantee about what it points at | `FACT` |
 
 `FACT` — **the operational hazard a later session may meet, and how to DETECT it without writing a
@@ -500,8 +534,9 @@ are each read-only:
    of section 1.1 must print exactly the five in-scope paths, and where two refs are in play the
    two-direction test above must resolve which of them is later before you work from either.
 3. **Never read code, tests or this document from the mandated tag's tree**, and never from
-   `run-1a-approval-harness-repair-ending`, `-authoritative` or `-final` — the tag ledger above states
-   what each of those names is and is not.
+   `run-1a-approval-harness-repair-ending`, `-authoritative` or `-final` — all three are **local-only**
+   and will not even resolve in a fresh clone, and the tag ledger above states what each of those names
+   is and is not.
 
 The resolving commands are in 1.1; the required lineage repair is 13.11.
 
@@ -914,6 +949,21 @@ Execution failed for task ':approvalTest'.
 246 of `build.gradle` is the `throw new GradleException(...)` site `[build.gradle:L246]`, so the
 failure is attributable to the substituted exception type and not to an incidental error.
 
+`FACT` — **the acceptance checkpoint (ledger commit 6) re-ran the whole cold-tree sweep against its own
+working tree and reproduced this region exactly.** After a guarded reset and a session-local `+x` grant,
+`./gradlew clean approvalTest` returned **exit 1**; the log carries `> Configure project :` and
+`> Task :clean` *before* `> Task :approvalTest FAILED`, with `Linux detected`, the `Difference on line 5:`
+report, `exit from compare: 1` and `*** FAIL ***` all **after** the task header; `* Where:` names
+`build.gradle` line **246**; and the cause is `./expected-output.txt and ./actual-output.txt are different`
+character for character. `FACT` — the oracles of 3.2 and 3.5 came out identical in that run:
+`grep -c '^TESTSUITE:'` = **11**, `wc -l` = **332**, `wc -c` = **27,269** at a root length of **81** —
+`26,216 + 13 × 81` to the byte — `INF009` = **5** from the combined capture with child exit codes
+**4, 0, 0, 4, 0**, and `INF009` counted from `actual-output.txt` = **0**, the documented trap (3.3).
+`INFERENCE` — that is the behavioural proof that ledger commit 6 changed no code; reasoning: it is the
+same failing region, the same throw line and the same four oracles a checkpoint that touched only this
+document would be expected to leave untouched, and `git diff` confirms the four code paths are
+byte-identical (4.5).
+
 **An honest limit on what this proves.** `FACT` — the FAIL verdict was produced by the *pre-existing*
 content-difference branch `[buildSrc/src/main/groovy/BuildHelper.groovy:L45-L50]`, not by the new
 length-mismatch branch at `[buildSrc/src/main/groovy/BuildHelper.groovy:L32-L38]`, because the first
@@ -1213,14 +1263,14 @@ row of its own for the same reason. **Eight data rows: five paths plus ii-a, ii-
 
 | File | Change | Why | Itemized in advance? | Label |
 | --- | --- | --- | --- | --- |
-| `build.gradle` | **MODIFY**, three itemized changes in one path. **(i-a) Relocation:** the whole former registration-closure body is now wrapped in `doLast { ... }` at `[build.gradle:L212]`, re-indented one 4-space level, with no statement added, removed or reordered; an explanatory comment precedes it at `[build.gradle:L205-L211]`, and `description` `[build.gradle:L202]` and `dependsOn copyJarToBin, copyRunScripts` `[build.gradle:L203]` stay outside the action, unchanged. **(i-b) Exception type:** `StopExecutionException` → `GradleException` at `[build.gradle:L246]`, message preserved **character for character** including both GString interpolations, with no import added because both types are Gradle default imports in a build script. **(i-c) Deletion:** the inline `class BuildHelper{ ... }` declaration is removed, so the file is now **274** lines and ends at the pre-existing `osInfo` task followed by the blank terminus, and `StopExecutionException` survives in executable build code nowhere at all — only inside the explanatory comment at `[build.gradle:L242]`. | **(i-a)** The body executed during Gradle's **configuration** phase, before the task graph existed, so `dependsOn` could not sequence anything against it: the launcher was absent (exit 127) on a cold tree or non-executable (exit 126) on a warm one, every invocation died without writing a byte, and the comparison then passed on a zero-byte file. Inside `doLast` the pre-existing `dependsOn` is finally honoured — proven at 3.6. **(i-b)** Gradle documents `StopExecutionException` as skipping the remaining actions and continuing **without failing the task or the build**; it only appeared to work because a throw from a configuration closure escapes as an ordinary script exception, and from a task action it would have turned the FAIL arm into a silent no-op reported as success — worse than the original defect. Proven at 3.4: the build now fails at `build.gradle` line 246 with the original message. **(i-c)** A JUnit test cannot reference a class declared in the build script's class space, so change (ii) could not be tested where the class lived; mechanically required by, and the precondition of, the relocation below. | **YES** — all three | `FACT` |
+| `build.gradle` | **MODIFY**, three itemized changes in one path. **(i-a) Relocation:** the whole former registration-closure body is now wrapped in `doLast { ... }` at `[build.gradle:L212]`, re-indented one 4-space level, with no statement added, removed or reordered; an explanatory comment precedes it at `[build.gradle:L205-L211]`, and `description` `[build.gradle:L202]` and `dependsOn copyJarToBin, copyRunScripts` `[build.gradle:L203]` stay outside the action, unchanged. **(i-b) Exception type:** `StopExecutionException` → `GradleException` at `[build.gradle:L246]`, message preserved **character for character** including both GString interpolations, with no import added because both types are Gradle default imports in a build script. **(i-c) Deletion:** the inline `class BuildHelper{ ... }` declaration is removed, so the file is now **274** lines and ends at the pre-existing `osInfo` task followed by the blank terminus, and `StopExecutionException` survives in executable build code nowhere at all — only inside the explanatory comment at `[build.gradle:L242]`. **(i-d) One deleted comment line:** the pre-existing `// grant execute permission to run script`, carried at line 212 of `build.gradle` in the starting commit, was **removed** rather than re-indented with the rest of the body — an unmandated but directed and behaviour-neutral edit, classified as deviation **D7** in 11.9. | **(i-a)** The body executed during Gradle's **configuration** phase, before the task graph existed, so `dependsOn` could not sequence anything against it: the launcher was absent (exit 127) on a cold tree or non-executable (exit 126) on a warm one, every invocation died without writing a byte, and the comparison then passed on a zero-byte file. Inside `doLast` the pre-existing `dependsOn` is finally honoured — proven at 3.6. **(i-b)** Gradle documents `StopExecutionException` as skipping the remaining actions and continuing **without failing the task or the build**; it only appeared to work because a throw from a configuration closure escapes as an ordinary script exception, and from a task action it would have turned the FAIL arm into a silent no-op reported as success — worse than the original defect. Proven at 3.4: the build now fails at `build.gradle` line 246 with the original message. **(i-c)** A JUnit test cannot reference a class declared in the build script's class space, so change (ii) could not be tested where the class lived; mechanically required by, and the precondition of, the relocation below. **(i-d)** An earlier review checkpoint found that comment merely restated the `chmod +x` beneath it and prescribed deleting it alone, leaving the operation unchanged; its one consequence is arithmetical — the throw moved from line 247 to 246, re-measured at 3.4 — and the two measurements on which restoring it was rejected are in D7. | **YES** for (i-a), (i-b) and (i-c); **NO** for (i-d), which is classified as deviation D7 | `FACT` |
 | `buildSrc/build.gradle` | **CREATE**, 17 lines: `plugins { id 'groovy' }`, `repositories { mavenCentral() }`, a two-line rationale plus one `testImplementation` line, and `test { useJUnitPlatform() }` — and nothing else | Gives the relocated class a home Gradle compiles **and tests** automatically. The `groovy` plugin declaration is redundant-but-harmless — Gradle applies it to `buildSrc` regardless — and is retained because it documents intent and because the file's contents are specified | **YES** | `FACT` |
-| `buildSrc/src/main/groovy/BuildHelper.groovy` | **CREATE**, 69 lines: the class relocated out of the build script, **default package**, carrying the repaired loop — `while (true)` with an **unconditional** dual `readLine()` at `[buildSrc/src/main/groovy/BuildHelper.groovy:L18-L19]` followed by three ordered decisions | The old guard advanced both readers inside a short-circuiting `&&`, so when the shorter stream ended the loop exited and control fell through to `return 0` — a MATCH. That is why a zero-byte capture was declared identical to the approved baseline. Both readers are now advanced **before** any decision, so a length difference becomes observable. Preserved exactly: the signature `static int compareFiles(String, String, boolean)`, the `-1` return with `Error while comparing: ${e.message}`, the null-guarded `finally` closes, line-at-a-time streaming, the `0`/`1` values, and the equal-length `Difference on line N` report | **YES** | `FACT` |
+| `buildSrc/src/main/groovy/BuildHelper.groovy` | **CREATE**, 69 lines: the class relocated out of the build script, **default package**, carrying the repaired loop — `while (true)` with an **unconditional** dual `readLine()` at `[buildSrc/src/main/groovy/BuildHelper.groovy:L18-L19]` followed by three ordered decisions | The old guard advanced both readers inside a short-circuiting `&&`, so when the shorter stream ended the loop exited and control fell through to `return 0` — a MATCH. That is why a zero-byte capture was declared identical to the approved baseline. Both readers are now advanced **before** any decision, so a length difference becomes observable. Preserved exactly: the signature `static int compareFiles(String, String, boolean)`, the `-1` return with `Error while comparing: ${e.message}`, both null-guarded `finally` closes — preserved as calls and as guards, though **nested** rather than sequential, which is deviation **D8** in 11.9 — line-at-a-time streaming, the `0`/`1` values, and the equal-length `Difference on line N` report | **YES** | `FACT` |
 | ↳ same file | **(ii-a)** A length mismatch — **including one empty stream** — returns a failing verdict, via the exactly-one-`null` branch at `[buildSrc/src/main/groovy/BuildHelper.groovy:L32-L38]`, which reports `Line count mismatch after N matching line(s)` naming both files and showing `end of file` for the exhausted side | This is **the mandated guarantee**. It is the defect that made the gate mechanically incapable of failing | **YES — mandated** | `FACT` |
 | ↳ same file | **(ii-b)** **Two** empty streams also return a failing verdict, via the `lineCount == 0` guard inside the both-`null` branch at `[buildSrc/src/main/groovy/BuildHelper.groovy:L25-L28]`, printing `Both <f1> and <f2> are empty - nothing was compared` | **NOT a length mismatch, and therefore an ADDITIONAL DECLARED BEHAVIOUR CHANGE that exceeds the literal mandate.** Declared separately for that reason. Justified: a comparator that reports "match" having compared nothing is the exact defect class under repair, and it is the sole gate on a generated artefact. It cannot affect any legitimate input, because `expected-output.txt` is a tracked 12,336-byte file (measured, section 5) that can only be empty if it has been destroyed | **NO — declared here as an addition** | `FACT` |
 | `buildSrc/src/test/groovy/BuildHelperTest.groovy` | **CREATE**, 141 lines: **ten** JUnit 5 `void @Test` methods across seven case families, exactly three imports, default package to match `BuildHelper`, a `private static tempFileWith(List<String>)` fixture using `File.createTempFile` + `deleteOnExit()` and appending **no** trailing terminator, and an unreadable-path fixture derived *underneath* a freshly created regular file | Makes the two guarantees executable rather than reviewed, and pins the pre-existing behaviour the repair must not break: equal-and-matching → `0`, equal-but-differing → non-zero, unreadable → exactly `-1` in **both** argument orders, and trimming in both directions. Every method is declared `void`, because a Groovy `def` method is silently **not discovered** by Jupiter — which would let a green build hide missing coverage and reproduce the very vacuous pass under repair. All ten ran and passed (3.8) | **YES** | `FACT` |
-| ↳ `buildSrc/src/main/groovy/BuildHelper.groovy` | **(iii)** The `finally` arm's two null-guarded `close()` calls are **nested** rather than sequential at `[buildSrc/src/main/groovy/BuildHelper.groovy:L55-L67]`: `try{ if (reader1 != null) reader1.close() } finally{ if (reader2 != null) reader2.close() }` | **Not itemized in advance, and it is a fix rather than a new behaviour.** Written as two statements in a row, a throw from the first `close()` leaves the `finally` block immediately and the second reader is never closed — a descriptor leaked for the lifetime of a Gradle daemon that outlives the build. Nesting is what makes "both readers are closed on every exit path" true even when the first close throws; both null-guarded `close()` calls are preserved verbatim. The inner `finally` still lets the failing close propagate, so the `-1`-on-exception behaviour `[PROGRAM-PLAN.md:L2628]` requires is unchanged, and Groovy 2.5.12 — the version Gradle 6.9.4 embeds (2.4) — has no try-with-resources, so nesting is the only available form. Verdicts, printed output and return values are untouched: the comparator's ten tests pass unchanged (3.8) | **NO** — added by a review checkpoint, ledger commit 5 | `FACT` |
-| `RUN-1A-HANDOFF.md` | **CREATE**, then revised by two review-remediation checkpoints — ledger commit 4, and ledger commit 5, which repaired this document's git-provenance layer, its evidence labels, its temporal wording and its end-of-file hygiene, added the six security deferrals 13.12-13.17 with the confidentiality redactions of 2.6 and 4.7, corrected two code-comment inaccuracies inside its fenced examples, and re-anchored every locator, file size, ledger row and re-measured `approvalTest` figure the comment remediation moved (section 1) | The run's only document and the next run's entry precondition | **YES** | `FACT` |
+| ↳ `buildSrc/src/main/groovy/BuildHelper.groovy` | **(iii)** The `finally` arm's two null-guarded `close()` calls are **nested** rather than sequential at `[buildSrc/src/main/groovy/BuildHelper.groovy:L55-L67]`: `try{ if (reader1 != null) reader1.close() } finally{ if (reader2 != null) reader2.close() }` | **Not itemized in advance, and it is a fix rather than a new behaviour.** Written as two statements in a row, a throw from the first `close()` leaves the `finally` block immediately and the second reader is never closed — a descriptor leaked for the lifetime of a Gradle daemon that outlives the build. Nesting is what makes "both readers are closed on every exit path" true even when the first close throws; both null-guarded `close()` calls are preserved verbatim. The inner `finally` still lets the failing close propagate, so the `-1`-on-exception behaviour `[PROGRAM-PLAN.md:L2628]` requires is unchanged, and Groovy 2.5.12 — the version Gradle 6.9.4 embeds (2.4) — has no try-with-resources, so nesting is the only available form. Verdicts, printed output and return values are untouched: the comparator's ten tests pass unchanged (3.8). The review finding that prescribed this arrangement, the baseline sequential form it departs from, and the residual case where **both** closes throw are recorded as deviation **D8** in 11.9 | **NO** — directed by a review checkpoint's CWE-772 resource-management finding and carried by ledger commit 5; classified as deviation D8 | `FACT` |
+| `RUN-1A-HANDOFF.md` | **CREATE**, then revised by **three** review-remediation checkpoints — ledger commit 4; ledger commit 5, which repaired this document's git-provenance layer, its evidence labels, its temporal wording and its end-of-file hygiene, added the six security deferrals 13.12-13.17 with the confidentiality redactions of 2.6 and 4.7, corrected two code-comment inaccuracies inside its fenced examples, and re-anchored every locator, file size, ledger row and re-measured `approvalTest` figure the comment remediation moved; and ledger commit 6, the acceptance gate's remediation, which restates the three additive tag names as **local-only and unpublished** against a live `git ls-remote origin` and repoints every recovery command, ancestry claim and re-run expectation at refs that exist there (1.1, 1.2, 4.6, 11.7, 13.11, 14), names the **clone class** behind the withdrawn command of 1.1, re-anchors seven `build.gradle` locators in 13.13 and 13.14, restates 4.2's `StopExecutionException` grep in its stable **scoped** form, corrects 6.4's `> Task :buildSrc:test` line against the log it came from, completes 4.7's URL enumeration, and classifies the two unmandated code edits as deviations **D7** and **D8** (11.9) — touching **no** code file (section 1) | The run's only document and the next run's entry precondition | **YES** | `FACT` |
 
 `FACT` — **no other file was modified.** Specifically and deliberately: no `settings.gradle` edit
 (`[settings.gradle:L1]` is a single `rootProject.name = 'cobol-check'` assignment with no `include`
@@ -1239,12 +1289,22 @@ from 8 spaces to 12, because the mandated relocation re-indented the whole body 
 of this document said exactly that; reasoning: re-indentation changes bytes, and the property actually
 preserved is the call expression and the import contract, not the line.
 
-`FACT` — **`StopExecutionException` no longer appears in executable build code.** `git grep -n
-StopExecutionException` returns four hits, and none of them is a throw or an import:
-`[build.gradle:L242]` inside the explanatory comment on the substitution, `[PROGRAM-PLAN.md:L957]`
-and `[PROGRAM-PLAN.md:L2591]` in the carried plan, and this document. `INFERENCE` — the accurate claim
-is therefore scoped to executable code; reasoning: tracked documentation legitimately names the type
-in order to explain why it was replaced.
+`FACT` — **`StopExecutionException` no longer appears in executable build code.** Measured with the
+**scoped** form, which is the stable one:
+`git grep -c StopExecutionException -- build.gradle buildSrc/` prints exactly `build.gradle:1`, and that
+one hit is inside the explanatory comment on the substitution at `[build.gradle:L242]` — not a `throw`,
+not an `import`, and nothing in `buildSrc/` at all. `FACT` — **an earlier edition of this paragraph
+reported an unscoped count of "four hits", and that figure is withdrawn as both wrong and intrinsically
+unstable.** The unscoped corpus includes this document and the carried plan, so the count moves whenever
+either is edited: measured now, unscoped `git grep -c StopExecutionException` prints `PROGRAM-PLAN.md:2`
+and `build.gradle:1`, plus a third line for this document whose value is set by whatever this edition
+itself writes about the type. `INFERENCE` — a
+count that changes when the asserting document is edited cannot be evidence for that document's own
+claim, which is why the scoped form is quoted instead; reasoning: the scoped set is exactly the code the
+claim is about, so it is both sufficient and invariant under documentation edits. `FACT` — the type is
+still named in the carried plan at `[PROGRAM-PLAN.md:L957]` and `[PROGRAM-PLAN.md:L2591]`, and in this
+document wherever the substitution is explained; tracked documentation legitimately names the type in
+order to explain why it was replaced, which is exactly why the claim is scoped to executable code.
 
 ### 4.2 Rejected alternatives, recorded rather than forgotten
 
@@ -1263,7 +1323,7 @@ this run with its reason.
 | Recording the JUnit step-down reason as a comment inside `buildSrc/build.gradle` | Two reasons. The file's contents are specified as four blocks with a **two-line** rationale, so a nine-line executor narrative violates the specified shape; and a comment cannot be evidence for itself — citing it as the locator for a measured failure is circular. The reason now lives in section 4.3 with the real command, exit status and unedited output behind it | `FACT` — the earlier edition of that file carried exactly that comment and it was removed |
 | Re-pointing the published tag onto the true final commit | It is published, so anything downstream may already have resolved it; moving it silently changes what a recorded name means, which is the failure the immutability rule exists to prevent `[PROGRAM-PLAN.md:L2834]`. **A separate annotated tag adds an identity and destroys none, and that is the route actually taken**: `run-1a-approval-harness-repair-ending` names the ending commit while the mandated name was left byte-identical. **The same discipline was applied a second time inside this checkpoint**: when a correction landed after `run-1a-approval-harness-repair-authoritative` had been created and published, that tag was left in place and a new name was created rather than re-pointed (1.2) | `FACT` for the decision and for its ground at the cited locator |
 | Reconciling a stale local tag ref with `git fetch --tags --force origin` or `git update-ref` | Both **write** refs, so neither is the "read-only fix" an earlier edition of this document called them: the first can overwrite every local tag and the second rewrites the recovery ref itself. Replaced by read-only comparison (`git ls-remote`, `git show-ref`, `git rev-parse`) followed by stop-and-report or a fresh platform-authorized clone (1.2) | `FACT` — the withdrawal and its replacement are in 1.2 and in the do-not-do table there |
-| Manufacturing a single-commit ledger by reverting the four already-correct paths and re-applying them | It fabricates a change no file needed and puts a commit that un-does the repair on the branch, to satisfy a bookkeeping shape that costs recovery nothing — a tag resolves to a tree, not to a diff (section 1). The five-commit ledger is disclosed instead, in section 1 and 13.11 | `FACT` for the disclosure; `INFERENCE` for the recovery reasoning, stated in section 1 |
+| Manufacturing a single-commit ledger by reverting the four already-correct paths and re-applying them | It fabricates a change no file needed and puts a commit that un-does the repair on the branch, to satisfy a bookkeeping shape that costs recovery nothing — a tag resolves to a tree, not to a diff (section 1). The six-commit ledger is disclosed instead, in section 1 and 13.11 | `FACT` for the disclosure; `INFERENCE` for the recovery reasoning, stated in section 1 |
 
 ### 4.3 The RESOLVED JUnit coordinate
 
@@ -1407,6 +1467,16 @@ modification that never occurred would be a fabrication.
 **`0 0` on every one — mode-only churn, zero content change.** `FACT` — after the `chmod 0644` restore
 the same command produces **no output at all**, i.e. no diff whatsoever, which is strictly stronger.
 
+`FACT` — **the acceptance checkpoint (ledger commit 6) reproduced this table's churn and this restore.**
+Its own cold-tree `clean approvalTest` run (3.4) left ` M approvaltest`, ` D build/distributions/…zip`,
+` M build/libs/…jar`, ` M cobolcheck`, ` M scripts/linux_gnucobol_run_tests` and the untracked
+`actual-output.txt`, `buildSrc/build/`, `temp/` and `testruns/`; target #3 again never became dirty, for
+the reason above. All of it was returned the same way — a **targeted** `git checkout --` for the two
+archives, `chmod 0644` for the three scripts, and removal of the four untracked paths — after which
+`git status --porcelain` printed exactly one line, `M RUN-1A-HANDOFF.md` (4.5), `git ls-files -s` showed
+mode `100644` and the tracked blob for all six targets, and `git diff --numstat` for the three scripts
+produced no output.
+
 `FACT` — **the three mode grants were session-local and NONE was committed.** Making them durable is a
 change to tracked script surface, is not one of the two itemized changes, and is itemized to the next
 run — see section 13.7. `FACT` — the mechanism is visible from the other direction too: with the grant
@@ -1433,7 +1503,7 @@ typed at any point**, and no path outside the repository root was ever a deletio
 ### 4.5 Working-tree and scope confirmation
 
 `FACT` — `git status --porcelain` in each review checkpoint **after** restoring and immediately before
-that checkpoint's final commit; complete output in both cases. Ledger commit 4:
+that checkpoint's final commit; complete output in all three cases. Ledger commit 4:
 
 ```text
 M  RUN-1A-HANDOFF.md
@@ -1442,8 +1512,8 @@ M  buildSrc/src/test/groovy/BuildHelperTest.groovy
 ```
 
 `FACT` — those three paths are the review remediation carried by ledger commit 4, and all three are
-already in scope. `FACT` — the same command immediately before **ledger commit 5**, the run's final
-commit, printed **four** lines, because that checkpoint carried the comparator's nested-close fix, the
+already in scope. `FACT` — the same command immediately before **ledger commit 5** printed **four** lines,
+because that checkpoint carried the comparator's nested-close fix, the
 comment-and-docstring remediation of two code paths, and this document:
 
 ```text
@@ -1453,10 +1523,24 @@ M  buildSrc/src/main/groovy/BuildHelper.groovy
 M  buildSrc/src/test/groovy/BuildHelperTest.groovy
 ```
 
-`FACT` — those two lists are the two review remediations (section 1), and every path in either list is
-already in scope. `FACT` — in both cases the six restore targets of 4.4 were returned with a **targeted**
+`FACT` — and the same command immediately before **ledger commit 6**, the run's final commit, printed
+exactly **one** line, because that checkpoint is the acceptance gate's remediation of this document and
+touches no code file:
+
+```text
+M  RUN-1A-HANDOFF.md
+```
+
+`FACT` — that one-line list is corroborated by `git diff --stat HEAD -- build.gradle buildSrc/` being
+**empty** in the same working tree: `build.gradle`, `buildSrc/build.gradle` and both `buildSrc` sources
+are byte-identical to the tree ledger commit 5 published, so the three root-cause repairs, the ten-test
+contract and the comparator's contract are untouched by that commit.
+
+`FACT` — those three lists are the three review remediations (section 1), and every path in any of them is
+already in scope. `FACT` — in **all three** cases the six restore targets of 4.4 were returned with a
+**targeted**
 `git checkout --`, the three harness scripts were reverted to mode `0644`, and the untracked run residue —
-`actual-output.txt`, `temp/`, `testruns/` and `buildSrc/build/` (13.9) — was removed, which is why neither
+`actual-output.txt`, `temp/`, `testruns/` and `buildSrc/build/` (13.9) — was removed, which is why **no**
 list carries a sixth entry or an untracked one. `INFERENCE` — a commit that touches fewer than five paths
 does not narrow what the run delivers or what its tip recovers; reasoning: the scope proof below is taken
 against the **starting commit** rather than against the previous commit, so it reports the whole run's
@@ -1503,10 +1587,12 @@ summary: the mandated annotated tag `run-1a-approval-harness-repair` names ledge
 on `origin`, is an ancestor of the branch tip, and is **immutable — not moved, not deleted, not
 re-pointed, not force-fetched over by this checkpoint**, so it is the **entry gate** and not a source of
 the final state; the three additive tag names `run-1a-approval-harness-repair-ending`,
-`-authoritative` and `-final` were each created **once** and never moved, but each names an intermediate
+`-authoritative` and `-final` were each created **once** and never moved, but each is **LOCAL-ONLY and
+absent from `origin`** (measured: a full `git ls-remote origin` returns eight refs carrying exactly one
+tag-name pair, the mandated one), each names an intermediate per-clone
 checkpoint state and **none of them is an ancestor of the tip** (measured, rc=1), so the **recovery point
 is the tip itself**, whose tree carries all five in-scope paths and which one read-only command resolves; and the OPEN conditions (the mandated name's pre-publication
-re-point, that name not resolving the final commit, and the five-commit ledger) are itemized for a
+re-point, that name not resolving the final commit, and the six-commit ledger) are itemized for a
 platform-directed lineage in 13.11.
 
 `FACT` — the commands a later run should re-run, and what each must show:
@@ -1515,10 +1601,10 @@ platform-directed lineage in 13.11.
 | --- | --- | --- |
 | `git rev-list -n 1 run-1a-approval-harness-repair` | `0fce8cec9cf71b8b65ec24c5ed58b2d74aa5b09b` — ledger commit 3, the **entry gate** and **not** the ending commit | `FACT` — measured; section 1.2 |
 | `git cat-file -p run-1a-approval-harness-repair` | a **tag** object whose message contains that same 40-character SHA | `FACT` — measured; quoted in full in section 1.2 |
-| `git rev-parse HEAD` | the run's ending commit — ledger commit 5, the destination branch's tip, which **no** tag names. **Use `HEAD`, not a literal `refs/heads/…` name**: 1.1 records the measured case where the literal form resolved to the *starting* commit instead | `FACT` — the command is executable as written and clone-independent; its output is not asserted here for the reason below |
+| `git rev-parse HEAD` | the run's ending commit — ledger commit 6, the destination branch's tip, which **no** tag names. **Use `HEAD`, not a literal `refs/heads/…` name**: 1.1 records the measured case where the literal form resolved to the *starting* commit instead | `FACT` — the command is executable as written and clone-independent; its output is not asserted here for the reason below |
 | `git diff --name-status 8640f8e4f78ce84496ad3542bb75f3d77e998191 HEAD` | **exactly five lines** — the five in-scope paths of section 4.1, with no sixth entry | `FACT` — same |
-| `git rev-list --count run-1a-approval-harness-repair..HEAD` | **2**, and `git log --oneline` over the same range names ledger commits 4 and 5 | `FACT` — same |
-| `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` | lines under `refs/tags/` for the mandated name **and** for the three additive names the ledger in 1.2 disqualifies — `-ending`, `-authoritative` and the dead `-final` | `FACT` — same |
+| `git rev-list --count run-1a-approval-harness-repair..HEAD` | **3**, and `git log --oneline` over the same range names ledger commits 4, 5 and 6 | `FACT` — same |
+| `git ls-remote --tags origin 'run-1a-approval-harness-repair*'` | **exactly ONE name** under `refs/tags/` — the mandated `run-1a-approval-harness-repair`, printed as its annotated object and its peeled commit. **No line for `-ending`, `-authoritative` or `-final`**: measured live, those three are **local-only** and `origin` carries no ref for any of them, so a fresh clone cannot resolve them and nothing may be recovered through them (1.2). An earlier edition of this row expected four names; the measurement refutes it | `FACT` — measured with a full `git ls-remote origin`, which returns eight refs in total |
 | `git ls-remote --heads origin blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9` | one non-empty line under `refs/heads/` for the **destination** branch of section 1. **Read it from `origin`, never as a local ref** — the local ref of that name resolves the *starting* commit in a per-clone checkout (1.1) | `FACT` — same |
 | `git rev-parse --abbrev-ref HEAD` | the branch the reader is actually on. **A per-clone working branch is published under its own name and reconciled onto the destination branch** (section 1), so confirm it rather than assuming the two names are the same ref | `FACT` — same |
 
@@ -1532,10 +1618,12 @@ change the commit and therefore the results. **Re-run the commands — that is t
 request**, never by pushing to it; `Developer` on `origin` is untouched at `c79624bd…`. **No force-push
 of any branch, and no history rewritten** — no commit was amended, rebased, reset or deleted. Commits
 were made only on the platform-cut branch each checkpoint was given, never on any branch a checkpoint
-created: ledger commits 1-4 under the destination name `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9` and
-the final checkpoint's work on a per-clone working branch the platform reconciles onto that same
-destination branch (section 1). No branch was renamed and none was duplicated, and the only refs pushed
-were those branches and the tags named in 1.2, each by explicit name. `FACT` — remotes are reported by
+created: ledger commits 1-4 under the destination name `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9`,
+ledger commit 5 on a per-clone working branch the platform reconciles onto that same destination branch,
+and ledger commit 6 on the destination name itself (section 1). No branch was renamed and none was
+duplicated, and **the refs `origin` actually carries from this run are those branches and exactly one
+tag** — the mandated `run-1a-approval-harness-repair`, measured live; the three additive names of 1.2 are
+local-only and `origin` holds no ref for any of them, and no push used `--force`. `FACT` — remotes are reported by
 **name** only and never by URL: four
 are configured — `origin` and the three fetch-only research remotes `upstream`, `gm` and `livingmf`,
 whose push URLs are disabled mechanically — and `origin` is the only push target.
@@ -1576,11 +1664,18 @@ is disclosed.
 > forbidden `[PROGRAM-PLAN.md:L2834]`, so the residual is carried as OPEN in 13.11 — the same fresh
 > platform-directed lineage that item already requires closes it.
 
-`FACT` — the only URLs present are public and unauthenticated, and each is there for a reason: the
-GNU GPL notice inside the verbatim `cobc --version` banner (2.1), the wrapper's
-`distributionUrl` line read from `[gradle/wrapper/gradle-wrapper.properties]` (2.4), and the issue and
-pull-request links of section 9. `FACT` — measured with a URL sweep over this file, recorded in
-`EVIDENCE/credential-scan.log`: those are the only matches.
+`FACT` — the only URLs present are public and unauthenticated, and each is there for a reason, in **four**
+classes: the GNU GPL notice inside the verbatim `cobc --version` banner and the sentence that resolves it
+(2.1), the wrapper's `distributionUrl` line read from `[gradle/wrapper/gradle-wrapper.properties]` (2.4),
+the upstream issue and pull-request links of section 9, and the JUnit project's published **security
+policy**, cited in 13.17 as the source for which Jupiter lines are supported. `FACT` — measured with a URL
+sweep over this file: those four classes are the only matches, and every one is an unauthenticated public
+page carrying no credential, no token and no query parameter. `FACT` — **an earlier edition of this
+paragraph listed only the first three and asserted "those are the only matches"**; the fourth class
+entered with 13.17 in a later checkpoint and the enumeration had not caught up. `INFERENCE` — the
+enumeration is worth keeping exhaustive rather than replaced by a blanket assurance, because its purpose
+is that a reader can check each entry against the sweep; reasoning: a class-by-class list is falsifiable
+where "no credentials present" is not.
 
 `FACT` — **verdict: CLEAN. No credential was emitted. The commit was not blocked.**
 
@@ -1762,8 +1857,19 @@ change, its allowed-status problem and its `BLOCKED-BY` in 13.14.**
 
 1. `FACT` — it makes the whole project out-of-date **once**.
 2. `FACT` — it adds `buildSrc` compilation **plus its test run to every Gradle invocation** —
-   including `./gradlew tasks`, where `> Task :buildSrc:test` appears at log line 11 (3.7), and
-   `./gradlew clean test`, where it appears at line 11 as well.
+   including `./gradlew tasks`, where `> Task :buildSrc:test` appears at line **12** of
+   `EVIDENCE/verify-tasks.log` and **executed** there (3.7), and `./gradlew clean test`, where it appears
+   at line **11** of `EVIDENCE/verify-test.log` reporting `UP-TO-DATE`. `FACT` — **the line number is a
+   property of the individual log rather than of the command, and the one-line difference has a
+   mechanism**: Gradle prints a blank line before the header of a task it actually *executes* and none
+   before an `UP-TO-DATE` one, so an executing `:buildSrc:test` lands at 12 and a skipped one at 11.
+   Both cases are visible in the two logs named above, and the pairing inverts in a warm-tree re-run: in a
+   later pair retained outside this repository by a review checkpoint, the `tasks` log carries the marker
+   at line 11 as `UP-TO-DATE` and the `clean test` log carries it at line 12 executed. `INFERENCE` — an
+   earlier edition of this
+   point put the `tasks` figure at line 11 while citing 3.7, which states 12; reasoning: both numbers are
+   real but belong to different logs, so each is now stated with the log it came from rather than as a
+   property of the command.
 3. `FACT` — **therefore a failing `BuildHelperTest` fails every Gradle command** — demonstrated for
    real in this session: with the coordinate temporarily set to 5.14.4, `./gradlew tasks` itself
    exited 1 (4.3).
@@ -2141,20 +2247,31 @@ all**; no history was rewritten, no branch was force-pushed, and nothing was del
 the git-provenance checkpoints created is two **new** annotated tag names, each once and neither ever
 moved — `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-ending`, both
 at intermediate review-remediation commits, and **neither an ancestor of the reconciled tip** (measured,
-rc=1; 1.2). `FACT` — **the final checkpoint created no tag at all**: refs were read-only context for it,
-minting a fifth name would compound the very lineage defect this section records, and the two-direction
-test in 1.2 already detects a tag that a later commit has overtaken. **Consequence, stated plainly: no tag
-names the run's ending commit — resolve it as the destination branch's tip (1.1).**
+rc=1; 1.2). `FACT` — **and neither of them, nor the earlier `-final` name, is on `origin`: measured live,
+a full `git ls-remote origin` returns eight refs carrying exactly one tag-name pair — the mandated name,
+annotated `85db4fa3…` peeling to `0fce8cec…`. All three additive names are therefore LOCAL-ONLY**, an
+earlier edition of this section and of 1.2 described them as published, and that description is
+**withdrawn**. `INFERENCE` — the practical consequence is narrower than it sounds but must not be
+understated: a fresh clone resolves none of the three, so any recovery instruction naming them would
+hard-fail there, which is why every command in 1.1, 1.2 and 4.6 now names only the mandated tag,
+`origin`'s head of the destination branch, or `HEAD`; reasoning: `git ls-remote` reports what a fresh
+clone would fetch, and it reports one tag. `FACT` — **the last two checkpoints created no tag at all**:
+refs were read-only context for both, minting a further name would compound the very lineage defect this
+section records, and the two-direction test in 1.2 already detects a tag that a later commit has
+overtaken. **Consequence, stated plainly: no tag names the run's ending commit — resolve it as the
+destination branch's tip (1.1).**
 
 `FACT` — **a second condition was OPEN alongside it and is now mitigated rather than closed: the
 mandated name does not name the run's final commit.** It peels to ledger commit 3 while the tip is ledger
-commit 5 (section 1), so the gap has widened from one commit to **two** — a property of an immutable tag
+commit 6 (section 1), so the gap has widened from one commit to **three** — a property of an immutable tag
 rather than a new defect. `FACT` — the difference between them is this document in successive editions,
 the nine comment lines removed from `buildSrc/build.gradle`, the comparator test's unreadable-path
-fixture, the comparator's nested-close fix (4.1, change iii), and the comment remediation of ledger
+fixture, the comparator's nested-close fix (4.1, change iii), the comment remediation of ledger
 commit 5 — one deleted comment in `build.gradle` and the comparator test's comments cut from 93 lines to
-17 (4.1, 4.2) — so the inheritance risk is documentary **and**, for a session that checks out the mandated
-tag itself, both a different test contract and a comparator that can leak a descriptor. `FACT` — **what
+17 (4.1, 4.2) — and the git-provenance and locator corrections of ledger commit 6, including this
+section's own withdrawn publication claim — so the inheritance risk is documentary **and**, for a session
+that checks out the mandated tag itself, both a different test contract and a comparator that can leak a
+descriptor. `FACT` — **what
 mitigates it is that the tip itself is resolvable read-only in one command, and what it recovers is
 provable rather than asserted**: `git diff --name-status <starting commit> HEAD` prints exactly the five
 in-scope paths (1.1, 4.5). `INFERENCE` — the safe reading order for a later session is therefore: resolve
@@ -2175,14 +2292,15 @@ classification was wrong, and both are withdrawn** — they now sit in the do-no
 `git push --tags`. `FACT` — this clone does not exhibit the hazard: its ref and `origin`'s resolve to the
 same tag object.
 
-`FACT` — **a third tag name exists and is not authoritative.**
+`FACT` — **a third additive tag name exists locally and is not authoritative.**
 `run-1a-approval-harness-repair-final` resolves to `eef4c953…`, which `git merge-base --is-ancestor`
 reports is **not** an ancestor of the branch tip (rc=1); it names an intermediate revision superseded by
-ledger commit 4 and then by ledger commit 5. `INFERENCE` — a later session should resolve the **mandated**
+ledger commit 4 and then by ledger commits 5 and 6, and like the other two additive names it is
+**absent from `origin`** (measured). `INFERENCE` — a later session should resolve the **mandated**
 name or the working branch's `HEAD`, and treat any other name as unverified; reasoning: the contract
 defines exactly one tag name for this run `[PROGRAM-PLAN.md:L2834]`, so a name it does not define carries
 no guarantee about what it points at — and because this one is not an ancestor of the tip, a range taken
-from it is not merely stale but meaningless. `FACT` — it too was left exactly as published: not moved, not
+from it is not merely stale but meaningless. `FACT` — it too was left exactly where it was: not moved, not
 deleted, not re-pointed.
 
 
@@ -2196,7 +2314,7 @@ repository root, so it does not match `buildSrc/build`. `FACT` — the plan's re
 actually surface as untracked residue are `actual-output.txt`, `temp/`, `testruns/` and
 `buildSrc/build/`. All were removed before committing (4.4), and the gap is itemized in section 13.9.
 
-### 11.9 Deviations D1 through D6, disclosed
+### 11.9 Deviations D1 through D8, disclosed
 
 | ID | Deviation | Disposition | Label |
 | --- | --- | --- | --- |
@@ -2206,6 +2324,16 @@ actually surface as untracked residue are `actual-output.txt`, `temp/`, `testrun
 | **D4** | The toolchain anchors and post-repair size figures were **inference-grade** in the authoring context (no JDK, no `cobc`, no profile script there) and required re-verification | **Re-verified in this clone, and the carried figures hold.** The compiler anchor matches character for character (2.1), `COB_CFLAGS` matches with exactly one `-D_FORTIFY_SOURCE` (2.2), `core.autocrlf` is `false` (2.3), the OS matches (2.5), the 332-line capture oracle is **MET** (3.5), the `+98`-line staleness is **CONFIRMED** (11.1), and `clean test` is green at 457/0 on JDK 11 (3.1). The JDK 8 and JDK 21 data points were **not** re-run — see 11.10 | `FACT` |
 | **D5** | The authoring checkout sat on a branch refused as a commit target, so a platform-cut run branch had to be used, and only `origin` was configured at authoring | **Resolved.** All work is on the platform-cut run branch `blitzy-c6a5b9be-55c0-4097-a5b9-e70d8c6c4ce9` (section 1). Measured here: **four** remotes are configured — `origin` plus the fetch-only research remotes `upstream`, `gm` and `livingmf`, whose push URLs are disabled mechanically — and `origin` is the only push target (4.6). No remote's URL is reproduced in this document (4.7) | `FACT` |
 | **D6** | Introducing `buildSrc` has build-wide side effects | **Disclosed, not avoided.** Full measured detail in 6.4: one whole-project invalidation, `buildSrc` compile-and-test on **every** invocation, and therefore a failing `BuildHelperTest` failing every Gradle command — demonstrated for real in 4.3. Five-path scope unaffected; one extra untracked directory (11.8); five JDK illegal-reflective-access warnings that originate in the Gradle distribution's own Groovy jar | `FACT` |
+| **D7** | **An unmandated edit inside the relocated task body.** One *pre-existing* comment line — `// grant execute permission to run script` — was **deleted** rather than re-indented with the rest of the body. The starting commit `8640f8e4f78ce84496ad3542bb75f3d77e998191` carries it at line **212** of its `build.gradle` — read it with `git show 8640f8e4f78ce84496ad3542bb75f3d77e998191:build.gradle \| sed -n '212p'` — directly above the `chmod +x ./approvaltest` invocation that now sits at `[build.gradle:L220]`. The plan's change (i) is to move the body **formerly** at `[build.gradle:L205-L239]` — the starting commit's numbering — **in full** `[PROGRAM-PLAN.md:L2620-L2622]`, and removing a line from inside the moved block is not an edit that instruction authorises | **ACCEPTED, and it was directed rather than volunteered.** It closes an earlier review checkpoint's comment-quality finding against `build.gradle:220` — the comment "merely restates the immediately following `chmod +x ./approvaltest`", and the prescribed resolution was to "Delete the comment only; leave the chmod operation unchanged". **Behaviour-neutral, and measured rather than asserted:** `git diff 80ca324eb5da64bb0f77d0324698eec7dec6a48e ddc0c3b522fbce71a48e5d27b120a94897a0c4e4 -- build.gradle` is that one deleted line and nothing else, and the filtered diff of every non-comment, non-blank changed line is **empty**. Its only consequence is arithmetical — every line below it moved up by one, which is why the throw sits at `[build.gradle:L246]` rather than 247 (3.4) and why 13.13 and 13.14 were re-anchored. **Restoring the line was considered and rejected on two measurements, not on convenience:** it would re-open the comment-quality finding that required the removal, and it would push every `build.gradle` line from 220 onwards back down by one — de-aligning about twenty locators in 3.4, 3.6, 4.1, 4.2, 6.x, 13.5 and 13.15 that are correct as written, the measured **274**-line size in 4.5, and the verbatim `Build file '<REPO_ROOT>/build.gradle' line: 246` block quoted in 3.4 | `FACT` for the baseline locator, the diff measurement and the finding's wording — the review report is session-local and outside the repository, cited by its finding identity (finding 1, MINOR, `build.gradle:220`, "Comment Quality"); `INFERENCE` for the classification, reasoning: the instruction authorises *moving* the body, so removing a line from it is a departure, and a departure is declared here rather than left implicit |
+| **D8** | **The comparator's `finally` arm is nested rather than sequential.** The starting commit's inline class closed the two readers with sequential null-guarded calls at lines **291-292** of its `build.gradle` — read them with `git show 8640f8e4f78ce84496ad3542bb75f3d77e998191:build.gradle \| sed -n '290,293p'` — while the relocated class wraps them as `try{ if (reader1 != null) reader1.close() } finally{ if (reader2 != null) reader2.close() }` at `[buildSrc/src/main/groovy/BuildHelper.groovy:L62-L66]`. The relocation's preserve-exactly list names those two null-guarded `close()` calls, so the **arrangement** is a departure even though both calls and both guards survive verbatim | **ACCEPTED as the safer form, and it too was directed.** It closes an earlier review checkpoint's resource-management finding (CWE-772) against `BuildHelper.groovy:55-57` — written as two statements in a row, a throw from the first `close()` leaves the `finally` block immediately and the second reader is never closed — whose prescribed resolution was "nested/independent close handling so both closes are attempted while preserving a failing exception". **Preserved:** both `close()` calls, both `!= null` guards, the signature, the `0`/`1`/`-1` contract, every printed message, and the `-1`-on-exception behaviour `[PROGRAM-PLAN.md:L2628]` — the inner `finally` lets a failing close propagate rather than swallowing it — and the ten comparator tests pass unchanged (3.8). **Residual, stated rather than glossed:** if *both* closes throw, the exception from the inner `finally` replaces the one already in flight, so the first failure is masked. **Reverting to the sequential form was considered and rejected**: it would re-open the CWE-772 finding this arrangement closed, and Groovy 2.5.12 — the version Gradle 6.9.4 embeds — has no try-with-resources, so nesting is the only available form that attempts both | `FACT` for the two locators, the preserved properties and the finding's wording — cited by its finding identity (finding 1, MINOR, `BuildHelper.groovy:55-57`, "Resource Management / CWE-772") in a session-local report outside the repository; `INFERENCE` for the residual and the classification, reasoning: Java and Groovy both specify that an exception raised in a `finally` block supersedes one in flight, so the choice is between masking one close failure and leaking one descriptor for the lifetime of a daemon that outlives the build, and only the second is unbounded |
+
+`FACT` — **D7 and D8 were both carried by ledger commit 5, each closes a specific earlier review
+finding, and neither touches the three root causes, the ten-test contract or the five-path scope.**
+`INFERENCE` — they are the two edits an acceptance review can legitimately read as unmandated, and each
+is now **classified** rather than merely described; reasoning: they are the only two changes in the four
+code files that the plan's own change list does not enumerate, and both are behaviour-neutral on every
+path this run exercises — the filtered non-comment diff of `build.gradle` is empty (D7) and the
+comparator's ten tests pass unchanged (D8, 3.8).
 
 ### 11.10 What was NOT re-measured, stated so it is not mistaken for confirmed
 
@@ -2414,27 +2542,33 @@ run's final commit**, and no single commit carries all five paths together
 `[PROGRAM-PLAN.md:L2833-L2834]`. `FACT` — a third condition, stated below, rides on the same repair: two
 absolute shared-workspace paths are already published in earlier editions of this document.
 
-`FACT` — **what was already done, so the next reader does not redo it**: both published tags were left
-exactly as published by **both** review checkpoints — no `git tag`, `git tag -f`, `git tag -d`,
+`FACT` — **what was already done, so the next reader does not redo it**: the one published tag — the
+mandated name, which a full `git ls-remote origin` shows is the **only** tag `origin` carries for this run
+— was left exactly as published by **all three** review checkpoints: no `git tag`, `git tag -f`,
+`git tag -d`,
 `git push --tags` or forced write of any kind, and no local tag-ref rewrite either (1.2); the tag ref in
 each checkpoint's clone resolves to the same object `origin` carries, so local and remote resolution agree
 and no ref names an orphaned commit; and each review remediation was delivered as **one** commit, the
-later of which (ledger commit 5) carries the final state of all five paths in its tree (4.5, 4.6).
+last of which (ledger commit 6) carries the final state of all five paths in its tree (4.5, 4.6).
 `FACT` — two **additive** annotated tag names were also created during review remediation,
 `run-1a-approval-harness-repair-authoritative` and `run-1a-approval-harness-repair-ending`, each exactly
 once and neither ever moved; both name intermediate checkpoint states, **neither is an ancestor of the
-reconciled tip** (measured, rc=1), and the ledger in 1.2 disqualifies both explicitly rather than leaving
-a reader to guess. `FACT` — and the resolving commands this document advertises are now clone-safe and
-read-only: the clone-unsafe `refs/heads/…` form is withdrawn (1.1) and the two ref-**writing** commands an
-earlier edition mis-described as a read-only fix sit in the do-not-do table of 1.2.
+reconciled tip** (measured, rc=1), **and neither is on `origin`** — they, and the earlier `-final` name,
+are local-only, which an earlier edition of this item did not say and which the ledger in 1.2 now states
+explicitly rather than leaving a reader to guess. `FACT` — and the resolving commands this document
+advertises are now clone-safe and
+read-only: the clone-unsafe `refs/heads/…` form is withdrawn (1.1), the two ref-**writing** commands an
+earlier edition mis-described as a read-only fix sit in the do-not-do table of 1.2, and no command names a
+ref that `origin` does not carry.
 `FACT` — the consequence of leaving the tag alone is that the gap it must eventually close has widened
-from one commit to **two**, which is a property of an immutable tag rather than a new defect (1.2, 11.7).
+from one commit to **three**, which is a property of an immutable tag rather than a new defect (1.2, 11.7).
 
 `FACT` — **a third condition rides on the same lineage, and it is a confidentiality one.** Earlier editions
 of this document printed two absolute shared-workspace paths in full — the session evidence directory and
 the root of the checkout it was authored in. They are redacted from this edition as `<session-evidence-dir>`
 and `<repository-root>` (preamble, 2.6, 4.7), but a redaction in a descendant commit cannot reach what is
-already published: both paths remain readable at ledger commits 3 and 4 and at the objects both tags name.
+already published: both paths remain readable at ledger commits 3 and 4, and therefore at the tree the
+mandated tag names.
 `INFERENCE` — no session can close that either; reasoning: the only in-session route is rewriting published
 history, forbidden at `[PROGRAM-PLAN.md:L2834]`, and the redaction that *is* available has already been
 applied.
@@ -2447,15 +2581,19 @@ properties are re-pointing a published tag or rewriting published history, both 
 a human or of the platform**: cut a fresh lineage for this checkpoint in which the five final paths — with
 both absolute paths already redacted — are committed **together**, and the annotated tag
 `run-1a-approval-harness-repair` is created **once**, after that commit, with its message carrying that
-commit's SHA; then verify that the local ref, `origin` and `HEAD` all resolve to it, and that
-`run-1a-approval-harness-repair-final` is retired through platform governance rather than by a local
-delete, before any downstream run starts.
+commit's SHA; then verify that the local ref, `origin` and `HEAD` all resolve to it, and that the three
+local-only additive names — `run-1a-approval-harness-repair-ending`, `-authoritative` and `-final` — are
+retired through platform governance rather than by a local delete, before any downstream run starts.
+`INFERENCE` — retiring them is bookkeeping rather than a recovery requirement now that they are measured
+absent from `origin`; reasoning: a name no remote carries cannot mislead a fresh clone, so what remains is
+to stop the clone that holds them from presenting them as recovery points, which the ledger in 1.2 already
+does in prose.
 
 `FACT` — **do not attempt to close this by moving the published tag, and do not rewrite a local tag ref
 either.** That is the original defect, and the do-not-do table in **1.2** lists every operation that repeats
 it, including the two ref-writing commands an earlier edition of this document mistakenly offered as a
 read-only fix. **Until a fresh lineage exists, the safe inheritance rule is the one in 11.7**: resolve
-`START` from the mandated tag, and read this document from the branch tip — which is two commits ahead.
+`START` from the mandated tag, and read this document from the branch tip — which is three commits ahead.
 `BLOCKED-BY` — nothing in this repository; it is blocked on a platform-directed lineage.
 
 ### 13.12 The comparator's mismatch diagnostics print whole lines, absolute repository root included
@@ -2495,10 +2633,10 @@ three must be taken together.
 ### 13.13 The gate fails OPEN on any operating system it does not recognise
 
 `FACT` — the action recognises exactly two: `[build.gradle:L217]` tests `runningOs == "linux"` and
-`[build.gradle:L228]` tests `runningOs.contains("windows")`. Any other value leaves `weRanATest` at its
-initial `false` `[build.gradle:L214]`, and the `!weRanATest` arm at `[build.gradle:L235-L236]` prints
+`[build.gradle:L227]` tests `runningOs.contains("windows")`. Any other value leaves `weRanATest` at its
+initial `false` `[build.gradle:L214]`, and the `!weRanATest` arm at `[build.gradle:L234-L235]` prints
 `No prepared test for the OS detected: ${runningOs} - skipping` and does nothing else — the comparison,
-the verdict and the throw all sit in the `else` arm at `[build.gradle:L237-L251]`, so none of them is
+the verdict and the throw all sit in the `else` arm at `[build.gradle:L236-L250]`, so none of them is
 reached. `INFERENCE` — the task then **succeeds** having neither executed a COBOL programme nor compared
 a byte, which for a release gate is a fail-open (CWE-754 in kind): "no harness ran" is indistinguishable
 from "nothing is wrong". Reasoning: an action that completes without throwing is a successful task, and
@@ -2537,13 +2675,13 @@ observes the outcome. `BLOCKED-BY` — nothing in this repository; it belongs wi
 exited 4. `FACT` — the mechanism, stated in 6.3 and repeated here as its security reading:
 `[approvaltest:L1-L6]` is six independent invocations with no `set -e`, no status capture and no `exit`,
 so the statuses of 1 through 5 are discarded and only the sixth becomes the script's own status; and
-`[build.gradle:L221-L222]` and `[build.gradle:L224-L225]` call
+`[build.gradle:L220-L221]` and `[build.gradle:L223-L224]` call
 `waitForProcessOutput(System.out, System.err)` without ever consulting `proc.exitValue()` — for the
 `chmod` as well as for the harness.
 
 `INFERENCE` — a programme that prints the expected text and then dies, or a `chmod` that fails, is
 invisible to the gate (CWE-252 / CWE-754 in kind); reasoning: the only value the verdict branch inspects
-is the comparator's return at `[build.gradle:L241]`, so an execution failure has to surface as a
+is the comparator's return at `[build.gradle:L240]`, so an execution failure has to surface as a
 *textual* difference to be caught at all.
 
 `FACT` — **not changed in this run**, and the reason is more than scope. Escalating the status is a third
@@ -2557,7 +2695,7 @@ exist, `STATUS_NORMAL = 0` and `STATUS_HALT = 8`
 migration note. `INFERENCE` — a naive "non-zero fails" rule bolted on here would be wrong rather than
 merely out of scope; reasoning: a failing COBOL test legitimately yields 4, so such a rule would convert
 the two by-design failures into build errors and would displace the mandated failure cause at
-`[build.gradle:L247]`.
+`[build.gradle:L246]`.
 
 `INFERENCE` — **what would close it**: capture each invocation's status inside the harness script,
 aggregate the ones outside the allowed set, surface that aggregate as the script's own status, and have the
@@ -2698,7 +2836,7 @@ specified at `[PROGRAM-PLAN.md:L3099-L3106]`, and every input it needs is presen
 | Confirm the reported green status: `clean test` green at ≥ 457 with zero failures, and `approvalTest` **red** | 3.1 and 3.0/3.4. **The inherited red is expected and correct — do not treat it as breakage** | `FACT` |
 | Confirm the executed COBOL program count is **5**, not 6 | 3.2, with the complete `-p FILECOPY` trace that explains the missing sixth | `FACT` |
 | Confirm the capture is **332 lines**, and record its own byte count beside its own root length | 3.5 and 13.1 — the line count is the portable oracle and the byte count is `26,216 + 13 × root-length` `[PROGRAM-PLAN.md:L2712]` | `FACT` |
-| Resolve the starting point in the steps of 1.2: satisfy the gate's `START` from the mandated tag `run-1a-approval-harness-repair`; recover this document **and** the code from the destination branch's **tip**, which is the ending commit and which no tag names, resolving it through `HEAD` or from `origin` and **never** through a hardcoded `refs/heads/…` ref; and read nothing from the three additive tag names the ledger in 1.2 disqualifies. Confirm the recovery before relying on it — the five-path proof and the ahead-count are both single read-only commands | 1.1, 1.2 and 4.6, with the clone-independent resolving commands, the five-path proof, the ahead-count and the staleness-detection rule | `FACT` |
+| Resolve the starting point in the steps of 1.2: satisfy the gate's `START` from the mandated tag `run-1a-approval-harness-repair`; recover this document **and** the code from the destination branch's **tip**, which is the ending commit and which no tag names, resolving it through `HEAD` or from `origin` and **never** through a hardcoded `refs/heads/…` ref; and read nothing from the three additive tag names the ledger in 1.2 disqualifies — all three are **local-only and absent from `origin`** (measured), so in a fresh clone they do not resolve at all. Confirm the recovery before relying on it — the five-path proof and the ahead-count are both single read-only commands | 1.1, 1.2 and 4.6, with the clone-independent resolving commands, the five-path proof, the ahead-count and the staleness-detection rule | `FACT` |
 | Take up **every** item in this section 13 deferral list and record each disposition | 13.1 through 13.17 — **seventeen items**. Three (13.9, 13.10, 13.11) are new in this run and not on the plan's carried list; **six (13.12 through 13.17) were raised by the security and supply-chain review checkpoint** and are security findings this run is not authorized to fix — an unsupported-OS fail-open, discarded process statuses, an up-to-date gate bypass, a symlink-following capture, a comparator that prints absolute paths, and a Jupiter line below JUnit's supported floor; 13.11 is the git-lineage item and is blocked on a platform-directed run, not on repository work | `FACT` |
 | Read section 11 and state whether anything there changes its plan | 11.1 through 11.10 — note especially the **confirmed** 332-line oracle and `+98` staleness (11.1), the **confirmed** `COB_CFLAGS` whose enforcement is still untracked (11.2, 13.10), the refuted `-p buildSrc test` invocation form (11.6), the tag lineage with its stale-ref hazard (11.7), and the two product defects characterised from source: the unconditional stderr `println` and the two-character `removeLastIndex` truncation (3.5, 13.8) | `FACT` |
 | Read section 6 and respect every architecture decision | 6.1 through 6.4 — the `buildSrc` relocation and Groovy 2.5.12 coupling, the deliberate default package, `doLast` + `GradleException`, the explicit **NO** on child exit-status escalation, and the D6 side effects | `FACT` |
