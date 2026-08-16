@@ -2,64 +2,67 @@
 
 ## 1.1 Project Overview
 
-This project delivers the executable revival plan for `blitzy-cobol-check`, a fork of the archived `openmainframeproject/cobol-check` COBOL unit-test precompiler at version 0.2.19. The deliverable is a planning artifact, not code: `PROGRAM-PLAN.md` fixes a ten-run sequence that repairs the approval harness, builds a characterization safety net, modernizes the build and identity, corrects defects, adopts the upstream contributions, then adds SQL, file-I/O and CICS mocking and test generation at scale. Alongside it, `upstream-harvest/` preserves a one-time authenticated read of an archived repository — 45 issues, 8 pull requests, both review threads — so the backlog never has to be re-scraped. The reader is the fork's maintainer.
+`cobol-check` is a COBOL unit-testing precompiler: it merges test suites into a COBOL program, compiles it with GnuCOBOL, runs it and reports results. Its Gradle build carries an approval gate comparing the harness's live output against an approved baseline — the only automated protection over the product's observable output format. That gate could not fail. Its body ran while Gradle was still evaluating the build script, so no COBOL was compiled, and its comparator reported a zero-byte capture as identical to a 234-line baseline. This work makes the gate capable of reporting the truth, and proves it does.
 
 ## 1.2 Completion Status
 
+**73.2% complete** — 97.0 of 132.5 hours delivered.
+
 ```mermaid
-pie showData title AAP-Scoped Completion — 85.1% Complete
-    "Completed Work (188h)" : 188
-    "Remaining Work (33h)" : 33
+pie showData title Completion Status - 73.2% Complete
+    "Completed (97.0 h)" : 97
+    "Remaining (35.5 h)" : 35.5
 ```
 
-<!-- Completed = Dark Blue #5B39F3 · Remaining = White #FFFFFF -->
+Chart colours: Completed = Dark Blue `#5B39F3`; Remaining = White `#FFFFFF`.
 
 | Metric | Value |
 | --- | --- |
-| **Total Hours** | **221 h** |
-| **Completed Hours (AI + Manual)** | **188 h** (188 AI + 0 manual) |
-| **Remaining Hours** | **33 h** |
-| **Percent Complete** | **85.1 %**  (188 ÷ 221 × 100) |
+| Total Hours | 132.5 |
+| Completed Hours (AI + Manual) | 97.0 (97.0 AI + 0 Manual) |
+| Remaining Hours | 35.5 |
+| Percent Complete | 73.2% |
 
-Scope is the AAP only: the three deliverables, the baseline, the capture, and the path-to-production work that makes the plan usable. Building the ten runs it describes is out of scope.
+Calculation: `97.0 / (97.0 + 35.5) × 100 = 73.2%`.
 
 ## 1.3 Key Accomplishments
 
-- ✅ `PROGRAM-PLAN.md` — 3,630 lines: twelve mandated plan items, two standalone run prompts, eight provisional sketches.
-- ✅ A re-openable baseline — 347 citations resolve, and an embedded script reproduces all thirteen counts it asserts.
-- ✅ All three JDKs measured: 457 tests green on JDK 11 and JDK 8; JDK 21 decomposed into two failure chains.
-- ✅ False green proved, not alleged — the harness passes over a 0-byte file by two independent routes.
-- ✅ `upstream-harvest/` — 12 artifacts, 37 read-only requests, every count reconciled to GitHub's own counters.
-- ✅ A fail-closed gate over that capture: five layers, 33 falsified copies each rejected by the layer that caught it.
-- ✅ Both run prompts execute, refusing a wrong repository, a moved pull-request head or a contaminated tree.
-- ✅ The fork's product line is untouched: 13 added paths, zero modified, zero deleted.
+- ✅ The approval gate runs the COBOL harness as a task action, after its inputs are staged, and can fail the build.
+- ✅ Five COBOL programs compile and execute per gate run, emitting 11 test suites and a 332-line capture.
+- ✅ The comparator cannot report a match without comparing a line; 10 contract tests pin all seven behaviours.
+- ✅ Those contract tests run on every Gradle invocation, so the build itself enforces the guarantee.
+- ✅ Build-script evaluation does no harness work: `./gradlew tasks` compiles no COBOL and writes no capture.
+- ✅ The capture path fails closed against a symlink, a directory or a stale file before the harness launches.
+- ✅ The precompiler's 457-test suite is untouched and green on JDK 11 and JDK 8.
+- ✅ Both approved baselines are byte-unchanged, so the verdict is measured against the agreed reference.
 
 ## 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
 | --- | --- | --- | --- |
-| The thirteen planning artifacts are tracked on the working branch, while the AAP requires them to be committed nowhere | Merging the branch into `Developer` or `main` would put planning material and captured public contributor data into product history permanently. The product refs are measurably clean today | Repository owner | 2 h |
-| A live platform credential is embedded in the workspace remote URL and cannot be revoked from inside the container | A credential exposed once stays exposed while valid; the file mode is tightened and no delivered artifact contains a credential value, but the token itself is still good | Platform / repo admin | 2 h |
-| The two IBM-derived copybooks await legal review | Blocks the SQL and CICS mocking runs; the plan routes the packaging mechanics per file from the measured verdict, but not the review outcome | Legal + owner | 6 h |
-| Four ranked questions are open by construction: consumer acceptance of the one deliberate break, licence permission to read third-party archives as design input, the copybook review, and whether the off-workspace copy of the capture endures | Each blocks a named later run; all four are labelled explicitly rather than answered by assumption | Owner | 2 h |
-| The plan's design judgments — run decomposition, fifteen architecture decisions, per-run oracles — have not been accepted by a human | Structure, citations and arithmetic are verified; whether the decisions are the right ones is a judgement no check can make | Owner / architect | 12 h |
+| The gate is honest and therefore red: the live 332-line capture differs from the 234-line approved baseline | Any pipeline running the gate stays red until the baseline is re-approved or the red state is ratified as policy | COBOL product owner | 8 h |
+| No pull request exists into the integration branch; creation was refused because the credential lacks `pull_requests: write` | Nothing from this work can land on the integration branch | Repository admin | 1.5 h |
+| The gate reports success on any operating system it has no launcher for — nothing runs and nothing is compared | The CI matrix invokes the gate on a macOS runner, where it would pass vacuously | Build owner | 8 h |
+| After a successful gate state, a repeat invocation without `clean` reports `UP-TO-DATE` and skips the gate | A job that omits `clean` can certify a stale execution | Build owner | (with row above) |
+| No workflow provisions GnuCOBOL, yet the gate is invoked on three runner families | The gate cannot execute meaningfully in CI | CI owner | 6 h |
+| The mandated release tag names a commit five behind the delivered tip | The contract's release name is not the delivered state | Release owner | 4 h |
 
 ## 1.5 Access Issues
 
 | System/Resource | Type of Access | Issue Description | Resolution Status | Owner |
 | --- | --- | --- | --- | --- |
-| `openmainframeproject/cobol-check` | Read-only HTTPS + REST | Archived and read-only. Reads succeeded at 5,000 requests/hour and the capture is preserved; no further read is possible or permitted | Resolved — capture complete, not repeatable | Owner |
-| Workspace `origin` remote | Push credential | The remote URL embeds a platform-issued token that cannot be rotated from inside the container | Open — rotate, then move to a credential-free URL | Platform admin |
-| VS Code Marketplace publisher `blitzy` | Publish identity | Not yet provisioned; whether federated workload identity works for an individually-owned publisher cannot be tested here | Open — decide and provision before the modernization run's publish job | Owner |
-| IBM Enterprise COBOL, DB2, CICS | Compiler/runtime | Unreachable by design. GnuCOBOL 3.2.0 is the only executable target; the z/OS path is planned as structurally complete and labelled unverified | Accepted constraint | N/A |
+| Repository pull-request API | `pull_requests: write` | Pull-request creation returned HTTP 403; the response named `pull_requests=write` as the missing permission. Read access to the same surface succeeds | Open | Repository admin |
+| `blitzy-modernization` integration branch | Write | Direct pushes are prohibited by policy; a pull request is the only permitted route | By design — no action | Release owner |
+| SonarCloud (`org.sonarqube` 3.0, `build.gradle:5`) | Analysis token | No token is configured, so no analysis runs. The plugin is resolved from the Gradle plugin portal during configuration, so that host must stay reachable or every Gradle invocation fails | Open | Build owner |
+| Upstream research remotes (`upstream`, `gm`, `livingmf`) | Push | Push URLs are disabled; these remotes are fetch-only | By design — no action | — |
 
 ## 1.6 Recommended Next Steps
 
-1. **[High]** Copy the thirteen planning paths somewhere durable, re-run the package gate to `VERIFIED`, then delete the branch — do not merge it.
-2. **[High]** Rotate the platform credential and move to a credential-free remote with `persist-credentials: false`.
-3. **[High]** Commission the copybook legal review and answer the other three ranked questions.
-4. **[High]** Read and accept the run sequence, the architecture decisions and the per-run oracles.
-5. **[Medium]** Confirm the prompt's entry gates on a product-baseline checkout, then hand Prompt B1 to the first session.
+1. **[High]** Open the pull request into the integration branch, or grant the missing permission (1.5 h).
+2. **[High]** Decide the approval baseline and move the 11-suite acceptance oracle with it (8 h).
+3. **[High]** Provision GnuCOBOL on the CI runners and grant the harness scripts execute permission (6 h).
+4. **[High]** Make the gate fail closed on an unsupported platform and non-skippable on repeat (8 h).
+5. **[Medium]** Establish one release identity and retire the superseded tag names (4 h).
 
 # 2. Project Hours Breakdown
 
@@ -67,437 +70,550 @@ Scope is the AAP only: the three deliverables, the baseline, the capture, and th
 
 | Component | Hours | Description |
 | --- | --- | --- |
-| Empirical baseline establishment | 30 | The measured floor the whole plan rests on: JDK 8/11/21 build matrix with verbatim transcripts, `cobc (GnuCOBOL) 3.2.0` recorded as the golden-file anchor, both false-green routes reproduced, committed archives inspected at 200/200/17 entries, the nine-coordinate runtime closure, per-file copybook verdicts, apply-cleanly status for all eight upstream pull requests, third-party remote divergence, and the corpus census |
-| One-time upstream capture | 16 | 37 authenticated read-only requests across nine endpoint families against an archived repository: 45 issues, 8 pull requests, both named review threads, six flagged comment threads, pagination proved exhausted |
-| Capture audit manifest | 12 | `upstream-harvest/HARVEST-MANIFEST.md`, twelve sections, with a 37-row endpoint table generated from the artifacts themselves, per-artifact record counts, ground-truth corroboration, truncation assessment, itemized omissions and a public-data governance contract |
-| Capture validation contract | 10 | `upstream-harvest/capture-envelope.schema.json` plus the five-layer validation gate — tree, strict parse, calendar, schema, arithmetic reconciliation — and 33 falsification cases proving it rejects what it claims to reject |
-| Program plan items 1–2 | 12 | Executive summary at 188 words and the 16,600-word verified-baseline section, including the re-derivation appendix that lets every count be re-measured without this session's files |
-| Program plan item 3 — run sequence | 14 | Ten runs, each with both discipline labels, entry precondition, success oracle, exit criteria, tag name, `BLOCKED-BY` edges and explicit deferrals; fully package-qualified class and method enumerations for every core and new-code run; all thirteen mandated coverage areas assigned |
-| Program plan item 4 — architecture decisions | 12 | Fifteen numbered records, each with the decision, the alternatives considered, why each was rejected, and the run that implements it |
-| Program plan item 5 — backlog triage | 12 | All 45 open issues and all 8 pull requests classified and routed, titles reproduced byte-for-byte from the capture, with one canonical routing matrix and the four declared non-goals reasoned rather than dropped |
-| Program plan items 6–8 | 12 | Backward-compatibility impact across four named consumers and six surfaces, the correctness strategy with its verified/provisional register, and a ten-entry risk register with likelihood, impact, mitigation and early-warning signal |
-| Program plan items 9–12 | 12 | Rollback and recovery including the deliberate red exit state of the first run, the stop condition, the package and containment gates; the handoff template every run emits; four ranked open questions; the four requested-visibility topics |
-| Deliverable B — two run prompts | 20 | Two standalone prompts totalling 19,000 words, each carrying all mandated elements and both discipline rule sets verbatim, with fail-closed setup blocks that were executed and negative-tested |
-| Deliverable C — eight run sketches | 6 | Provisional half-page scopes for runs 2 through 9, each with scope, both labels, entry precondition, oracle, primary risk, key open question and the decisions it implements |
-| Deliverable verification | 20 | Citation resolution, shell syntax and lint over every embedded block, structural and table integrity, verbatim-block byte-identity, self-count agreement, execution of all six published gates, and the three-leg repository regression with the tree restored afterwards |
-| **Total** | **188** | Matches Completed Hours in Section 1.2 |
+| Approval gate lifecycle repair | 6.0 | The harness invocation moved out of the task registration closure into a task action (`build.gradle:212`), so `dependsOn copyJarToBin, copyRunScripts` (`build.gradle:203`) finally orders the staging tasks ahead of it. Ordering confirmed by log position: configuration, then `clean`, then `copyJarToBin` and `copyRunScripts`, then the gate |
+| Build-failure semantics | 1.5 | The FAIL arm throws `GradleException` (`build.gradle:318`) instead of an exception Gradle documents as continuing without failing. The message is preserved character for character; the superseded type survives only inside the explanatory comment |
+| Inline comparator removal from the build script | 1.0 | The comparator class was deleted from `build.gradle` in full, leaving the designated blank terminus. The call expression at `build.gradle:309` is unchanged and needs no import |
+| Comparator end-of-stream repair | 5.0 | `BuildHelper.compareFiles` now advances both readers unconditionally inside `while (true)` and decides in three ordered steps, so a length difference is observable instead of invisible (`buildSrc/src/main/groovy/BuildHelper.groovy:17`) |
+| Zero-comparison guard | 1.0 | A match is refused when no line was compared, so two empty streams cannot be declared identical (`BuildHelper.groovy:21-28`) |
+| Comparator relocation into build logic | 2.0 | The class moved to `buildSrc/src/main/groovy/BuildHelper.groovy` in the default package so it can be unit-tested, with no settings change and no import at the call site |
+| Build-logic module manifest and test dependency resolution | 4.0 | `buildSrc/build.gradle` in the specified four-block shape, with the test coordinate settled by measurement: the higher candidate aborts the test executor against the pinned distribution's bundled platform, discovering none of the ten methods, while the selected one discovers and passes all ten |
+| Comparator contract test suite | 8.0 | Ten JUnit 5 methods across seven behaviour families, both directions of the length and empty-stream cases, and a structurally absent fixture for the error contract asserted in both argument orders (`buildSrc/src/test/groovy/BuildHelperTest.groovy`) |
+| Runtime hardening of the task action | 7.0 | Child processes run through a closure that buffers their streams and re-emits them from the task's own thread, so every harness line is attributed to the task; a capture guard refuses a symlink, a non-regular file or an undeletable stale capture; and the `chmod` and harness exit statuses are read, printed and enforced before the comparison |
+| Delivery record and evidence dossier | 24.0 | `RUN-1A-HANDOFF.md` — 3,427 lines across fifteen sections: per-criterion evidence, the counting oracles and their two traps, the resolved dependency graph, a seventeen-item deferral register, recorded deviations, and the release provenance |
+| Gate-verification protocol and output oracles | 10.0 | The eight-check validation protocol executed repeatedly from cold trees with separated output streams: gate fails, body is an action, configuration is clean, 11 test suites, five programs proven executed from the error stream, 332 lines against the root-length byte formula, contract suite green, no regression |
+| Regression verification of the existing Java suites | 5.0 | The root suite plus both filtered task paths re-run and reconciled; the jar staging chain, the equal-length comparison report and the failure message all confirmed unchanged |
+| JDK 8 / 11 / 21 compatibility matrix | 3.0 | All three legs executed and recorded, including the supported-runtime floor and the stage at which it now surfaces |
+| Adversarial and supply-chain verification | 9.0 | Symlinked, non-regular and stale capture paths; a forced unsupported platform; a repeat invocation after a successful state; a forced close failure proving both readers are attempted; a five-thousand-call descriptor probe; and the nine-component dependency closure checked against upstream checksums, signatures, offline resolution and current advisories |
+| Working-tree hygiene and five-path scope discipline | 4.0 | Three tracked binaries restored, three script modes returned, and the generated artefacts removed through a root-anchored guarded procedure, exercised from several dirty states; the change set held to exactly five paths |
+| Branch and release-tag publication | 3.5 | The delivered commit published on the run branch with an annotated tag naming it, the protected branches confirmed untouched, and every branch update evidenced as a fast-forward forming an unbroken chain from the starting commit |
+| Toolchain and environment alignment | 3.0 | Three JDKs, GnuCOBOL, the mandated compiler-flag anchor and the line-ending setting aligned so the capture is reproducible and the 332-line oracle is measurable |
+| **Total** | **97.0** | |
 
 ## 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
 | --- | --- | --- |
-| Artifact preservation and branch disposal — copy the thirteen paths off the workspace, re-run the package gate, read the plan out, delete the branch without merging | 2 | High |
-| Credential rotation and remote hygiene — rotate the platform token, move to a credential-free remote, disable credential persistence in workflows | 2 | High |
-| Copybook legal review and the three remaining ranked questions | 8 | High |
-| Identity decisions — the repository slug against the mark-removal requirement, and which Marketplace publish identity to provision | 3 | Medium |
-| Human design sign-off on the run decomposition, the fifteen architecture decisions and the per-run oracles | 12 | High |
-| First-run provisioning — cut a checkout from the product baseline, confirm the prompt entry gates there, hand over Prompt B1 | 3 | Medium |
-| Rendered-output read of both markdown deliverables, plus wiring the capture validation gate into a later run's CI gate if the capture is retained in-repository | 2 | Low |
-| Acceptance of the four capture artifacts that are permanently partial on audit metadata | 1 | Low |
-| **Total** | **33** | High 24 h · Medium 6 h · Low 3 h |
+| Approval baseline decision — justify the 98-line delta, then re-approve the baseline or ratify the red gate as policy, moving the 11-suite oracle with it | 8.0 | High |
+| Approval gate hardening for CI — fail closed on an unsupported platform and model the task's real inputs and outputs so a repeat invocation cannot skip it | 8.0 | High |
+| COBOL toolchain provisioning in CI — install GnuCOBOL per runner family and grant the harness scripts execute permission | 6.0 | High |
+| Release lineage and tag governance — one commit for the five paths, the mandated tag created once against it, superseded names retired | 4.0 | Medium |
+| Post-merge release sign-off — re-run the suite and the gate on a CI runner and record the outcome | 3.0 | Medium |
+| Durable harness script execute bits, plus a file mode on the script-staging task | 2.0 | Medium |
+| Toolchain anchor durability — move the compiler-flag and line-ending settings into provisioning and CI | 1.5 | Medium |
+| Pull-request creation into the integration branch | 1.5 | High |
+| Task-action scope confirmation — ratify the three runtime-hardening additions inside the gate's action | 1.0 | Medium |
+| Build-artefact ignore rule for the build-logic module | 0.5 | Low |
+| **Total** | **35.5** | |
 
 ## 2.3 Hours Reconciliation
 
-The completion figure is derived only from AAP scope and the path-to-production work that scope implies:
+| Check | Value |
+| --- | --- |
+| Section 2.1 completed total | 97.0 |
+| Section 2.2 remaining total | 35.5 |
+| Sum (equals Total Hours in Section 1.2) | 132.5 |
+| Completion percentage | `97.0 / 132.5 × 100 = 73.2%` |
 
-```
-Completed hours   = 188   (Section 2.1 column total)
-Remaining hours   =  33   (Section 2.2 column total)
-Total hours       = 221   (188 + 33)
-Percent complete  = 188 / 221 × 100 = 85.1 %
-```
+Every completed hour traces to an Agent Action Plan deliverable or to a verification step the plan mandates. Every remaining hour traces either to a plan requirement not yet fully satisfied — the release identity and the merge route — or to a path-to-production activity required before the repaired gate can be relied upon in a pipeline. Work outside that universe is described in Section 8 and Section 6 but carries no hours here.
 
-Of the fourteen discrete requirements in scope, thirteen are complete and one is partially complete: the requirement that the planning outputs live outside the repository and be committed nowhere. Its placement half is met and verified — a byte-identical copy of all thirteen artifacts exists off the working tree — while the committed-nowhere half is open and closes with a human action, which is the first row of Section 2.2. Building the ten runs the plan describes is explicitly out of scope and contributes no hours to either column.
+Confidence: **High** on the delivered code components and the re-executed verification protocols, whose scope was fixed and whose results were observed. **Medium** on the delivery dossier, the baseline decision and CI provisioning. **Medium-low** on gate hardening, where modelling a test task's real inputs and outputs may prove larger than estimated once attempted.
 
 # 3. Test Results
 
-Every figure below was produced by executing the command in this workspace and reading the result. Test counts for the Java suites come from the JUnit XML under `build/test-results/test/`, not from console summaries.
+Every figure below was produced by executing the command named and reading the result — the JUnit XML under `build/test-results/` and `buildSrc/build/test-results/`, or the build's own exit status and output. Nothing is inferred.
 
 | Area / Category | Framework | Tests | Passed | Failed | Coverage | What This Proves |
 | --- | --- | --- | --- | --- | --- | --- |
-| Product unit suite (JDK 11) | JUnit 5 via Gradle 6.9.4 | 433 | 433 | 0 | Not measured — the coverage gate is defined in `build.gradle` but not wired into `check` | The refactoring safety net every later run leans on is intact and green |
-| Product integration suite (JDK 11) | JUnit 5, `*IT` classes | 24 | 24 | 0 | 5 of 5 `*IT` classes executed | Config loading, copybook expansion, suite concatenation, mock handling and result-file output work end to end in-process |
-| Cross-JDK compatibility | JUnit 5 on JDK 8 / JDK 21 | 914 (457 × 2) | 687 | 227 | Both non-default JDKs exercised | JDK 8 is fully green, so the shipped Java 8 target is safe; JDK 21 fails in exactly two frame chains — 183 `Unsupported class file major version 65` and 36 `Unknown Java version: 21` — which is what makes the mocking-library bump, not a Gradle change, the unblocker |
-| Approval harness, end-to-end COBOL | GnuCOBOL 3.2.0 via `./approvaltest` | 6 programs / 11 suites | 5 programs executed | 1 never launched · 26 assertion failures | The tool really compiles and runs COBOL and emits 332 lines of genuine output — and the committed baseline is 98 lines behind it, which is the stale-baseline condition the first run is designed to end red against |
-| Approval harness, false-green routes | GnuCOBOL 3.2.0 via Gradle | 2 routes | 2 reproduced | 0 | Both ways the build can report success over a 0-byte file are real: on a cold tree the launcher is absent, and on a warm tree it is present but not executable. Each exits 0 with zero programs compiled |
-| Planning deliverable structure and self-consistency | Purpose-built assertions | 13 invariants | 13 | 0 | Both markdown artifacts, all three deliverables | The plan is internally consistent and re-derivable: 12 program-plan items, 15 architecture records, 2 prompts with every mandated element, 8 sketches × 7 fields, 347 citations resolving with zero out of range, the discipline rule block byte-identical in all three places, the three reference examples verbatim, and the embedded re-derivation script reproducing all 13 counts it asserts |
-| Embedded shell content | `bash -n` | 18 blocks | 18 | 0 | Every fenced `bash` block in both artifacts | Every command a later run is told to execute parses, including the guarded delete that resolves and sentinel-checks the repository root before removing anything |
-| Capture integrity and published gates | Strict JSON parse, JSON Schema draft-07, the artifacts' own gates | 10 artifacts + 6 gates | 16 | 0 | 37 call records, 6 comment threads, 3 review families | The capture is complete and self-checking: 53 issue-endpoint entries resolve to 45 issues plus 8 pull requests, all 8 target `Developer` and are locked, every thread matches GitHub's own counter, and all six published gates return `VERIFIED` with exit status 0 |
+| Precompiler regression suite — JDK 11 (`clean test`) | JUnit 5 Jupiter | 457 | 457 | 0 | Not instrumented | Parsing, interpretation, generation, launching and logging across 33 classes behave exactly as before the build repair; the `unitTest` (433 tests / 28 classes) and `integrationTest` (24 tests / 5 classes) task paths both still execute and partition the suite exactly |
+| Precompiler regression suite — JDK 8 (`clean test`) | JUnit 5 Jupiter | 457 | 457 | 0 | Not instrumented | The Java 8 compilation target and runtime still hold, so nothing in the change raised the language floor |
+| Approval comparator contract | JUnit 5 Jupiter on Groovy 2.5.12 | 10 | 10 | 0 | 7 of 7 behaviour families | An empty capture, a truncated capture, extra trailing lines, or two empty files can no longer be reported as a match; equal-and-identical still returns match, equal-but-differing still reports the differing line, an unreadable path still returns the error value in both argument orders, and both whitespace-trimming states are pinned. Runs on every Gradle invocation, so the guarantee cannot silently lapse |
+| COBOL approval gate — end to end (`clean approvalTest`) | Gradle 6.9.4 + GnuCOBOL 3.2.0 | 11 suites / 6 harness invocations | 5 programs executed (child statuses 4, 0, 0, 4, 0) | Gate verdict FAIL — the required outcome | Not applicable | Real COBOL is compiled and executed and its captured output is adjudicated. The capture is 332 lines and its size matches the documented root-length formula to the byte; the five executions are counted from the error stream, where the product writes them, and read zero in the capture itself. The build exits non-zero with `*** FAIL ***` and the fixed cause |
+| Capture-path guard | Gradle 6.9.4 | 2 refusal cases | 2 | 0 | Not applicable | A symlinked capture and a directory in its place are each refused before the harness launches, with a file outside the repository left byte-intact |
+| Build lifecycle and configuration purity (`tasks`, `approvalTest --dry-run`) | Gradle 6.9.4 | 2 invocations | 2 | 0 | Not applicable | No harness work happens while the build script is evaluated: no COBOL compiled, no capture written, no comparison run — and the gate's dependency graph resolves in the intended order |
+| Supported-runtime floor — JDK 21 (`clean test`) | Gradle 6.9.4 / Groovy 2.5.12 | 1 invocation | 0 | 1 — expected | Not applicable | The build cannot run on JDK 17 or later, and the incompatibility now surfaces at build-logic compilation before any test executes. A recorded environment datum, not a defect of this work |
+| Build-logic standalone invocation | Gradle 6.9.4 | 1 invocation | 0 | 1 — expected | Not applicable | The build-logic module is only buildable through a root invocation, because a directory-scoped invocation makes it a standalone project with no Groovy classpath injected. The root-build path is the supported route and exercises the same tests |
 
 ### Not Covered
 
-These capabilities are delivered or specified but no test exercises them. A human should treat each as unproven until the run that owns it lands.
+These capabilities were delivered or are relied upon, and **no automated test exercises them**. Each should be tested by hand before release.
 
-- **The forward design content.** The ten run contracts, the fifteen architecture decisions and the eight run sketches are specifications for work that has not executed. Their labels, oracles, citations and internal consistency are checked mechanically; whether the decisions are correct cannot be tested until the implementing run. Read them as design, not as verified behaviour.
-- **The second run's entry assertions.** Both prompts assert the existence of the first run's tag and its handoff document. Neither exists yet, so those two assertions have only been syntax-checked. The same applies to the golden-file portability check, whose target directory the characterization run creates.
-- **Third-party remote mutation.** The prompts disable push URLs on the research remotes. That step was linted and dry-run against a stub rather than executed, to avoid altering shared remote state.
-- **Automatic enforcement of the capture gate.** The five-layer gate is exercised in both directions — pristine passes, 33 falsified copies each fail — but nothing runs it automatically. The capture has no build or CI integration by design.
-- **Nine of the fifteen corpus programs.** The harness invokes six and executed five of them. `BIPM012`, `DB2PROG`, `LONGLINESANDNUMBERS`, `MOCK`, `MOCKPARA`, `REPLAC`, `RETURNCODE`, `TESTNESTED` and `WS88LEVEL` are exercised end to end by nothing today; `DB2PROG` is the only program on the live `SQLCA.cpy` resolution path and `RETURNCODE` contains a suite that deliberately fails at return code 4.
-- **Line coverage.** A JaCoCo gate with a thirteen-entry exclusion list exists in `build.gradle` but is not attached to `check`, so no coverage figure was produced by any run here. Wiring it in is scheduled into the modernization run.
-- **Rendered markdown.** Both deliverables were verified structurally and by reading, never rendered in a markdown engine.
+- **The Windows harness branch.** `approvaltestWin.cmd` and the Windows path through the gate have never been executed; the host is Linux. The two statements involved are the same closures the Linux branch exercises, but the launcher itself is unverified. Run the gate on a Windows runner.
+- **A real macOS host.** The unsupported-platform arm was driven only by forcing the operating-system property; no test asserts its behaviour and no macOS runner has executed it. This matters because the CI matrix includes a macOS leg.
+- **Two arms of the capture guard.** The `chmod`-failure arm and the "capture could not be deleted" arm are unreachable as the owning user and are covered by no test. Their sibling arms in the same closure are exercised.
+- **The comparator's new branches, through the gate.** The gate's first difference occurs at capture line 5, so control returns before either stream ends — the length-mismatch and both-empty branches are reached only by the contract suite, never by a live gate run.
+- **Coverage instrumentation.** A coverage-verification rule is declared with a 0.8 class minimum and thirteen exclusions (`build.gradle:30-50`), but it is attached to no task and no report is produced, so **no coverage percentage exists** for either the precompiler or the build logic. Nothing in this work regressed that; nothing improved it either.
+- **The wider COBOL asset set.** 68 COBOL programs and 36 test-suite files are tracked, and the gate exercises the six the harness names — of which five resolve. The remaining programs have no automated gate at all.
+- **The delivery record.** `RUN-1A-HANDOFF.md` has no executable surface. It was validated structurally instead: section inventory, table well-formedness, balanced code fences, resolution of every cited repository locator, external link reachability, and a credential-shape scan.
 
-# 4. Runtime Validation & UI Verification
+# 4. Runtime Validation &amp; UI Verification
 
-This project has no HTTP surface, no user interface and no database — the deliverable is a planning document plus a persisted JSON capture, and the product it plans is a command-line precompiler. Runtime validation therefore means driving the toolchain, the build, the COBOL harness and the shipped jar, and reading what they actually do. No browser session applies; nothing was skipped for lack of one.
+The following flows were driven end to end and observed. Legend: ✅ Operational · ⚠ Partial · ❌ Failing.
 
-- ✅ **Environment activation** — `. /etc/profile.d/blitzy-cobolcheck-env.sh` returns 0 and is idempotent; it puts all three JDK homes, GnuCOBOL and a de-duplicated `COB_CFLAGS` (exactly one `-D_FORTIFY_SOURCE=3`) on the environment. Nothing is on `PATH` without it.
-- ✅ **Toolchain anchor** — `cobc (GnuCOBOL) 3.2.0`; JDK `1.8.0_492`, `11.0.31`, `21.0.11`; Gradle 6.9.4 through the committed wrapper, resolving offline against a warm cache.
-- ✅ **JDK 11 build gate** — `./gradlew --no-daemon clean test` exits 0 with 457 tests and no failures. This is the documented-green configuration and it holds.
-- ✅ **JDK 8 build** — exits 0 with 457 tests and no failures, so the Java 8 shipped target is safe.
-- ⚠ **JDK 21 build** — exits 1 with 227 of 457 failing, in the two frame chains the plan names. This is the recorded baseline datum, deliberately left unfixed until the modernization run.
-- ✅ **Full distribution chain** — `clean build fatJar copyJarToBin copyRunScripts prepareDistribution` exits 0 and produces `bin/cobol-check-0.2.19.jar` at 273,558 bytes.
-- ✅ **COBOL execution through the harness** — with the three harness scripts made executable, `./approvaltest` exits 0 having genuinely executed 5 COBOL programs (5 process-completion records), producing 11 test suites, 26 failing assertions and 332 lines of output, with child exit codes `4, 0, 0, 4, 0`.
-- ❌ **Harness exit semantics on a cold or unfixed tree** — `clean test approvalTest` exits 0 while compiling nothing: a 0-byte `actual-output.txt` compared against the baseline yields `exit from compare: 0` and a PASS line. Reproduced on a cold tree and again on a warm tree whose launcher is present but not executable.
-- ❌ **Command-line exit codes** — `java -jar bin/cobol-check-0.2.19.jar -p NUMBERS` exits **0** with failing COBOL assertions in its own output, while `--version` and `--help` both exit **8**. No pipeline can detect a failure, and the two informational paths look like failures. This is the one deliberate breaking change the plan schedules, and its oracle already exists uncovered at `src/test/cobol/RETURNCODE/ReturnCode-4.cut`.
-- ✅ **Capture and gate execution** — all six gates published inside the deliverables were extracted verbatim and run: request accounting (`37 calls 11 rate_limit 36 at the 5000 ceiling ['GET']`), five-layer envelope validation, secret hygiene, governance notes, the external-package gate (`13 of 13 byte-identical`) and the product-history containment gate (`CLEAN` on all three product refs). Every one returned `VERIFIED` with exit status 0.
+- ✅ **Build-script evaluation** — `./gradlew tasks` exits 0 and performs no harness work. A widened probe for every harness marker returns zero across both output streams, and no capture, staging directory or test-run directory is created. Configuration prints only two pre-existing messages: the script-staging notice (`build.gradle:174`) and the project-properties block (`build.gradle:254-264`).
+- ✅ **Task graph and staging** — `clearLibJar → fatJar → copyJarToBin → copyRunScripts` all execute ahead of the gate. `bin/cobol-check-0.2.19.jar` is staged at 273,558 bytes and the launcher is staged executable with its version placeholder filled in as `0.2.19`.
+- ✅ **COBOL compilation and execution** — five programs run to completion with child statuses 4, 0, 0, 4, 0, emitting 11 test suites into a 332-line capture that is byte-identical across independent cold runs. The staged launcher also runs a single program directly (`./temp/approvalTest/cobolcheck -p NUMBERS`), exiting 0 and emitting a test suite with pass and fail detail lines; the packaged jar prints its usage.
+- ✅ **Gate adjudication and build failure** — the comparison returns a failing verdict, `*** FAIL ***` prints, and the build exits non-zero attributing the failure to the throw site with the fixed cause `./expected-output.txt and ./actual-output.txt are different`. Both approved-baseline copies still resolve to the same tracked object at 12,336 bytes afterwards, so the verdict was measured against the agreed reference.
+- ✅ **Harness output attribution** — every harness line renders beneath the `> Task :approvalTest` header rather than ahead of it, so the log now reads as the task's own work.
+- ✅ **Capture-path safety** — a symlinked capture, a directory and a stale regular file are each refused or replaced before the harness launches. In the symlink case the build fails closed, the harness never starts, and a sentinel file outside the repository is left byte-intact.
+- ✅ **Process-status enforcement** — the `chmod` status and the harness's own exit status are read, printed (`harness exit status: 0`) and enforced before the comparison, so a harness that could not run is distinguishable from one whose output merely differs.
+- ⚠ **Unsupported-platform path** — driven only by forcing the operating-system property. The task succeeds without executing or comparing anything, and now emits a warning stating exactly that. It has never run on a real macOS host.
+- ⚠ **Repeat invocation without `clean`** — after a *successful* gate state the task reports `UP-TO-DATE` and the action is skipped entirely. After a *failing* state a repeat re-executes, so the gap requires a prior success to reach.
+- ❌ **Merge route** — no pull request exists into the integration branch. Creation was refused; the branch is published at the delivered commit and the integration branch remains at the starting commit.
 
-**Never exercised at runtime.** The z/OS and macOS launcher paths remain dead code and cannot be driven — no IBM runtime is reachable and the macOS construction is commented out. The XML and HTML result formats were not driven here; both are known to throw and both are scheduled for repair. The VS Code extension test harness was not launched: it cannot run from this checkout path because the UNIX socket path exceeds 107 characters, and it requires a copy at a shorter path plus a virtual display.
+**Never exercised at runtime:** the Windows launcher branch, a real macOS host, and the `chmod`-failure and undeletable-capture arms of the capture guard.
 
-# 5. Compliance & Quality Review
+**No user interface exists in this project's affected surface.** The delivered change comprises a Gradle build script, a Groovy build-logic class, its test, a build-logic manifest and a Markdown record. There is no HTTP endpoint, no browser surface, no database and no listening socket anywhere in the change, so there was nothing to verify visually and no screenshots were produced. All runtime evidence is command output and build logs.
+
+# 5. Compliance &amp; Quality Review
 
 ## 5.1 Compliance Matrix
 
-Status is where each deliverable stands now, measured against the artifact.
+Each row is the verified state of a deliverable as it stands now.
 
-| # | Deliverable | Benchmark | Status | Evidence |
-| --- | --- | --- | --- | --- |
-| 1 | Executive summary and verified baseline | Under 200 words; every baseline claim carries a locator or an explicit unknown | ✅ Pass — 100% | 188 words; 347 citations resolve with zero out of range; the re-derivation appendix reproduces all 13 counts it asserts (`PROGRAM-PLAN.md` A1, A2, A2.13) |
-| 2 | Run sequence | Every run states both discipline labels, precondition, oracle, exit criteria, tag, dependencies and deferrals | ✅ Pass — 100% | Ten runs, all fields present per run; package-qualified class and method enumerations for both core runs and all three new-code runs; 25 `BLOCKED-BY` edges; all thirteen coverage areas assigned (A3) |
-| 3 | Architecture decisions | Minimum five records, each with alternatives, rejection reasons and implementing run | ✅ Pass — 100% | Fifteen numbered records (A4) |
-| 4 | Backlog triage | All 45 issues and 8 pull requests classified and routed or deferred with a reason | ✅ Pass — 100% | 45 of 45 and 8 of 8, titles byte-identical to the capture, one canonical routing matrix, four non-goals reasoned (A5) |
-| 5 | Compatibility, correctness and risk | Four named consumers assessed; correctness sourced only from reachable authorities; risk register with likelihood, impact, mitigation and early warning | ✅ Pass — 100% | Six surfaces × four consumers; the in-repository condition table and documented dialect semantics as the only two sources, with a provisional register for anything else; ten risk rows (A6, A7, A8) |
-| 6 | Rollback, handoff, open questions and requested visibility | Deliberate red exit state stated in-section; one handoff template; blocking questions only; exactly four visibility topics | ✅ Pass — 100% | The first run's required red and the stop condition in A9; a fourteen-field handoff template in A10; four ranked questions each labelled unknown in A11; exactly four topics in A12 |
-| 7 | Two standalone run prompts | Self-contained, all mandated elements, both rule sets verbatim, deliberate duplication preserved | ✅ Pass — 100% | 8,339 and 10,827 words; the activation script as the literal first command in both; the rule block byte-identical in all three locations; the second prompt carries the mandatory reconciliation against the first run's handoff (Deliverable B) |
-| 8 | Eight provisional run sketches | Roughly half a page each, not prompts, scope plus six further fields | ✅ Pass — 95% | All eight carry all seven fields and both labels at 279–358 words; the size hint is over-delivered against and disclosed (see 5.2 row 4) |
-| 9 | One-time upstream capture and its audit | Complete, non-repeatable, auditable, raw payloads unaltered | ✅ Pass — 100% | 12 artifacts, 37 read-only requests, every count reconciled to GitHub's counters, a twelve-section manifest and a five-layer gate that rejects 33 falsifications |
-| 10 | Repository non-interference | No production, test, build or configuration file modified; nothing installed; no write to the archived upstream | ✅ Pass — 100% | `git diff --name-status c79624bd HEAD` reports exactly 13 paths, all added, zero modified, zero deleted; all 37 requests are `GET`; the product refs are clean |
-| 11 | Planning-output placement | Outputs written to the session output directory and committed nowhere | ⚠ Partial — 50% | The off-tree copy exists and is byte-identical (`13 of 13 / VERIFIED`); the artifacts are also tracked on the working branch (see 5.2 row 1) |
+| Deliverable | Benchmark | Status | Progress |
+| --- | --- | --- | --- |
+| Approval body runs as a task action | Harness work occurs only in the execution phase, after its inputs are staged | ✅ Pass | ██████████ 100% |
+| Gate can fail the build | A failing comparison fails the task and the build with the message unchanged | ✅ Pass | ██████████ 100% |
+| Comparator rejects unequal and empty streams | A match is impossible unless both streams ended together and at least one line was compared | ✅ Pass | ██████████ 100% |
+| Comparator contract is enforced automatically | Ten contract tests compile and run on every Gradle invocation | ✅ Pass | ██████████ 100% |
+| Build logic relocated and unit-testable | Comparator lives in the build-logic module; the call site and settings are unchanged | ✅ Pass | ██████████ 100% |
+| Test dependency resolves against the pinned distribution | Exactly one fixed coordinate; launcher and engine generations aligned; all ten methods discovered | ✅ Pass | ██████████ 100% |
+| Existing precompiler suite unaffected | 457 tests green with no assertion added, removed, renamed, disabled or narrowed | ✅ Pass | ██████████ 100% |
+| Change confined to the agreed surface | Exactly five paths differ from the starting commit; fifteen read-only authority paths show a zero-byte diff | ✅ Pass | ██████████ 100% |
+| Approved baselines untouched | Both copies still resolve to the same tracked blob at 12,336 bytes | ✅ Pass | ██████████ 100% |
+| Introduced dependency is sound | Nine-component closure from one upstream repository at fixed versions, checksum- and signature-verified, offline-resolvable, no advisory matching the graph, no net-new coordinate | ✅ Pass | ██████████ 100% |
+| Gate is trustworthy on every platform it is invoked on | Fails closed when no harness runs; cannot be skipped as up to date | ❌ Fail | ███░░░░░░░ 30% |
+| Release delivery chain complete | One commit for the five paths, the mandated tag created once against it, and a pull request into the integration branch | ⚠ Partial | ████░░░░░░ 40% |
 
-## 5.2 AAP & Rule Divergences and Gaps
+## 5.2 AAP &amp; Rule Divergences and Gaps
 
-**No user-specified rules exist for this project.** `review_rules` returns exactly `No user rules provided.`, so the rules document is empty: there is no named rule to comply with and none was invented. Enterprise-standard practice was applied in its place, and the plan records that position and carries it into both run prompts. Every divergence below is therefore a departure from the AAP, not from a rule.
+No user-specified rules were provided for this project, so no rule divergence is possible; the enterprise-standard bar applied instead. Every divergence below is from the Agent Action Plan.
 
 | What the AAP/Rule Required | What Was Delivered Instead | Why It Diverged | Impact | Remediation |
 | --- | --- | --- | --- | --- |
-| Planning outputs written to the session output directory and **committed nowhere** | Both: a byte-identical copy off the working tree, **and** all 13 paths tracked on the working branch | The publication channel and the prohibition point at the same place — uncommitted content is discarded, and rewriting the branch afterwards is forbidden by the AAP itself | The placement half is met; the committed half is not. Product refs are measurably clean, so nothing has reached the product line | Copy the thirteen paths off the workspace, re-run the package gate, read the plan out, delete the branch without merging (Section 2.2, row 1) |
-| No credential in world-readable repository metadata | Mode tightened to 0600 and zero credential values in any delivered artifact; the remote URL still embeds the token | The credential is issued and held by the executing platform, and that URL is the channel this branch publishes through | A credential exposed once stays exposed while it remains valid | Rotate or revoke first, then a credential-free remote plus disabled credential persistence (Section 2.2, row 2) |
-| The capture artifact set enumerated in the AAP's own table | One additional artifact: `upstream-harvest/capture-envelope.schema.json` | Ten captures had each grown their own local provenance conventions, and prose could not reconcile them | Strictly additive. It is now the contract the validation gate enforces, at version 1.2.0 | None required. Optionally wire the gate into a later run's CI (Section 2.2, row 7) |
-| Eight run sketches of "roughly half a page each" | Eight sketches of 279–358 words, measured and stated | Each sketch must carry seven mandated fields, and for the larger runs the enumerated scope *is* the substance | None mechanical. A reader budgeting four pages finds about five | Accept, or apply the compression the plan names as costing least |
-| No calendar dates anywhere in the plan | One date appears: a vendor's published retirement of a credential type | It is a property of an external dependency in the same sense a version number is, and the publish design turns on it | None to sequencing — order is still expressed only through dependency edges | None. It is labelled in place as an external fact rather than scheduling |
-| Every fact carries a `[path:locator]` or a retrieved URL | One fact cites a command and its observed output instead | The claim is about the relationship between two copies of a file, which no file-and-line reference can express | None. The claim is more checkable this way, not less | None |
-| A complete, auditable capture of the archived upstream | Complete payloads; four artifacts permanently partial on audit metadata | Three response bodies and one per-call record were discarded at capture time, and the archive cannot be read again | No harvested issue, pull request, review or comment record is affected — the losses are corroboration probes and a quota document | Accept the partial audit metadata and keep the payload-complete distinction in any later summary (Section 2.2, row 8) |
+| Inside the relocated block, "no statement is added, removed or reordered … the single exception is the type substitution" | Three behavioural additions plus a warning: buffered child-output re-emission, a fail-closed capture guard, and reading and enforcing the process statuses. `build.gradle` grew from 296 to 346 lines | Exercising the relocated code at runtime showed three behaviours the plan's scope did not anticipate — output rendered outside its own task, a capture path that followed symbolic links, and a discarded exit status | None adverse; every acceptance oracle re-measured intact and the capture byte-identical | Ratify the additions (1.0 h, Section 2.2) |
+| The comparator's two null-guarded `close()` calls listed under "Preserved exactly" | The same two calls and guards, nested rather than sequential (`BuildHelper.groovy:60-68`) | Sequential statements do not deliver the guarantee the same clause states: a throw from the first close skips the second | Strictly safer; on a double failure the inner exception masks the first | None required |
+| Test coordinate `5.14.4` as the primary choice | `5.7.0` (`buildSrc/build.gradle:12`) — **Sanctioned** by the plan's own step-down tree | The higher candidate aborts the test executor against the pinned distribution's bundled platform | Functionally none; the line sits below its upstream support window | None now; revisit with the wrapper |
+| One annotated tag, created once, naming the run's final commit, never moved | The mandated name peels five commits behind the delivered tip and its history contains one pre-publication re-point; a separate tag names the delivered commit; the change arrived over eight commits rather than one | Re-pointing a published tag and rewriting published history are forbidden by the same clause | Documentary only — the delivered tree carries all five paths at final state | Establish one release identity (4.0 h) |
+| The merge route is a pull request into `blitzy-modernization` | No pull request exists; creation was attempted and refused | The credential lacks `pull_requests: write`; both alternatives are prohibited by the same clause | Nothing from this work can land on the integration branch | Open the pull request or grant the permission (1.5 h) |
+| `.gitignore` is on the do-not-modify list | It is unmodified, so build-logic output is never ignored and every Gradle invocation leaves ten untracked entries | The file is excluded from the change, so the remedy had to be procedural | A commit gate enforcing the five-path scope trips unless the cleanup procedure is followed | Add one ignore line (0.5 h) |
+| Verify and record the toolchain anchor; install nothing | The mandated compiler-flag value is exported from the container profile and the line-ending setting applied — **Sanctioned** | Without the de-duplicated flag the acceptance oracle is unmeasurable | Positive and load-bearing, but not durable | Move both into provisioning and CI (1.5 h) |
+| Three minor shape requirements | A pre-existing comment line removed from the relocated block; two error-contract assertions inside the single mandated test method; and the carried compatibility datum superseded by measurement | Each was directed by review or forced by measurement | None behavioural | None required |
 
-**Placement.** The AAP is unambiguous that the planning outputs belong outside the fork and are committed nowhere. All thirteen paths are tracked on the working branch, and the plan says so itself rather than claiming otherwise: `PROGRAM-PLAN.md` A9.1 states the requirement, the observed state, the cause and the consequences, and A9.1.2 supplies a gate that walks every product ref and reports any planning path present. Running it here returned `CLEAN` on `refs/remotes/origin/Developer`, `refs/heads/Developer` and `refs/tags/0.1.0`. `origin/Developer` is still at the pre-project baseline `c79624bd`, and only the working branch contains this head. Decide between deleting the branch after reading the plan out of it, or amending the plan of record to reflect how output is published.
+**Task-action additions.** The plan described change (i) as a faithful relocation, so the delivered task action is larger than the plan's diff by roughly fifty lines and a reader is entitled to know why. Exercising the relocated code showed that Groovy pumps a child process's streams on threads Gradle cannot associate with the task's build operation, so the harness log rendered ahead of the task header; that the capture is written with a shell redirection that follows symbolic links, so a planted link redirects a truncating write outside the repository; and that the harness's exit status was never read at all. The additions at `build.gradle:231-246`, `248-266` and `277`/`299-306` address each, and an additive `logger.warn` at `build.gradle:297` states what an unsupported-platform success does not mean. None of the plan's explicit prohibitions is touched — no new task, no new dependency, no up-to-date opt-out, no test framework on the gate, no sixth path. Ratify them: they are the only functional code beyond the specified diff.
 
-**Credential exposure.** `git config --get remote.origin.url` matches `://[^/@]+@`, meaning the workspace remote carries userinfo, and the config file was world-readable. The mode is now 0600, both run prompts open with a credential-hygiene step that never echoes a remote URL, and their output contracts hard-fail on credential *values*. An independent scan across all thirteen delivered artifacts and their exported copies found no credential value at all. What remains is outside any in-container remedy: the token is platform-issued and cannot be revoked from here. Rotate it, then replace the remote with a credential-free public URL and set `persist-credentials: false` on every `actions/checkout` step.
+**Nested reader closes.** The plan lists the comparator's two null-guarded closes among the elements preserved exactly, and specifies them as consecutive statements. Written that way, a throw from the first close leaves the block immediately and the second reader is never closed — a descriptor leaked into a Gradle daemon that outlives the build. The delivered form nests them so both are always attempted while a failing close still propagates, which upholds the guarantee the same clause states. Groovy 2.5.12, the version the pinned distribution embeds, has no try-with-resources, so nesting is the only construct available. Every verdict, printed message and return value is unchanged, evidenced by ten contract tests passing without edit. One residual: if both closes throw, the inner exception replaces the first.
 
-**The extra capture artifact.** `upstream-harvest/capture-envelope.schema.json` is not in the AAP's artifact table. It exists because the ten captures had drifted into three different record-count conventions and several unenforceable prose claims about authentication and completeness. It is now the normative shape of every capture's provenance envelope, carrying six envelope-level and seven call-level cross-field invariants — a capture cannot claim authentication without an observed ceiling above the unauthenticated one, and cannot claim completeness while itemizing an omission. `HARVEST-MANIFEST.md` §4.4 validates all ten artifacts against it and reports `0 schema error(s)`; the plan records the artifact's authorization basis at A9.1.1. No action is needed beyond deciding whether the gate should also run in CI.
+**Test coordinate step-down.** The plan named `5.14.4` as primary with a pre-authorised fall-back, and the fall-back is what shipped. This is not a judgement recorded after the fact: pinning the higher coordinate makes the test executor abort before discovery, reporting that the platform engine and launcher generations are unaligned, and discovering none of the ten methods. The pinned distribution supplies the launcher itself at the older generation, and the selected coordinate matches it exactly — which is also why the module introduces no net-new artefact. The consequence to accept is that this line sits below its upstream support window, so a future fix on that line is unavailable until the wrapper moves. The two must move together; a lone bump is measurably impossible.
 
-**Sketch sizing.** Deliverable C asks for roughly half a page per run. The eight sketches measure 279 to 358 words — six to seven tenths of a page on the common readings — and the deliverable states those figures with the command that reproduces them. Every claim they do not carry has a fuller home in the run sequence and the architecture records, so nothing is lost. The structural half of the contract holds strictly: all seven mandated fields and both labels in every sketch, and none is a prompt — the two real prompts are twenty-three times longer than the largest sketch. Accept the over-delivery, or apply the compression the plan nominates as costing least.
+**Release identity.** The plan requires one annotated tag, created once after the final commit, naming it, never moved. What exists instead is a mandated name pointing five commits behind the delivered tip whose history contains one re-point — provable from a surviving unreachable tag object — alongside a separate tag that does name the delivered commit, and three further superseded names. The change also arrived over eight commits rather than the single one the plan describes. Neither shortfall was closable: making the mandated name correct requires re-pointing a published tag, and a single-commit history requires rewriting published history, both forbidden by the clause that mandates the tag. Recovery is unaffected, because a commit resolves to a tree and the delivered tree carries all five paths at final state. Cut one lineage and retire the superseded names.
 
-**The single date.** The plan forbids temporal planning and expresses order only through dependency edges, which it does — 25 of them and no durations. One calendar date survives: a vendor's announced retirement of a global credential type, which the publish design must respect. It is labelled in place as a property of an external dependency, in the same category as a pinned version, and explicitly not as programme scheduling. Nothing in the sequence depends on it. Read it as a constraint on the modernization run's publish identity rather than as a schedule, and no action follows.
+**Merge route.** The plan is explicit that the work reaches the integration branch through a pull request, never by pushing to it. The run branch is published at the delivered commit and the integration branch is untouched at the starting commit, so the branch half of the route is complete. Creating the pull request was attempted and refused: the response carried HTTP 403 and named `pull_requests=write` as the permission required. Read access to the same surface succeeds, so this is a scope limitation on the credential rather than a repository misconfiguration. The two prohibited alternatives — pushing to the target, or merging locally — were not taken. Either open the pull request from the repository's compare view or grant the permission and retry.
 
-**Citation form.** The evidence standard requires a file-and-line locator or a retrieved URL behind every fact. One fact in A9.1 cites a command and the output it produced, because the claim is that two copies of a file are byte-identical — a relationship no single locator can express, and one that no sentence inside a file can honestly attest to about a copy taken afterwards. The deliverable handles this by publishing the check rather than the assertion: fifteen lines that build their path list from the baseline diff so it cannot drift, report `MISSING` distinctly from `DIVERGED`, and make the exit status the verdict. It returns `13 of 13 byte-identical / VERIFIED`. No action is required.
+**Build-logic output is not ignored.** The ignore file places `build/*` at the repository root, and a pattern containing a slash is anchored there, so it can never match the nested `buildSrc/build`. Because the build-logic module is compiled and tested on every Gradle invocation, even a read-only command such as `./gradlew tasks` leaves ten untracked entries behind. The ignore file is on the do-not-modify list, so the lawful remedy was procedural: a root-anchored, sentinel-checked cleanup covering the capture, the staging directory, the test-run directory and the build-logic output. That works, and it was exercised repeatedly, but it depends on being followed. One added ignore line retires the problem permanently.
 
-**Partial audit metadata.** Four of the ten captures carry `audit_status: PARTIAL`. In every case the harvested payload is complete and the shortfall is in the provenance record: two repository-object probes and one duplicate listing had their response bodies discarded at capture time, and one authentication-gate request was never itemized. The affected values are recorded as unknown rather than reconstructed, each with an omissions entry naming what survives and forbidding substitution from a sibling artifact. Re-querying is impossible — the upstream repository is archived — and reconstruction would be fabrication. Accept these four as permanently partial, and preserve the payload-complete versus audit-partial distinction in any later summary, because collapsing the two would misrepresent a complete capture as an incomplete one.
+**Toolchain anchor.** The plan's environment discipline is to verify and record, never to install. The frozen anchor it specifies includes a de-duplicated compiler-flag value, and without that value exported the COBOL compiler emits five redefinition warnings and their notes, which the product's launcher routes to standard output and into the capture — inflating it from 332 lines to 340 and making the plan's own acceptance oracle unmeasurable. Aligning the environment to the value the anchor itself specifies was the sanctioned response; nothing was installed into the repository and both settings live outside the tracked tree. The residual is durability: they exist in this container only, and no workflow sets them, so the capture is not yet reproducible elsewhere.
+
+**Minor shape departures.** Three items are behaviourally inert and are recorded so no later reader mistakes them for oversights. A pre-existing comment that merely restated the statement beneath it was removed from inside the relocated block, which shifted every subsequent line number by one. The error-contract test carries two assertions rather than one, in both argument orders, against a path derived beneath a regular file so its absence is structural rather than probabilistic — strictly more coverage inside the mandated ten-method shape. And the carried compatibility datum for the newest runtime, described as a large count of test failures, is superseded: the run now fails earlier, at build-logic compilation, producing no test results at all.
 
 # 6. Risk Assessment
 
-These are forward-looking: what can still go wrong when the plan is executed or when the artifacts are handled.
+These are forward-looking exposures in the delivered state.
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
 | --- | --- | --- | --- | --- | --- |
-| The tool reports a passing test for COBOL it silently deleted — every `EXEC SQL`, `EXEC CICS` and batch I/O verb is replaced with a literal `CONTINUE`, and the harness can pass over a 0-byte file | Technical | Critical | Occurring today | "Green" is defined mechanically — a non-zero executed-program count, a non-empty output file and a genuine baseline match — and every run must state its executed count. Both false-green routes are documented with their reproductions | Mitigated in plan; closes when the first two runs land |
-| Regenerated golden files are machine-specific: the harness output embeds the absolute repository root 13 times, so its byte length is `26,216 + 13 × root length` | Technical | High | High if unmitigated | A fifth normalization canonicalizes the repository root, with a self-test and a second assertion that no filtered golden file contains an absolute path; both are acceptance criteria of the characterization run | Mitigated in plan; unproven until that run |
-| The build cannot run on JDK 21 — 227 of 457 tests fail in two frame chains | Technical | Medium | Occurring today | The mocking library moves to the 5.x line with an explicit `-javaagent` argument and the test bill-of-materials is bounded to the 5.x line on measured class-file evidence; the modernization run's oracle includes the absence of a dynamic-agent warning | Accepted baseline; scheduled |
-| A live platform credential remains valid and is embedded in the workspace remote URL | Security | High | Occurring today | File mode tightened, no credential value in any delivered artifact, credential-hygiene entry step and value-shaped output scan in both prompts | Open — needs rotation outside the container |
-| Planning artifacts and captured public contributor data reach product history through a branch merge | Operational | High | Low | A containment gate over every product ref (`CLEAN` on all three), entry assertions in both prompts refusing a contaminated starting tree, and a deletion item conditional on a measurement | Mitigated; closes with branch disposal |
-| The one-time capture is lost — the upstream repository is archived and read-only, and three response bodies are already unrecoverable | Operational | High | Low | A verified off-tree copy of all thirteen paths, a three-condition deletion gate, and payload completeness kept separate from audit completeness | Mitigated; needs written confirmation the copy endures |
-| No run's green claim is verifiable in CI — the workflow installs no COBOL compiler, and it pins a distribution whose compiler differs from the recorded anchor | Integration | High | High until addressed | Adding the compiler is scoped into the characterization run, which must also record the CI-resolved compiler version beside the local one and treat a difference as a golden-file finding | Mitigated in plan |
-| A design decision in the run sequence or the architecture records proves wrong once implementation starts | Technical | Medium | Medium | Every run carries a mechanically checkable oracle, a tagged known-good commit to fall back to, and a handoff reconciliation step, so a wrong assumption surfaces at its own run rather than three runs later | Open by construction; human sign-off pending |
+| The approval gate reports success on any operating system it has no launcher for — nothing is executed and nothing is compared. The CI matrix invokes it on a macOS runner (`.github/workflows/VerifyAction.yml:13`, `29-30`) | Security | High | Medium | Make the arm fail closed, or implement a verified launcher per supported platform, and require a stated executed-program count before success. Currently mitigated only by a warning that names what the success does not mean | Open — 8 h in Section 2.2 |
+| After any successful gate state, a repeat invocation without `clean` reports `UP-TO-DATE` and skips the gate entirely | Technical | High | Medium | Model the gate's real inputs and outputs — baseline, harness scripts, staged jar, COBOL sources, compiler environment — rather than relying on callers remembering `clean`. Bounded today: a repeat after a failure re-executes, so a prior success is required | Open — same 8 h |
+| No workflow provisions GnuCOBOL, yet the gate is invoked on three runner families, and the harness scripts are tracked without execute permission | Operational | High | High | Install GnuCOBOL per runner, grant the scripts execute permission durably, and set a file mode on the script-staging task so the staged launcher is executable | Open — 6 h + 2 h |
+| The gate is red by design against a knowingly stale baseline, so any pipeline running it stays red | Operational | High | High | Decide the baseline: justify the 98-line delta and re-approve it, or ratify the red state as release policy, moving the 11-suite acceptance oracle in the same change | Open — 8 h |
+| Invoked outside Gradle, the harness still redirects its capture through a symbolic link and truncates the target | Security | Medium | Low | The Gradle path is guarded and fails closed. Closing the residue means writing the capture into an isolated directory through an operation that refuses to follow links — which requires changing a script excluded from this work | Open — mitigated on the supported path |
+| Toolchain floor: the build cannot run on JDK 17 or later, and the test dependency is held below its upstream support window by the pinned wrapper's bundled platform, so neither can move alone | Integration | Medium | Medium | Raise the wrapper and the coordinate together, verifying that all ten contract methods are still *discovered* rather than that the task merely succeeds | Accepted — outside this scope |
+| Release identity is ambiguous: five tag names share the run prefix, the mandated one names a commit five behind the delivered tip, and three are not ancestors of it | Operational | Medium | Medium | Cut one lineage, create the mandated tag once against it, and retire the superseded names through governance rather than a local delete | Open — 4 h |
+| Absolute workspace paths reach build logs and appear thirteen times inside the capture, produced by the product's output writer | Security | Low | High | Normalise the root at every path that reaches the log, or report a line number and digest with opt-in detail. Discloses directory topology, not credentials, and the fix forces a baseline re-approval | Accepted — outside this scope |
 
 # 7. Visual Project Status
 
-**Hours split — 188 h completed of 221 h total, 85.1 % complete.** Completed work is shown in Blitzy Dark Blue (#5B39F3); remaining work in White (#FFFFFF).
+### Overall Progress
+
+Completed = Dark Blue `#5B39F3` · Remaining = White `#FFFFFF`.
 
 ```mermaid
-pie showData title Project Hours Breakdown
-    "Completed Work" : 188
-    "Remaining Work" : 33
+pie showData title Project Hours Breakdown - 73.2% Complete
+    "Completed Work" : 97
+    "Remaining Work" : 35.5
 ```
 
-**Remaining work by priority — 24 h High, 6 h Medium, 3 h Low (33 h total).**
+### Remaining Work by Priority
 
 ```mermaid
-pie showData title Remaining Work by Priority
-    "High" : 24
-    "Medium" : 6
-    "Low" : 3
+pie showData title Remaining 35.5 Hours by Priority
+    "High" : 23.5
+    "Medium" : 11.5
+    "Low" : 0.5
 ```
 
-**Requirement status — 13 of 14 in-scope requirements complete, 1 partially complete, 0 not started.**
+### Remaining Hours by Category
 
 ```mermaid
-pie showData title AAP Requirement Status
-    "Completed" : 13
-    "Partially Completed" : 1
+gantt
+    title Remaining Work by Category (hours)
+    dateFormat YYYY-MM-DD
+    axisFormat %d
+    section High
+    Approval baseline decision (8.0h)        :2026-01-01, 8d
+    Gate hardening for CI (8.0h)             :2026-01-01, 8d
+    COBOL toolchain in CI (6.0h)             :2026-01-01, 6d
+    Pull request into integration (1.5h)     :2026-01-01, 2d
+    section Medium
+    Release lineage and tag governance (4.0h):2026-01-01, 4d
+    Post-merge release sign-off (3.0h)       :2026-01-01, 3d
+    Durable script execute bits (2.0h)       :2026-01-01, 2d
+    Toolchain anchor durability (1.5h)       :2026-01-01, 2d
+    Task-action scope confirmation (1.0h)    :2026-01-01, 1d
+    section Low
+    Build-artefact ignore rule (0.5h)        :2026-01-01, 1d
 ```
 
-**Where the remaining 33 hours sit.**
+### Delivered Change Footprint
 
-| Category | Hours | Share |
+| Path | Operation | Lines |
 | --- | --- | --- |
-| Human design sign-off | 12 | 36 % |
-| Copybook legal review and the three remaining ranked questions | 8 | 24 % |
-| Identity decisions (slug, publish identity) | 3 | 9 % |
-| First-run provisioning | 3 | 9 % |
-| Artifact preservation and branch disposal | 2 | 6 % |
-| Credential rotation and remote hygiene | 2 | 6 % |
-| Rendered-output read and optional gate wiring | 2 | 6 % |
-| Acceptance of partial audit metadata | 1 | 3 % |
-| **Total** | **33** | **100 % (shares rounded)** |
+| `build.gradle` | Modified | +111 / −61 |
+| `buildSrc/build.gradle` | Created | 17 |
+| `buildSrc/src/main/groovy/BuildHelper.groovy` | Created | 69 |
+| `buildSrc/src/test/groovy/BuildHelperTest.groovy` | Created | 141 |
+| `RUN-1A-HANDOFF.md` | Created | 3,427 |
 
-# 8. Summary & Recommendations
+Five paths, 3,765 lines inserted and 61 removed. Fifteen read-only authority paths — all product source, both approved baselines, the harness scripts, the build settings, the wrapper, the workflows and the ignore file — show a zero-byte difference from the starting commit.
 
-**What was delivered.** The revival programme for `blitzy-cobol-check` now has an executable plan of record. `PROGRAM-PLAN.md` carries all twelve mandated plan items across 3,630 lines: an empirical baseline whose every claim is cited and re-derivable, a ten-run sequence in which each run declares both discipline labels, an entry precondition, a mechanically checkable oracle, exit criteria, a tag and its dependency edges, fifteen architecture decision records with their rejected alternatives, a full triage of all 45 open upstream issues and all 8 pull requests, a backward-compatibility analysis against the four consumers who actually depend on the tool today, a correctness strategy that admits what cannot be verified without IBM compilers, a ten-entry risk register, a rollback model, a handoff template, four genuinely blocking questions and the four topics the requirements asked to see reasoning on. Two of the ten runs are expanded into complete standalone prompts; the remaining eight are provisional sketches by design. Alongside the plan, `upstream-harvest/` preserves a one-time authenticated read of an archived repository, audited by a twelve-section manifest and defended by a validation gate that rejects 33 distinct falsifications.
+# 8. Summary &amp; Recommendations
 
-**What was verified.** The product's own safety net is intact and was re-measured here: 457 tests across 33 executing classes pass on JDK 11 and on JDK 8, with the JDK 21 failure decomposed into its two real frame chains rather than the ones folklore suggested. The COBOL path was driven end to end — with the harness scripts made executable, five programs genuinely compile and execute, producing 11 test suites and 332 lines of output. Just as importantly, the failure modes were reproduced rather than asserted: the build reports success over a 0-byte file by two independent routes, and the command line exits 0 with failing COBOL assertions while `--version` and `--help` exit 8. Every command a later run is told to execute parses, all six gates the deliverables publish return `VERIFIED`, and the fork's product line is untouched — thirteen paths added, nothing modified, nothing deleted, with `origin/Developer` still at the pre-project baseline.
+The approval gate in this build existed to protect the product's observable output format, and it was mechanically incapable of failing. Its entire body sat in the task registration closure, so it ran while Gradle was still evaluating the build script — before the staging tasks it declared a dependency on could exist, let alone run. Every harness invocation died against a launcher that was absent or not executable, wrote nothing, and the comparator then declared a zero-byte capture identical to a 234-line baseline because its loop ended the moment either stream did. A third defect lay dormant behind those two: the failure branch threw an exception type Gradle documents as continuing without failing the build, so repairing the first two alone would have converted the gate from a false pass into a silent no-op. All three are now closed, and the project stands at **73.2% complete — 97.0 of 132.5 hours**.
 
-**What remains.** Thirty-three hours, and almost none of it is authoring. Twelve hours are a human reading and accepting the plan's design judgments — the one property no check can supply. Eight cover the copybook legal review and the three other ranked questions the plan deliberately leaves open rather than guessing. The rest is handling: preserve the thirteen artifacts somewhere durable and dispose of the branch without merging it, rotate the platform credential, settle the repository slug and the Marketplace publish identity, and provision the first implementation session. That places the project at **85.1 % complete** on AAP scope — 188 hours delivered against 221 total. Building the ten runs the plan describes is explicitly outside that scope and is not counted here.
+What the gate does now is verifiable rather than asserted. The harness runs as a task action after its inputs are staged; five COBOL programs compile and execute; the capture is 332 lines carrying 11 test suites, reproducible byte for byte across independent cold runs, and its size matches the documented root-length formula exactly. The comparison rejects it against the approved baseline and the build exits non-zero with the message the contract fixes. Ten contract tests pin every comparator behaviour — unequal lengths in both directions, an empty stream on either side, two empty streams, equal-and-identical, equal-but-differing, the error path in both argument orders, and both whitespace-trimming states — and they run on every Gradle invocation, so the guarantee cannot lapse unnoticed. The precompiler's own 457-test suite is untouched and green on both supported runtimes. The delivered task action also carries three behaviours the plan did not itemise: harness output is attributed to the task that produced it, the capture path is refused unless it is absent or an ordinary file, and the harness's exit status is read and enforced before the comparison. They are the only functional code beyond the planned diff, they are documented as a divergence in Section 5.2, and they should be explicitly ratified.
 
-**The critical path.** Rotate the credential and preserve the artifacts first: both are irreversible-loss risks and both take two hours. Then read the plan and sign off the design, because every subsequent run inherits its decisions. Commission the copybook review in parallel, since it blocks two of the later runs but nothing near-term. Only then hand Prompt B1 to an implementation session — and expect it to end with the approval comparison red, which is its documented and required exit state, with the unit suite still green at 457. Success is measurable at each step: a stated non-zero executed-program count, a tagged commit, and a handoff document that reconciles against its predecessor.
+The remaining 35.5 hours are release enablement, not unfinished repair, and they cluster into four decisions. First, the baseline: a gate that can fail is failing, correctly, against a reference known to be stale by 98 lines — someone must justify that delta and either re-approve the baseline or ratify the red state as policy, moving the 11-suite acceptance oracle with it. Second, the pipeline: no workflow installs GnuCOBOL, yet the gate is invoked on three runner families, and the harness scripts are tracked without execute permission, so CI cannot exercise the gate meaningfully today. Third, trust in the gate itself: it still succeeds on any platform it has no launcher for — including the macOS runner the matrix uses — and a repeat invocation after a successful state is skipped as up to date. Neither could be closed inside the agreed scope, both are bounded by measurement, and both must close before the gate can be relied upon. Fourth, delivery: the work is published on its branch at the delivered commit and the integration branch is untouched, but no pull request exists because the credential lacks permission to create one, and the mandated release tag names a commit five behind the tip.
 
-**Production readiness.** The plan is ready to execute; the programme it plans is not yet started, and that distinction is deliberate. Two conditions gate handover rather than block it: the artifacts must exist somewhere that outlives this workspace, and the credential must be rotated. Both are hours, not days. The one property to guard through the whole programme is the one the plan leads with — a tool that reports a passing test for code it silently deleted is worse than no tool, which is why "green" is defined mechanically here and why every run must state what it actually compiled.
+The critical path is short and ordered. Grant the pull-request permission or open the pull request by hand; take the baseline decision, because it determines whether a green pipeline is even reachable; provision the COBOL toolchain and durable execute permissions so the runners can execute what they are asked to; then harden the gate to fail closed and resist skipping. Establish a single release identity alongside that work, and sign off by re-running the suite and the gate on a real runner. Success is measurable without ambiguity: the suite green at 457 tests on JDK 11 and JDK 8; the contract suite at ten of ten; the capture at 332 lines with 11 suites and five executed programs counted from the error stream; the gate's verdict matching whatever the baseline decision makes correct; and a gate that fails, loudly, on any runner where no COBOL was compiled.
+
+**Production readiness: not ready, by a short and well-understood margin.** The corrective work is complete, verified, and confined to exactly five paths with every excluded authority byte-unchanged. What blocks release is not code quality — it is a deliberate open question about the baseline, a CI environment that cannot run the gate, two fail-open behaviours the agreed scope forbade touching, and a merge route waiting on a permission. None requires rediscovery: each is bounded, costed and owned in Sections 1.4, 2.2 and 6. Two further items are recorded as accepted rather than open, because closing them belongs to a wider modernization: the runtime floor that keeps this build on JDK 11 or older and holds the test dependency below its upstream support window, and the absolute paths the product's output writer places in build logs and in the capture.
 
 # 9. Development Guide
 
-Every command below was executed in this workspace and its output observed. Run them from the repository root. Where a command needs a scratch file, create a scratch directory first — never write build logs into the working tree, because the tree must stay clean:
+Every command below was executed against this repository and behaves as written. Run all of them from the repository root.
 
-```bash
-LOGDIR="$(mktemp -d)"; echo "logs -> $LOGDIR"
-```
+> **Never pipe Gradle output into `head`, `tail` or `grep`.** The daemon holds the pipe open and the shell hangs. Redirect to a file and inspect the file afterwards.
 
 ## 9.1 System Prerequisites
 
-| Requirement | Observed value | Notes |
-| --- | --- | --- |
-| OS | Ubuntu 25.10, kernel 6.12.85+ | The verification workflow pins `ubuntu-22.04`, which ships a different COBOL compiler build — treat any difference in `cobc --version` as a golden-file finding |
-| JDK 8 | 1.8.0_492 | Test leg only; the shipped artifact targets Java 8 bytecode |
-| JDK 11 | 11.0.31 | The documented-green configuration and the default |
-| JDK 21 | 21.0.11 | Expected to fail the suite today — a recorded baseline datum, not a defect to fix |
-| GnuCOBOL | `cobc (GnuCOBOL) 3.2.0` | The golden-file reproducibility anchor. Record it verbatim before any capture |
-| Gradle | 6.9.4 via the committed wrapper | Do not bump outside the modernization run |
-| Node / npm | v22.23.2 / 11.18.0 | Only for the `vs-code-extension/` subtree |
-| Utilities | git 2.51.0, jq 1.8.1, Python 3.13.7, shellcheck 0.10.0 | All present; nothing needs installing |
+| Component | Required | Verified here | Why |
+| --- | --- | --- | --- |
+| Operating system | Linux (Ubuntu 22.04 or later) | Ubuntu container | Matches the CI runner the build is known to pass on |
+| JDK | 11 (default). 8 also works. **17 or later does not** | `openjdk 11.0.31`, `1.8.0_492`, `21.0.11` installed side by side | Gradle 6.9.4 cannot run on JDK 17+ |
+| GnuCOBOL | Any 3.x | `cobc (GnuCOBOL) 3.2.0` | The approval gate shells out to `cobc`; without it the gate cannot compile anything |
+| Gradle | 6.9.4 — supplied by the wrapper, **do not change the pin** | `Gradle 6.9.4`, embedded `Groovy 2.5.12` | Pinned in `gradle/wrapper/gradle-wrapper.properties` |
+| Node.js / npm | Current LTS — only for `vs-code-extension/` | `v22.23.2` / `11.18.0` | The extension subtree is independent of the Gradle build |
+| Git | 2.x | `2.51.0` | — |
+
+Hosts that must be reachable over HTTPS: `services.gradle.org` (the wrapper downloads the distribution on first run), **`plugins.gradle.org` and `gradle.org`** (an analysis plugin is fetched during *configuration*, so if these are blocked **every** Gradle invocation fails, including `./gradlew tasks`), `repo.maven.apache.org` and `repo1.maven.org`, the GitHub hosts, and `registry.npmjs.org` for the extension subtree.
 
 ## 9.2 Environment Setup
 
-Nothing is on `PATH` in a non-login shell. This is the first command of every session, and a probe that fails before it is a probe error, not a finding:
-
 ```bash
-. /etc/profile.d/blitzy-cobolcheck-env.sh
+# Point at JDK 11 - the only configuration this build is documented green on.
+export JDK8_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export JDK11_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export JDK21_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export JAVA_HOME="$JDK11_HOME"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# REQUIRED before running the approval harness. Without this exact value the COBOL
+# compiler emits five '_FORTIFY_SOURCE' redefinition warnings plus their notes, the
+# product's launcher routes them to standard output, and the capture inflates from
+# 332 lines to 340 - which breaks the acceptance oracle.
+export COB_CFLAGS='-std=c17 -finline-functions -pipe -Wdate-time -D_FORTIFY_SOURCE=3 -Wno-unused -fsigned-char'
+
+# Protects the column-significant fixed-format COBOL sources from line-ending translation.
+git config core.autocrlf false
+
+# Somewhere OUTSIDE the repository to keep build logs, so a gate run never dirties the tree.
+export LOGDIR="$HOME/cobol-check-logs" && mkdir -p "$LOGDIR"
 ```
 
-It exports `JDK8_HOME`, `JDK11_HOME`, `JDK21_HOME`, `JAVA_HOME=$JDK11_HOME`, `GRADLE_USER_HOME`, `PATH` and a de-duplicated `COB_CFLAGS`. It is idempotent. Verify it took:
+Verify the environment before doing anything else:
 
 ```bash
-cobc --version | head -1                      # cobc (GnuCOBOL) 3.2.0
-"$JDK8_HOME/bin/java"  -version 2>&1 | head -1
-"$JDK11_HOME/bin/java" -version 2>&1 | head -1
-"$JDK21_HOME/bin/java" -version 2>&1 | head -1
-echo "$COB_CFLAGS" | grep -o '_FORTIFY_SOURCE=[0-9]' | wc -l   # must be 1
-git config --get core.autocrlf                                  # must be false
+cobc --version | head -1        # cobc (GnuCOBOL) 3.2.0
+java -version                   # openjdk version "11.0.31"
+./gradlew --version             # Gradle 6.9.4 / Groovy 2.5.12 / JVM 11.0.31
+echo "$COB_CFLAGS" | grep -o _FORTIFY_SOURCE | wc -l   # must print exactly 1
 ```
 
-The `COB_CFLAGS` check matters: the distribution's packaging defines `_FORTIFY_SOURCE` twice, the compiler writes a redefinition warning to stderr, and the tool pipes the child's stderr into stdout — so a duplicate definition lands in every golden file you capture. `core.autocrlf=false` matters because the COBOL sources are column-significant fixed format.
+Recommended Gradle settings in `~/.gradle/gradle.properties` — `console=plain` in particular prevents a single-use daemon from hanging a non-interactive shell:
 
-## 9.3 Dependencies
-
-No installation step is required. Both caches are warm (the Gradle cache is 468 MB, the npm cache 393 MB) and Gradle resolves offline:
-
-```bash
-./gradlew --version --offline        # Gradle 6.9.4
+```properties
+org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+org.gradle.daemon=true
+org.gradle.parallel=false
+org.gradle.console=plain
 ```
 
-For the extension subtree only:
+Persist `~/.gradle/caches`, `~/.gradle/wrapper/dists` (the 6.9.4 distribution is roughly 431 MB) and `~/.npm` between container starts, or every start re-downloads them.
+
+## 9.3 Build and Test
 
 ```bash
-cd vs-code-extension && npm install && npm run compile && cd ..
+# Compile and package. Produces build/libs/cobol-check.jar (unversioned).
+./gradlew clean build > "$LOGDIR/build.log" 2>&1; echo "exit=$?"; tail -3 "$LOGDIR/build.log"
+
+# The full precompiler suite. Expect: exit 0, 457 tests, 0 failures.
+./gradlew clean test > "$LOGDIR/test.log" 2>&1; echo "exit=$?"
+
+# The two filtered task paths. Expect 433 tests / 28 classes and 24 tests / 5 classes.
+./gradlew clean unitTest integrationTest > "$LOGDIR/filtered.log" 2>&1; echo "exit=$?"
+
+# The versioned fat jar, staged where the harness launcher expects it.
+# NOTE: 'build' alone does NOT produce this or populate bin/.
+./gradlew fatJar copyJarToBin > "$LOGDIR/jar.log" 2>&1; echo "exit=$?"
+ls -l bin/cobol-check-0.2.19.jar     # 273,558 bytes
 ```
 
-## 9.4 Build and Test
-
-Redirect Gradle output to a file rather than piping it — the process holds the pipe open and an interactive shell will appear to hang:
+Read the real totals from the JUnit XML rather than from console text:
 
 ```bash
-# The documented-green gate: exits 0 with 457 tests, 0 failures
-JAVA_HOME=$JDK11_HOME ./gradlew --no-daemon clean test > "$LOGDIR/jdk11.log" 2>&1; echo "exit=$?"
-
-# Java 8 leg: exits 0 with 457 tests, 0 failures
-JAVA_HOME=$JDK8_HOME  ./gradlew --no-daemon clean test > "$LOGDIR/jdk8.log" 2>&1; echo "exit=$?"
-
-# Java 21 leg: exits 1 with "457 tests completed, 227 failed" — expected, do not fix
-JAVA_HOME=$JDK21_HOME ./gradlew --no-daemon clean test > "$LOGDIR/jdk21.log" 2>&1; echo "exit=$?"
-```
-
-Read the real totals from the JUnit XML, never from the console summary:
-
-```bash
-python3 - <<'EOF'
+python3 - <<'PY'
 import glob, xml.etree.ElementTree as ET
-c=t=f=e=s=0
-for p in sorted(glob.glob('build/test-results/test/TEST-*.xml')):
-    r=ET.parse(p).getroot(); c+=1
-    t+=int(r.get('tests')); f+=int(r.get('failures'))
-    e+=int(r.get('errors')); s+=int(r.get('skipped'))
-print(f"classes={c} tests={t} failures={f} errors={e} skipped={s}")
-EOF
+for task in ('test', 'unitTest', 'integrationTest'):
+    files = sorted(glob.glob(f'build/test-results/{task}/*.xml'))
+    if not files: continue
+    tot = {k: 0 for k in ('tests', 'failures', 'errors', 'skipped')}
+    for p in files:
+        r = ET.parse(p).getroot()
+        for k in tot: tot[k] += int(r.get(k, 0))
+    print(task, 'classes=%d' % len(files), tot)
+PY
 ```
 
-## 9.5 Running the COBOL Harness
-
-Three tracked scripts ship at mode 0644, and Gradle's copy task preserves the source mode — so the launcher it copies is also non-executable. Grant the bits per session; do not commit them outside the run that owns that change:
+The comparator contract suite needs no separate command — the build-logic module is compiled **and tested** on every Gradle invocation. Read its result directly:
 
 ```bash
-chmod +x ./approvaltest ./cobolcheck ./scripts/linux_gnucobol_run_tests
-rm -rf bin temp testruns actual-output.txt          # cold reset; `clean` does not remove these
-JAVA_HOME=$JDK11_HOME ./gradlew --no-daemon clean build fatJar copyJarToBin \
-  copyRunScripts prepareDistribution -x test > "$LOGDIR/build.log" 2>&1; echo "exit=$?"
-./approvaltest > "$LOGDIR/harness.out" 2> "$LOGDIR/harness.err"; echo "exit=$?"
+grep -o 'tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' \
+  buildSrc/build/test-results/test/TEST-BuildHelperTest.xml
+# tests="10" skipped="0" failures="0" errors="0"
 ```
 
-Then judge it on what actually ran, not on the exit status:
+## 9.4 Running the Approval Gate
+
+The three harness scripts are tracked without execute permission and the staging task preserves source permissions, so grant `+x` first or the staged launcher will not run:
 
 ```bash
-grep -c 'INF009'      "$LOGDIR/harness.err"   # programs that genuinely executed — expect 5
-grep -c 'TESTSUITE:'  actual-output.txt       # expect 11
-wc -l -c actual-output.txt                    # expect 332 lines
+chmod +x approvaltest cobolcheck scripts/linux_gnucobol_run_tests
+
+# See the gate's dependency graph without running any COBOL.
+./gradlew approvalTest --dry-run > "$LOGDIR/dryrun.log" 2>&1; echo "exit=$?"
+# :clearLibJar -> :unitTest -> :integrationTest -> :fatJar -> :copyJarToBin
+#              -> :copyRunScripts -> :approvalTest
+
+# Run the gate. Capture the two streams SEPARATELY: the product writes every log
+# record to standard error, so the execution count is only countable there.
+./gradlew clean approvalTest > "$LOGDIR/approval.out" 2> "$LOGDIR/approval.err"
+echo "exit=$?"
 ```
 
-`INF008: About to launch process` is emitted *before* the child starts, so counting it certifies nothing. `INF009` is written only after a child has run. Both go to stderr, so a count taken from `actual-output.txt` reads zero even on a fully successful run.
+**Expected result today: exit 1.** That is the intended state, not a broken build — the gate is comparing live output against a baseline known to be stale. Confirm it failed for the right reason:
+
+```bash
+grep -nE 'Task :approvalTest|Linux detected|harness exit status|exit from compare|\*\*\* FAIL \*\*\*' "$LOGDIR/approval.out"
+grep -nE 'What went wrong|Execution failed|are different' "$LOGDIR/approval.err"
+```
+
+```text
+> Task :approvalTest FAILED
+Linux detected
+harness exit status: 0
+exit from compare: 1
+*** FAIL ***
+* What went wrong:
+Execution failed for task ':approvalTest'.
+> ./expected-output.txt and ./actual-output.txt are different
+```
+
+Then check the four output oracles:
+
+```bash
+grep -c '^TESTSUITE:' actual-output.txt              # 11
+wc -l actual-output.txt                              # 332
+grep -c INF009 "$LOGDIR/approval.err"                # 5 - the executed-program count
+grep -c INF009 actual-output.txt                     # 0 - always; the capture holds stdout only
+wc -c actual-output.txt                              # 26216 + 13 * length of your repository root
+printf '%s' "$(git rev-parse --show-toplevel)" | wc -c   # your root length
+```
+
+Confirm the build script itself runs no harness work:
+
+```bash
+./gradlew tasks > "$LOGDIR/tasks.out" 2> "$LOGDIR/tasks.err"; echo "exit=$?"     # exit 0
+grep -cE 'Linux detected|exit from compare|harness exit status' "$LOGDIR/tasks.out" "$LOGDIR/tasks.err"   # 0 and 0
+```
+
+## 9.5 Restoring the Working Tree
+
+A gate run rewrites tracked build artefacts and leaves generated files behind, some of which the ignore rules do not cover. Run this before committing or comparing:
+
+```bash
+ROOT="$(git rev-parse --show-toplevel)"
+test -f "$ROOT/build.gradle" && test -f "$ROOT/expected-output.txt" || { echo "not this repository"; exit 1; }
+git -C "$ROOT" checkout -- \
+  build/distributions/cobol-check-0.2.19.zip \
+  build/libs/cobol-check-0.2.19.jar \
+  vs-code-extension/Cobol-check/bin/cobol-check-0.2.19.jar
+chmod 0644 "$ROOT/approvaltest" "$ROOT/cobolcheck" "$ROOT/scripts/linux_gnucobol_run_tests"
+rm -rf "$ROOT/actual-output.txt" "$ROOT/temp" "$ROOT/testruns" "$ROOT/buildSrc/build" "$ROOT/bin"
+git -C "$ROOT" status --porcelain=v1 -uall     # expect no output
+```
+
+The sentinel check and the absolute paths are deliberate: never run a bare relative `rm -rf`, which inherits whatever directory the shell happens to be in.
 
 ## 9.6 Example Usage
 
-```bash
-java -jar bin/cobol-check-0.2.19.jar -p NUMBERS
-```
-
-Expected: a `TESTSUITE:` header, per-case `PASS` / `**** FAIL` lines and `EXPECTED` / `WAS` pairs on stdout, informational `INF0nn` lines on stderr — and **exit status 0 even when cases fail**, while `--version` and `--help` exit 8. That inversion is real; a repair with a new distinct nonzero code is scheduled, and its oracle already exists at `src/test/cobol/RETURNCODE/ReturnCode-4.cut`.
-
-## 9.7 Inspecting the Planning Artifacts
+Run the precompiler against a single COBOL program through the staged launcher:
 
 ```bash
-# Backlog: 45 true issues out of 53 issue-endpoint entries
-jq '[.issues[] | select(has("pull_request") | not)] | length' upstream-harvest/issues.json
-
-# The eight upstream pull requests, their origins and lock state
-jq -r '.pulls[] | "\(.number)  \(.head.repo.full_name)  base=\(.base.ref)  locked=\(.locked)"' \
-  upstream-harvest/pulls.json
-
-# Plan self-checks
-grep -c '^[`][`][`]' PROGRAM-PLAN.md                                  # 92 fence lines, balanced
-grep -oE '\[[^][]*:L[0-9]+[^][]*\]' PROGRAM-PLAN.md | wc -l           # 347 citations
-grep -oE '\[[^][]*:L[0-9]+[^][]*\]' PROGRAM-PLAN.md | sort -u | wc -l # 172 distinct
+chmod +x approvaltest cobolcheck scripts/linux_gnucobol_run_tests
+./gradlew copyRunScripts > "$LOGDIR/stage.log" 2>&1; echo "exit=$?"
+./temp/approvalTest/cobolcheck -p NUMBERS > "$LOGDIR/numbers.out" 2> "$LOGDIR/numbers.err"
+echo "exit=$?"; head -6 "$LOGDIR/numbers.out"
 ```
 
-The deliverables also publish their own gates as fenced blocks — request accounting and five-layer envelope validation in `upstream-harvest/HARVEST-MANIFEST.md` §3.2 and §4.4, secret hygiene in §11, governance notes in §12, and the package and containment gates in `PROGRAM-PLAN.md` A9.1. Copy any of them out and run it; each prints its verdict and makes its exit status the answer.
+```text
+TESTSUITE:
+Verify Cobol Check handles numeric relations properly
+     PASS:   1. Equal sign with literal compare
+**** FAIL:   2. Equal sign with literal compare (should fail)
+    EXPECTED +00000000025.7500000
+         WAS +00000000025.7400000
+```
 
-## 9.8 Troubleshooting
+The failing case above is intentional — the suite includes negative cases by design. Command-line options:
+
+```bash
+java -jar bin/cobol-check-0.2.19.jar --help    # prints usage; exits 8, which is its own convention
+```
+
+The VS Code extension is an independent subtree:
+
+```bash
+cd vs-code-extension && npm install && npm run compile
+```
+
+## 9.7 Troubleshooting
 
 | Symptom | Cause | Resolution |
 | --- | --- | --- |
-| `clean test approvalTest` passes but `actual-output.txt` is 0 bytes | The approval task's shell calls run while Gradle is still configuring the build, before the tasks they depend on execute. On a cold tree the launcher does not exist yet | Build first, grant the execute bits, then run `./approvaltest` directly. Judge the result on the `INF009` count, never on the exit status |
-| `Permission denied` or `ERR023: Process failed to start` from the harness | The harness scripts and the copied launcher are mode 0644 | `chmod +x ./approvaltest ./cobolcheck ./scripts/linux_gnucobol_run_tests` and rebuild so the copy inherits the bit |
-| A second `clean approvalTest` fails before any task runs | `clean` removes neither `bin/` nor `temp/`, so the harness runs against a stale baseline | `rm -rf bin temp testruns actual-output.txt` for a true cold tree |
-| `git status` shows two `build/` archives deleted after a build | `build/libs/cobol-check-0.2.19.jar` and `build/distributions/cobol-check-0.2.19.zip` are *tracked*, and `clean` deletes them; the distribution chain also rewrites the extension's copy | `git checkout -- build/ vs-code-extension/Cobol-check/bin/`, then confirm each blob against `HEAD` with `git hash-object` |
-| A Gradle command appears to hang forever | Output was piped into `tail`/`head`; the process keeps the pipe open | Redirect to a file, or background with `nohup` and wait on the pid |
-| The extension test harness fails to start | The UNIX socket path exceeds 107 characters from this checkout location | Copy `vs-code-extension` (with its `.vscode-test` directory) to a short scratch directory outside the repository and run `xvfb-run -a npm test` there |
-| A compiler warning appears inside captured output | `_FORTIFY_SOURCE` is defined twice and the warning goes to stderr, which the tool forwards to stdout | Keep the de-duplicated `COB_CFLAGS` the activation script exports; stderr is then exactly 0 bytes |
+| The shell hangs on a Gradle command | The daemon holds an open pipe | Never pipe Gradle. Redirect to a file, then inspect it |
+| `cobc: not found`, or the gate fails without compiling | GnuCOBOL is absent from `PATH` | Install GnuCOBOL 3.x and re-check `cobc --version` |
+| `Permission denied` from the staged launcher | The harness scripts are tracked at mode 0644 and the staging task preserves source permissions | `chmod +x approvaltest cobolcheck scripts/linux_gnucobol_run_tests` before staging |
+| `Unsupported class file major version 65` at `:buildSrc:compileGroovy` | A JDK 17+ runtime | `export JAVA_HOME=$JDK11_HOME` (JDK 8 also works) |
+| `Cannot infer Groovy class path because no Groovy Jar was found` | A directory-scoped invocation makes the build-logic module a standalone project, so Gradle never injects its Groovy classpath | Run any root-build command instead; the module's tests execute there anyway |
+| `> Task :approvalTest UP-TO-DATE` | The gate declares outputs, so a repeat after a *successful* run skips the action | Always prefix `clean`. Do not add an up-to-date opt-out — record what you see and raise it |
+| `… is a symbolic link` / `is not a regular file` / `could not be deleted - refusing to run the approval harness` | The capture guard fired deliberately | Remove `./actual-output.txt`, or replace it with an ordinary file the build may delete |
+| Ten untracked entries under `buildSrc/build/` after any Gradle command | The root-anchored ignore rule cannot match a nested path | Use the restore procedure in Section 9.5 |
+| The capture's byte size differs between machines | The absolute repository root is embedded thirteen times | Compare the **line** count (332). Bytes are `26216 + 13 × your root length` |
+| `approvalTest` is red with `… are different` | The current intended state — the baseline is knowingly stale | Not a build failure. See Section 1.4 and Section 2.2 |
 
 # 10. Appendices
 
 ## A. Command Reference
 
-| Purpose | Command | Observed result |
+| Command | Purpose | Expected result |
 | --- | --- | --- |
-| Activate the toolchain (always first) | `. /etc/profile.d/blitzy-cobolcheck-env.sh` | exit 0, idempotent |
-| Documented-green gate | `JAVA_HOME=$JDK11_HOME ./gradlew --no-daemon clean test` | exit 0 — 457 tests, 0 failures |
-| Java 8 leg | `JAVA_HOME=$JDK8_HOME ./gradlew --no-daemon clean test` | exit 0 — 457 tests, 0 failures |
-| Java 21 leg | `JAVA_HOME=$JDK21_HOME ./gradlew --no-daemon clean test` | exit 1 — 227 of 457 fail (expected) |
-| Full distribution chain | `./gradlew --no-daemon clean build fatJar copyJarToBin copyRunScripts prepareDistribution -x test` | exit 0 — `bin/cobol-check-0.2.19.jar`, 273,558 B |
-| Cold reset before a harness run | `rm -rf bin temp testruns actual-output.txt` | Removes what `clean` leaves behind |
-| Grant harness execute bits (per session) | `chmod +x ./approvaltest ./cobolcheck ./scripts/linux_gnucobol_run_tests` | Tracked mode stays 100644 |
-| Run the COBOL harness | `./approvaltest` | exit 0 — 5 programs executed, 11 suites, 332 lines |
-| Count programs that genuinely ran | `grep -c 'INF009' <harness stderr>` | 5 |
-| Run one suite through the jar | `java -jar bin/cobol-check-0.2.19.jar -p NUMBERS` | exit 0 with failing cases in the output |
-| Restore archives `clean` deleted | `git checkout -- build/ vs-code-extension/Cobol-check/bin/` | Blobs match `HEAD` |
-| Validate the capture | The `bash` block in `upstream-harvest/HARVEST-MANIFEST.md` §4.4 | `VERIFIED`, exit 0 |
-| Check the off-tree artifact copy | The `bash` block in `PROGRAM-PLAN.md` A9.1 | `13 of 13 byte-identical / VERIFIED` |
-| Check no planning path reached a product ref | The `bash` block in `PROGRAM-PLAN.md` A9.1.2 | `CLEAN` ×3, `VERIFIED` |
+| `./gradlew clean build` | Compile and package | exit 0; `build/libs/cobol-check.jar` |
+| `./gradlew clean test` | Full precompiler suite | exit 0; 457 tests, 0 failures |
+| `./gradlew clean unitTest integrationTest` | Both filtered task paths | exit 0; 433 / 28 classes and 24 / 5 classes |
+| `./gradlew fatJar copyJarToBin` | Build and stage the versioned jar | exit 0; `bin/cobol-check-0.2.19.jar`, 273,558 bytes |
+| `./gradlew copyRunScripts` | Stage the harness launcher with its version filtered in | exit 0; `temp/approvalTest/cobolcheck` |
+| `./gradlew approvalTest --dry-run` | Show the gate's dependency graph without running COBOL | exit 0; thirteen tasks listed in order |
+| `./gradlew clean approvalTest` | Run the approval gate | **exit 1 today** — the intended state; `*** FAIL ***` with the fixed cause |
+| `./gradlew tasks` | Confirm configuration performs no harness work | exit 0; zero harness markers in either stream |
+| `./temp/approvalTest/cobolcheck -p NUMBERS` | Precompile and run one COBOL program | exit 0; a `TESTSUITE:` block |
+| `java -jar bin/cobol-check-0.2.19.jar --help` | Command-line usage | usage text; exits 8 by its own convention |
+| `JAVA_HOME=$JDK8_HOME ./gradlew clean test` | Java 8 compatibility leg | exit 0; 457 tests, 0 failures |
+| `JAVA_HOME=$JDK21_HOME ./gradlew clean test` | Records the runtime floor | exit 1 at `:buildSrc:compileGroovy`; no test results |
 
 ## B. Port Reference
 
-None. This project starts no server, exposes no HTTP endpoint, uses no database and opens no port. The product is a command-line precompiler that shells out to a COBOL compiler.
+Not applicable. This project exposes no network service: the build compiles a command-line precompiler and shells out to a local COBOL compiler. No process in the affected surface listens on a TCP port.
 
 ## C. Key File Locations
 
 | Path | Role |
 | --- | --- |
-| `PROGRAM-PLAN.md` | The deliverable: Deliverable A items 1–12, two standalone run prompts, eight provisional run sketches |
-| `upstream-harvest/issues.json` | All 53 issue-endpoint entries — 45 issues plus 8 pull-request-shaped records |
-| `upstream-harvest/pulls.json` | The 8 open pull requests with head SHAs, origin repositories, base ref and lock state |
-| `upstream-harvest/pr-330-reviews.json` · `pr-411-reviews.json` | The two named review threads: 2/3/5 and 0/0/0 across the three families |
-| `upstream-harvest/issue-comments/{53,93,150,220,321,323}.json` | The six flagged comment threads, each reconciled to its issue counter |
-| `upstream-harvest/HARVEST-MANIFEST.md` | Twelve-section audit of the capture, including the generated 37-row endpoint table |
-| `upstream-harvest/capture-envelope.schema.json` | The normative provenance-envelope contract (version 1.2.0) the validation gate enforces |
-| `build.gradle` | Single build script; the approval task, its configuration-time shell calls and the comparison helper all live here |
-| `expected-output.txt` | The approval baseline — 234 lines, currently 98 behind real output. Load-bearing; never delete it |
-| `src/main/cobol/` · `src/test/cobol/` | 15 COBOL programs and 23 test-suite files; the harness invokes six of the programs |
-| `scripts/linux_gnucobol_run_tests` | The compiler launcher the tool execs once per program |
-| `.github/workflows/VerifyAction.yml` | Runs the suite and the approval task on three operating systems — and installs no COBOL compiler |
+| `build.gradle` | Root build. The approval gate is registered at `:201`, its action opens at `:212`, the comparator is called at `:309`, and the failure is thrown at `:318` |
+| `buildSrc/build.gradle` | Build-logic module manifest — one test dependency and the platform selection |
+| `buildSrc/src/main/groovy/BuildHelper.groovy` | The output comparator. Returns 0 for a match, 1 for a difference, −1 for a comparison error |
+| `buildSrc/src/test/groovy/BuildHelperTest.groovy` | Ten contract tests across seven behaviour families |
+| `expected-output.txt` | The approved baseline — 234 lines, 12,336 bytes. Duplicated byte-identically at `src/test/approvalTest/expected-output.txt` |
+| `actual-output.txt` | The live capture, generated by a gate run. Not tracked |
+| `approvaltest` | The Linux harness: six precompiler invocations appending to the capture |
+| `approvaltestWin.cmd` | The Windows harness |
+| `cobolcheck` / `cobolcheck.cmd` | Launcher templates; the version placeholder is filled in during staging |
+| `scripts/linux_gnucobol_run_tests` | The compile-and-run script the precompiler invokes per program |
+| `src/main/java/org/openmainframeproject/cobolcheck/` | The precompiler — 110 files, 12,131 lines across `features`, `services`, `workers` and `exceptions` |
+| `src/test/java/` | The existing suite — 35 files, 8,957 lines, 33 executing classes |
+| `src/main/cobol/`, `copybooks/`, `testsuites/` | 68 COBOL programs, 10 copybooks, 36 test-suite files |
+| `.github/workflows/VerifyAction.yml` | Runs the suite and the gate on three runner families at Java 11 |
+| `RUN-1A-HANDOFF.md` | The delivery record for this change — fifteen sections, 3,427 lines |
+| `vs-code-extension/` | Independent editor-extension subtree |
 
 ## D. Technology Versions
 
-| Component | Version |
-| --- | --- |
-| GnuCOBOL (`cobc`) | 3.2.0 — the golden-file anchor |
-| JDK | 1.8.0_492 / 11.0.31 / 21.0.11 |
-| Gradle | 6.9.4 (committed wrapper) |
-| JUnit Jupiter | 5.6.1 (engine) / 5.7.0 (params) |
-| Mockito | 3.6.0 inline / 3.6.28 JUnit 5 bridge |
-| JaCoCo | 0.8.6, gate defined but not attached to `check` |
-| Node / npm | v22.23.2 / 11.18.0 |
-| Product version | 0.2.19 |
+| Component | Version | Source |
+| --- | --- | --- |
+| Gradle | 6.9.4 (pinned) | `gradle/wrapper/gradle-wrapper.properties` |
+| Groovy | 2.5.12 | Embedded in the Gradle distribution |
+| JDK (supported) | 11 primary, 8 also green | `JAVA_HOME` |
+| JDK (unsupported) | 17 and later | Fails at build-logic compilation |
+| GnuCOBOL | 3.2.0 | `cobc --version` |
+| JUnit Jupiter (precompiler suite) | 5.6.1, with parameters 5.7.0 | `build.gradle:100-101` |
+| JUnit Jupiter (build logic) | 5.7.0 | `buildSrc/build.gradle:12` |
+| JUnit Platform | 1.7.0 | Bundled by the Gradle distribution; not declared |
+| Mockito | `mockito-inline` 3.6.0, `mockito-junit-jupiter` 3.6.28 | `build.gradle:102-103` |
+| JaCoCo | 0.8.6 — declared; the verification rule is attached to no task | `build.gradle:26-50` |
+| SonarQube plugin | 3.0 — declared; requires a token, resolved during configuration | `build.gradle:5` |
+| Product version | 0.2.19 | Build properties |
+| Node.js / npm | 22.23.2 / 11.18.0 | Extension subtree only |
 
 ## E. Environment Variable Reference
 
-| Variable | Value / source | Why it matters |
-| --- | --- | --- |
-| `JDK8_HOME`, `JDK11_HOME`, `JDK21_HOME` | Exported by the activation script | The three-leg build matrix is not runnable without them |
-| `JAVA_HOME` | Defaults to `$JDK11_HOME` | Gradle 6.9.4 cannot run on JDK 17 or later |
-| `GRADLE_USER_HOME` | The shared Gradle cache directory, exported by the activation script | Holds the warm 468 MB cache; offline dependency resolution depends on it |
-| `COB_CFLAGS` | De-duplicated, one `-D_FORTIFY_SOURCE=3` | A duplicate definition puts a compiler warning into every captured golden file |
-| `GITHUB_TOKEN` | Platform secret, public read scope | Needed only for the upstream capture, which is complete. Authenticated reads run at 5,000/hour; unauthenticated ones return empty bodies once exhausted |
+| Variable | Required | Value | Purpose |
+| --- | --- | --- | --- |
+| `JAVA_HOME` | Yes | JDK 11 path | The only runtime this build is documented green on |
+| `JDK8_HOME` / `JDK11_HOME` / `JDK21_HOME` | For the matrix | The three JDK paths | Lets the compatibility legs run without re-deriving paths |
+| `COB_CFLAGS` | Yes, before a gate run | `-std=c17 -finline-functions -pipe -Wdate-time -D_FORTIFY_SOURCE=3 -Wno-unused -fsigned-char` | Prevents compiler redefinition warnings from reaching the capture and inflating it past the 332-line oracle |
+| `CI` | Optional | `true` | Keeps the Node tooling in the extension subtree non-interactive |
+| Analysis token | Only for analysis | not set | Required by the declared analysis plugin; without it no analysis runs |
 
 ## F. Developer Tools Guide
 
-- **Reading the plan.** Deliverable A items 3, 4 and 5 are written to be copied whole into a later session — they carry no "see above" references, so a run prompt can embed them without losing meaning.
-- **Trusting a number.** Every count the plan asserts about the corpus or the code shape is re-derivable: the block in A2.13 prints each value beside the expectation it claims, and it reproduced all thirteen here.
-- **Judging a run's success.** Never read the exit status alone. A run is green only when the suite reports 457 or more tests with no failures, the harness compiled and executed a non-zero number of programs, the output file is non-empty, and the baseline comparison genuinely matched.
-- **The one expected red.** The first run repairs the harness without refreshing the stale baseline, so its approval comparison must end red while the unit suite stays green. That red is the evidence the repair worked; reverting it would restore the vacuous pass.
-- **Handover between runs.** Runs share no memory. Everything a later run needs travels in a handoff document — the start and end commits, the tag, the compiler version verbatim, changed files with reasons, golden-file status, decisions to respect, new public surface, and deferrals.
+- **Reading test results.** Trust the JUnit XML under `build/test-results/<task>/` and `buildSrc/build/test-results/test/`, never console text. The aggregation snippet is in Section 9.3.
+- **Counting executed programs.** Every product log record goes to standard error, and the capture holds standard output only, so the execution count is countable only from a separately captured error stream. Counting it in the capture always yields zero regardless of how many programs ran.
+- **Counting programs that *started*** is not evidence — the pre-start record is emitted before the child process exists. Only the post-exit record, which carries the child's status, proves execution.
+- **Comparing captures across machines.** The line count (332) is portable; the byte count is not, because the absolute repository root is embedded thirteen times. Use `26216 + 13 × <root length>`.
+- **Inspecting the gate safely.** `./gradlew approvalTest --dry-run` shows the whole graph and compiles no COBOL.
+- **Build-logic changes.** Editing anything under `buildSrc/` invalidates the whole build once and re-runs the ten contract tests on the next invocation. A failure there fails every Gradle command — which is exactly what makes the comparator guarantee self-enforcing.
+- **Release identity.** `git describe` resolves the delivered commit's own annotated tag. Several tag names share the run prefix; only the one that is an ancestor of the branch tip and names the delivered commit describes the delivered state.
 
 ## G. Glossary
 
 | Term | Meaning |
 | --- | --- |
-| Precompiler | The architecture: the tool merges the program under test with its test suites, writes a copy with test code embedded, then compiles and runs the copy. Retained deliberately |
-| Stub emission | Today every `EXEC SQL`, `EXEC CICS` and batch I/O verb is replaced with a literal `CONTINUE`. Generalizing that into a dispatch point is the seam all three mocking runs depend on |
-| Surface label | Which code a run may touch: non-production, peripheral production, enumerated core, or new code |
-| Discipline label | Whether observable behaviour may change: preserving, corrective, or additive. A run states both or it has no oracle |
-| Green | All of: the suite at 457+ tests with zero failures; a non-zero executed-program count; a non-empty output file; and a genuine baseline match |
-| Vacuous green | A pass produced by comparing an empty output file against the baseline with nothing compiled. Reproducible today by two independent routes |
-| Golden file | A captured output file compared byte-for-byte on later runs, which is why the compiler version and the compiler flags are recorded verbatim |
-| Characterization corpus | The set of COBOL programs, copybooks and suites a later run pins under golden files before anything touches the interpreter |
-| Handoff artifact | The single document by which one run passes context to the next |
-| Audit-partial capture | A capture whose harvested payload is complete but whose provenance record has an unrecoverable gap. Four of the ten captures are in this state permanently |
+| Approval gate | The `approvalTest` task: runs the COBOL harness and compares its captured output against the approved baseline |
+| Approved baseline | `expected-output.txt` — the agreed reference for the product's observable output. Currently stale by 98 lines relative to live output |
+| Capture | `actual-output.txt` — the harness's live standard output for one gate run |
+| Configuration phase | The stage where Gradle evaluates the build script, before any task graph exists. Task ordering declarations have no effect on code that runs here |
+| Task action | Code registered to run during execution rather than configuration. Only here are declared task dependencies honoured |
+| Build-logic module | `buildSrc/` — auto-detected by Gradle, compiled **and tested** on every invocation, and placed on the build script's classpath |
+| Harness | `approvaltest` (Linux) and `approvaltestWin.cmd` (Windows) — the scripts that invoke the precompiler once per COBOL program |
+| Test suite file | A `.cut` file expressing COBOL unit tests in the product's own syntax |
+| Counting oracle | A measurable property of a gate run that proves COBOL actually executed: test-suite blocks, executed-program records, child statuses, capture size |
+| Vacuous pass | A gate reporting success without having executed or compared anything — the condition this work removes |
