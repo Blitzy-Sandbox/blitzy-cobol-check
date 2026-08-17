@@ -202,39 +202,123 @@ approvalTest = tasks.register("approvalTest", Test) {
     description 'Run approval test only'
     dependsOn copyJarToBin, copyRunScripts
 
-    def output = -1
-    def weRanATest = false
-    def runningOs = OS_NAME.toLowerCase()
+    // The harness invocation below MUST run as a task action, not in this registration
+    // closure. Gradle evaluates build scripts and only then builds the task graph, so
+    // configuration-phase code runs BEFORE copyJarToBin and copyRunScripts can have
+    // staged bin/cobol-check-<version>.jar and temp/approvalTest/cobolcheck. The harness
+    // therefore ran against a missing (exit 127) or non-executable (exit 126) launcher,
+    // produced a zero-byte actual-output.txt, and the comparison below passed vacuously.
+    // Inside doLast the dependsOn above is finally honoured.
+    doLast {
+        def output = -1
+        def weRanATest = false
+        def harnessStatus = -1
+        def runningOs = OS_NAME.toLowerCase()
 
-    if (runningOs == "linux") {
-        println "Linux detected"
+        // Every child process is started through this closure, for two reasons.
+        //
+        // Attribution: Groovy's waitForProcessOutput(System.out, System.err) pumps the child's
+        // streams on threads of its own making, and output written from a thread Gradle does not
+        // associate with this task's build operation is rendered ungrouped and immediately - which
+        // is why the whole harness log used to appear AHEAD of the "> Task :approvalTest" header
+        // instead of under it. Buffering the child's output and re-emitting it from this thread
+        // keeps every line inside the task's own output group. Child stderr is re-emitted on
+        // stderr, so INF009 records stay countable from a stderr capture (they are the only proof
+        // a COBOL programme actually ran; the capture file holds stdout only).
+        //
+        // Status: the exit value is returned rather than discarded, so a harness that could not
+        // run at all is distinguishable from one whose output merely differs.
+        def runChild = { String command ->
+            def proc = command.execute()
+            // StringBuffer, not StringBuilder: the pump threads append to these concurrently.
+            StringBuffer childOut = new StringBuffer()
+            StringBuffer childErr = new StringBuffer()
+            proc.waitForProcessOutput(childOut, childErr)
+            if (childOut.length() > 0) {
+                System.out.print(childOut.toString())
+                System.out.flush()
+            }
+            if (childErr.length() > 0) {
+                System.err.print(childErr.toString())
+                System.err.flush()
+            }
+            return proc.exitValue()
+        }
 
-        // grant execute permission to run script
-        def procChmod = "chmod +x ./approvaltest".execute()
-        procChmod.waitForProcessOutput(System.out, System.err)
+        // Called immediately before a harness is launched - and only then, so that an operating
+        // system with no harness leaves the working tree exactly as it found it. The harness
+        // redirects with `>` [approvaltest:L1], which follows a symbolic link and truncates
+        // whatever it points at, a file outside this repository included. The harness scripts are
+        // out of scope for this change, so the build refuses to invoke them unless the capture path
+        // is absent or an ordinary file. A stale capture is deleted rather than reused, so output
+        // from an earlier run can never be judged as if this run had produced it.
+        def prepareCapture = {
+            def capture = new File(approvalActualOutput)
+            if (java.nio.file.Files.isSymbolicLink(capture.toPath())) {
+                throw new GradleException("${approvalActualOutput} is a symbolic link - refusing to run the approval harness")
+            }
+            if (capture.exists() && !capture.isFile()) {
+                throw new GradleException("${approvalActualOutput} is not a regular file - refusing to run the approval harness")
+            }
+            if (capture.exists() && !capture.delete()) {
+                throw new GradleException("${approvalActualOutput} could not be deleted - refusing to run the approval harness")
+            }
+        }
 
-        def proc = "./approvaltest".execute()
-        proc.waitForProcessOutput(System.out, System.err)
-        weRanATest = true
-    }
-    if (runningOs.contains("windows")) {
-        println "Windows detected"
-        def proc = "./approvaltestWin.cmd".execute()
-        proc.waitForProcessOutput(System.out, System.err)
-        weRanATest = true
-    }
+        if (runningOs == "linux") {
+            println "Linux detected"
+            prepareCapture()
 
-    if (!weRanATest){
-        println "No prepared test for the OS detected: ${runningOs} - skipping"
-    } else {
-        output = new BuildHelper().compareFiles(approvalExpectedOutput, approvalActualOutput, true)
-        println "exit from compare: ${output}"
+            // The launcher is tracked at mode 0644, so the execute bit has to be granted here.
+            // Its status is checked too: without the grant every invocation below would die with
+            // exit 126 and write nothing.
+            def chmodStatus = runChild("chmod +x ./approvaltest")
+            if (chmodStatus != 0) {
+                throw new GradleException("chmod +x ./approvaltest exited with status ${chmodStatus}")
+            }
 
-        if (output != 0) {
-            println "*** FAIL ***"
-            throw new StopExecutionException("${approvalExpectedOutput} and ${approvalActualOutput} are different")
+            harnessStatus = runChild("./approvaltest")
+            weRanATest = true
+        }
+        if (runningOs.contains("windows")) {
+            println "Windows detected"
+            prepareCapture()
+            harnessStatus = runChild("./approvaltestWin.cmd")
+            weRanATest = true
+        }
+
+        if (!weRanATest){
+            println "No prepared test for the OS detected: ${runningOs} - skipping"
+            // Say plainly what this success does NOT mean. The gate has launchers for linux and
+            // windows only, so on any other operating system nothing is executed and nothing is
+            // compared, yet the task still succeeds. Making it fail closed would change documented
+            // behaviour that this change is required to leave intact, so the gap is disclosed here
+            // and in RUN-1A-HANDOFF.md 13.13 rather than silently patched.
+            logger.warn("WARNING: no approval harness exists for ${runningOs}, so no COBOL programme was executed and ${approvalExpectedOutput} was never compared. The success of this task does NOT mean the approval gate passed.")
         } else {
-            println "${approvalExpectedOutput} matches ${approvalActualOutput} - PASS"
+            // The harness's own exit status is inspected instead of being thrown away. It reflects
+            // the LAST cobolcheck invocation only - the six invocations in ./approvaltest are not
+            // aggregated there, and that script is out of scope for this change (RUN-1A-HANDOFF.md
+            // 13.14) - but inspecting it before the comparison means a harness that could not run
+            // is reported as such rather than as a difference in its output.
+            println "harness exit status: ${harnessStatus}"
+            if (harnessStatus != 0) {
+                throw new GradleException("the approval harness exited with status ${harnessStatus}")
+            }
+
+            output = new BuildHelper().compareFiles(approvalExpectedOutput, approvalActualOutput, true)
+            println "exit from compare: ${output}"
+
+            if (output != 0) {
+                println "*** FAIL ***"
+                // GradleException, not StopExecutionException: Gradle documents StopExecutionException as
+                // skipping the remaining actions and continuing WITHOUT failing the task or the build. It
+                // only appeared to work here because a throw from a configuration closure escapes as an
+                // ordinary script exception. From a task action it would silently swallow this FAIL verdict.
+                throw new GradleException("${approvalExpectedOutput} and ${approvalActualOutput} are different")
+            } else {
+                println "${approvalExpectedOutput} matches ${approvalActualOutput} - PASS"
+            }
         }
     }
 }
@@ -260,37 +344,3 @@ task osInfo {
     }
 }
 
-class BuildHelper{
-    static int compareFiles(String file1, String file2, boolean trimLines){
-        BufferedReader reader1
-        BufferedReader reader2
-        try{
-            reader1 = new BufferedReader(new FileReader(file1))
-            reader2 = new BufferedReader(new FileReader(file2))
-            int lineCount = 0
-            String line1 = ""
-            String line2 = ""
-            while ((line1 = reader1.readLine()) != null && (line2 = reader2.readLine()) != null){
-                lineCount++
-                if (trimLines){
-                    line1 = line1.trim()
-                    line2 = line2.trim()
-                }
-                if (!line1.equals(line2)){
-                    println("Difference on line ${lineCount}:")
-                    println("   ${file1}: ${line1}")
-                    println("   ${file2}: ${line2}")
-                    return 1
-                }
-            }
-            return 0
-        } catch( Exception e){
-            println("Error while comparing: ${e.message}")
-            return -1
-        } finally{
-            if (reader1 != null) reader1.close()
-            if (reader2 != null) reader2.close()
-        }
-
-    }
-}

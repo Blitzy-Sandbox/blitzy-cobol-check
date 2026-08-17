@@ -1,0 +1,17 @@
+plugins {
+    id 'groovy'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // BuildHelper's comparison contract is enforced by BuildHelperTest. JUnit 5 matches the
+    // framework the root build already uses, so no new test technology is introduced.
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.0'
+}
+
+test {
+    useJUnitPlatform()
+}
