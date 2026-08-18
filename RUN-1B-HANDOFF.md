@@ -154,10 +154,17 @@ values plus the root length, none of which varies with the kernel string.
 | `START` | `42634f0d85b12465b25718e5fa025959ed5604d2` | `git rev-parse refs/remotes/origin/blitzy-modernization` | `FACT` |
 | Corroboration of `START` | same SHA | `git merge-base HEAD refs/remotes/origin/blitzy-modernization` | `FACT` |
 | Work branch (assigned, never renamed) | `blitzy-a4e94d08-a29b-4a04-8134-e92b97baa9b3` | `git rev-parse --abbrev-ref HEAD`; `git symbolic-ref -q --short HEAD` returns the same, so the head is **not detached** | `FACT` |
-| HEAD at this document's own commit | see 14.3 — it is this document's commit, so it cannot be named before that commit exists | `git rev-parse HEAD` | `FACT` |
+| This document's placeholder commit | `22768472d2b2984500e3abb0b5fa4c86edf3d6ac` | `git log --format=%H -- RUN-1B-HANDOFF.md` — the oldest entry (14.3) | `FACT` |
+| This lane's content commit, and the tip it produces | resolved, not quoted — the parent of this lane's content commit **is** the placeholder SHA above | `git rev-parse HEAD` on the work branch; `git log -1 --format=%H -- RUN-1B-HANDOFF.md` for this file's own tip | `FACT` |
+| The run's final HEAD | `UNKNOWN` at this lane — later lanes still have commits to add (1.2, 4.6), so the tip this lane produces is not the run's last | `git rev-parse refs/heads/blitzy-a4e94d08-a29b-4a04-8134-e92b97baa9b3` after the final lane | `UNKNOWN` |
 | `origin`, normalized | `github.com/Blitzy-Sandbox/blitzy-cobol-check` | `git remote get-url origin`, reduced to `host/owner/repository`; the URL itself is never printed | `FACT` |
 | Other remotes | `upstream`, `gm`, `livingmf` — named only | `git remote` | `FACT` |
 | `<REPO-ROOT>` length | **81** characters, both forms identical | `printf %s "$(git rev-parse --show-toplevel)" \| wc -c`; `pwd -P` compared equal | `FACT` |
+
+`INFERENCE` — no SHA is quoted for this lane's own content commit, and that is deliberate rather than a
+gap; reasoning: a commit hash is computed over the content it commits, so writing it into that content
+would change it — the placeholder SHA above is the durable anchor and the derivation column resolves
+the rest.
 
 `FACT` — **`START` was resolved from the integration branch's tip, never from a tag.** No assertion
 anywhere below claims that `START` equals any tag's commit, and neither this document nor any code
