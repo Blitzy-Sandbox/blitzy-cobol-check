@@ -4,3 +4,13 @@
 ./temp/approvalTest/cobolcheck -p FILECOPY >> ./actual-output.txt
 ./temp/approvalTest/cobolcheck -p MOCKTEST >> ./actual-output.txt
 ./temp/approvalTest/cobolcheck -p DPICNUMBERS >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p BIPM012 >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p DB2PROG >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p FileCopy >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p LONGLINESANDNUMBERS >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p MOCK >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p MOCKPARA >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p REPLAC >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p RETURNCODE >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p TESTNESTED >> ./actual-output.txt
+./temp/approvalTest/cobolcheck -p WS88LEVEL >> ./actual-output.txt
