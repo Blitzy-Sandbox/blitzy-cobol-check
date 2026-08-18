@@ -344,3 +344,352 @@ task osInfo {
     }
 }
 
+// =================================================================================================
+// Appended for the portable golden-file gate. Nothing above this banner is edited.
+//
+// The inherited approval gate above keeps its own contract, deliberately. It still compares with
+// line trimming enabled [build.gradle:L309]; it still declares neither inputs nor outputs, so a
+// successful run can be replayed without comparing anything (RUN-1A-HANDOFF.md 13.15); and it still
+// warns and succeeds on an operating system it has no harness for [build.gradle:L290-L297]
+// (RUN-1A-HANDOFF.md 13.13), while the harness's own status covers its last invocation only
+// (RUN-1A-HANDOFF.md 13.14). Those are recorded defects owned by later work, so they are
+// characterized rather than repaired here. This task is a separate entry point that does not share
+// any of them: it never trims, it can never be skipped, and it fails closed.
+// =================================================================================================
+task compareGoldenFiles {
+    group = 'verification'
+    description = 'Re-runs every golden-set programme on its own, normalises each capture and compares it with its src/test/golden member without trimming'
+
+    // Inward dependencies only. No existing task is given a dependency on this one, so the inherited
+    // task graph is unchanged and this gate is reached by name.
+    //   testClasses    - compiles io.blitzy.cbltest.golden.GoldenFileFilter, which is run below from
+    //                    the test runtime classpath.
+    //   copyJarToBin   - stages bin/cobol-check-<version>.jar, the archive the launcher runs
+    //                    [build.gradle:L142-L148].
+    //   copyRunScripts - stages temp/approvalTest/cobolcheck and cobolcheck.cmd with @VERSION@
+    //                    substituted [build.gradle:L163-L176]. Gradle's Copy preserves permissions,
+    //                    so the tracked mode of ./cobolcheck is what makes the staged launcher
+    //                    executable here.
+    dependsOn testClasses, copyJarToBin, copyRunScripts
+
+    // Real inputs and a real output directory: this task participates in the task graph honestly
+    // rather than declaring nothing. Top-level programme files only - the corpus keeps its runtime
+    // copybooks under src/test/corpus/cobol/copy, and a copybook is not a golden-set member.
+    //
+    // FACT (measured in this session with fileTree(dir: 'src/test/golden', includes: ['*.txt']) over
+    // an absent directory): a file tree whose base directory does not exist snapshots as empty
+    // without error. That is why the membership sets are declared as file collections and then
+    // re-derived inside the action, where an empty set is reported as the failure it is, instead of
+    // as a directory-must-exist validation error that says nothing about what is missing.
+    inputs.files(fileTree(dir: 'src/test/corpus/cobol', includes: ['*.CBL', '*.cbl']))
+            .withPropertyName('corpusPrograms')
+    inputs.files(fileTree(dir: 'src/test/golden', includes: ['*.txt']))
+            .withPropertyName('goldenMembers')
+    outputs.dir("${buildDir}/golden-compare")
+            .withPropertyName('goldenCompareWorkspace')
+
+    // Mandatory, and one of the reasons this is a separate entry point. Without it Gradle would be
+    // entitled to replay a previous outcome as UP-TO-DATE the moment the declared inputs and outputs
+    // were unchanged, which is the property recorded against the inherited approval task
+    // (RUN-1A-HANDOFF.md 13.15). With it the task is never UP-TO-DATE; it declares no cacheability,
+    // so it is never FROM-CACHE; and no input is marked skip-when-empty, so it is never NO-SOURCE.
+    // Every one of those outcomes would be a gate that passed without examining anything.
+    outputs.upToDateWhen { false }
+
+    // Every operational statement lives in this action rather than in the closure above. Gradle
+    // evaluates the build script and only then builds the task graph, so configuration-phase code
+    // runs BEFORE copyJarToBin and copyRunScripts can have staged the jar and the launcher - the
+    // mechanism that made the inherited gate compare a zero-byte capture [build.gradle:L205-L211].
+    // Inside doLast the dependsOn above is finally honoured.
+    doLast {
+        // -----------------------------------------------------------------------------------------
+        // Roots. Every path below is built from one of these two absolute, canonical roots, and
+        // every diagnostic quotes the RELATIVE form, so no execution-environment path reaches the
+        // build log, the comparator's output or a generated file.
+        //
+        // A relative path is never resolved through new File(".") here: FACT (measured in this
+        // session) that canonicalises to the Gradle daemon's own directory rather than to this
+        // project. Relative paths handed to the comparator are resolved by the JVM against
+        // user.dir, which Gradle sets to the project directory - the same assumption the inherited
+        // call at [build.gradle:L309] already makes.
+        // -----------------------------------------------------------------------------------------
+        File projectRoot = project.projectDir.canonicalFile
+        File buildRoot = project.buildDir.canonicalFile
+
+        def relativeToProject = { File target ->
+            return projectRoot.toPath().relativize(target.toPath()).toString().replace('\\', '/')
+        }
+
+        // Rule 10: no value becomes part of a path or a command line until it has been checked for
+        // emptiness and matched against a whitelist of permitted characters - even though every
+        // value passed here is derived from a tracked filename rather than from an external input.
+        def requireSafeSegment = { String candidate, String role ->
+            if (candidate == null || candidate.trim().isEmpty()) {
+                throw new GradleException("the ${role} is empty - refusing to build a path or a command from it")
+            }
+            if (!(candidate ==~ /^[A-Za-z0-9][A-Za-z0-9_-]*$/)) {
+                throw new GradleException("the ${role} '${candidate}' contains a character outside the permitted set [A-Za-z0-9_-] - refusing to build a path or a command from it")
+            }
+            return candidate
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // The workspace, and the only path this task is ever allowed to delete. It is proven to sit
+        // inside buildDir by canonical containment before anything is removed, so a symbolic link or
+        // a relocated build directory cannot turn this into a delete somewhere else.
+        // -----------------------------------------------------------------------------------------
+        String workspaceSegment = requireSafeSegment('golden-compare', 'golden comparison workspace name')
+        File workspace = new File(buildRoot, workspaceSegment)
+        if (java.nio.file.Files.isSymbolicLink(workspace.toPath())) {
+            throw new GradleException("${relativeToProject(workspace)} is a symbolic link - refusing to delete it or write through it")
+        }
+        if (workspace.exists() && !workspace.isDirectory()) {
+            throw new GradleException("${relativeToProject(workspace)} exists and is not a directory - refusing to use it as the golden comparison workspace")
+        }
+        if (!(workspace.canonicalPath + File.separator).startsWith(buildRoot.canonicalPath + File.separator)) {
+            throw new GradleException("${relativeToProject(workspace)} resolves outside the build directory - refusing to delete it")
+        }
+        project.delete(workspace)
+        if (!workspace.mkdirs()) {
+            throw new GradleException("${relativeToProject(workspace)} could not be created")
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // Membership. Both sets are DERIVED here, so no programme name and no total is written into
+        // this build script: adding or removing a corpus programme cannot leave a stale literal
+        // behind. listFiles() returns direct children only, so src/test/corpus/cobol/copy is never
+        // descended into, and the two suffixes are matched exactly, so filename case is preserved.
+        // -----------------------------------------------------------------------------------------
+        String corpusProgramsRelative = 'src/test/corpus/cobol'
+        String goldenSetRelative = 'src/test/golden'
+        String goldenSuffix = '.txt'
+        List<String> programSuffixes = ['.CBL', '.cbl']
+
+        def basenamesIn = { File directory, List<String> suffixes ->
+            SortedSet<String> found = new TreeSet<String>()
+            File[] entries = directory.listFiles()
+            if (entries != null) {
+                for (File entry : entries) {
+                    if (!entry.isFile()) {
+                        continue
+                    }
+                    for (String suffix : suffixes) {
+                        if (entry.name.length() > suffix.length() && entry.name.endsWith(suffix)) {
+                            found.add(entry.name.substring(0, entry.name.length() - suffix.length()))
+                        }
+                    }
+                }
+            }
+            return found
+        }
+
+        SortedSet<String> corpusPrograms = basenamesIn(new File(projectRoot, corpusProgramsRelative), programSuffixes)
+        SortedSet<String> goldenMembers = basenamesIn(new File(projectRoot, goldenSetRelative), [goldenSuffix])
+
+        // An empty membership set is a failure, never a quiet success: a gate that compares nothing
+        // and reports a pass is the exact defect this task exists to avoid.
+        if (corpusPrograms.isEmpty()) {
+            throw new GradleException("no corpus programme was found under ${corpusProgramsRelative} (top-level *.CBL / *.cbl) - there is nothing to compare, which is a failure and not a pass")
+        }
+        if (goldenMembers.isEmpty()) {
+            throw new GradleException("no golden member was found under ${goldenSetRelative} (*${goldenSuffix}) - there is nothing to compare against, which is a failure and not a pass")
+        }
+        if (corpusPrograms != goldenMembers) {
+            SortedSet<String> goldensMissing = new TreeSet<String>(corpusPrograms)
+            goldensMissing.removeAll(goldenMembers)
+            SortedSet<String> goldensUnexpected = new TreeSet<String>(goldenMembers)
+            goldensUnexpected.removeAll(corpusPrograms)
+            throw new GradleException("the corpus programme set and the golden set differ."
+                    + " In ${corpusProgramsRelative} but not ${goldenSetRelative}: ${goldensMissing}."
+                    + " In ${goldenSetRelative} but not ${corpusProgramsRelative}: ${goldensUnexpected}")
+        }
+        for (String candidate : corpusPrograms) {
+            requireSafeSegment(candidate, 'derived programme name')
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // The launcher, chosen from the operating-system family exactly as the inherited task does
+        // [build.gradle:L268,L283]. Unlike that task this one fails CLOSED: an operating system with
+        // no launcher raises rather than warning and succeeding, because a gate that executes
+        // nothing must not report a pass. FACT [Launcher.java:L56-L59]: the product returns no
+        // launcher for OSX, so the workflow renders this task an explicit skip there instead of
+        // invoking it.
+        // -----------------------------------------------------------------------------------------
+        String runningOs = OS_NAME.toLowerCase()
+        List<String> launcherCommand
+        String launcherRelative
+        if (runningOs == "linux") {
+            launcherRelative = 'temp/approvalTest/cobolcheck'
+            launcherCommand = [launcherRelative]
+        } else if (runningOs.contains("windows")) {
+            launcherRelative = 'temp/approvalTest/cobolcheck.cmd'
+            launcherCommand = ['cmd', '/c', 'temp\\approvalTest\\cobolcheck.cmd']
+        } else {
+            throw new GradleException("no golden comparison launcher exists for the operating system detected: ${runningOs} - refusing to report a pass without executing anything")
+        }
+
+        File launcher = new File(projectRoot, launcherRelative)
+        if (!launcher.isFile()) {
+            throw new GradleException("${launcherRelative} is missing - copyRunScripts must stage the launcher before this gate can run")
+        }
+        if (runningOs == "linux" && !launcher.canExecute()) {
+            throw new GradleException("${launcherRelative} is not executable - every invocation would end with status 126 and write nothing")
+        }
+
+        String filterMainClass = 'io.blitzy.cbltest.golden.GoldenFileFilter'
+        def filterClasspath = project.sourceSets.test.runtimeClasspath
+
+        int comparedMembers = 0
+        int completionRecords = 0
+        List<String> comparedNames = new ArrayList<String>()
+
+        // One programme at a time, in the sorted order derived above. The generated and capture
+        // paths inside the product are shared between invocations, so the runs are deliberately
+        // serial and their order is deterministic.
+        for (String programName : corpusPrograms) {
+            File programWorkspace = new File(workspace, programName)
+            if (!programWorkspace.isDirectory() && !programWorkspace.mkdirs()) {
+                throw new GradleException("${relativeToProject(programWorkspace)} could not be created")
+            }
+
+            // stdout, stderr and the normalised copy are three separate files: the filter is never
+            // allowed to write over its own input, and stderr is kept apart because the completion
+            // records counted below are written there rather than to the capture.
+            File rawCapture = new File(programWorkspace, 'stdout.txt')
+            File errorCapture = new File(programWorkspace, 'stderr.txt')
+            File filteredCapture = new File(programWorkspace, 'filtered.txt')
+            String rawRelative = relativeToProject(rawCapture)
+            String errorRelative = relativeToProject(errorCapture)
+            String filteredRelative = relativeToProject(filteredCapture)
+            String goldenRelative = goldenSetRelative + '/' + programName + goldenSuffix
+
+            List<String> command = new ArrayList<String>(launcherCommand)
+            command.add('-p')
+            command.add(programName)
+
+            println "compareGoldenFiles: running ${launcherRelative} -p ${programName}"
+
+            // The child's streams are buffered and re-emitted from this thread for the same two
+            // reasons the inherited harness runner gives [build.gradle:L218-L230]: output written
+            // from a thread Gradle does not associate with this task appears ungrouped, and the exit
+            // value has to be returned rather than discarded so a launcher that could not run at all
+            // is distinguishable from one whose output merely differs. No configuration file is
+            // passed: the golden set characterizes the DEFAULT surface that config.properties
+            // selects, and src/test/corpus/corpus.properties stays inert unless it is asked for.
+            ByteArrayOutputStream childOut = new ByteArrayOutputStream()
+            ByteArrayOutputStream childErr = new ByteArrayOutputStream()
+            int launcherStatus
+            try {
+                launcherStatus = project.exec {
+                    commandLine = command
+                    workingDir = projectRoot
+                    standardOutput = childOut
+                    errorOutput = childErr
+                    ignoreExitValue = true
+                }.getExitValue()
+            } catch (Exception startFailure) {
+                // The cause is deliberately not quoted: the message Gradle builds for a process it
+                // could not start embeds the absolute path of the executable.
+                throw new GradleException("${launcherRelative} could not be started for ${programName} (${startFailure.getClass().getName()})")
+            }
+
+            rawCapture.setBytes(childOut.toByteArray())
+            errorCapture.setBytes(childErr.toByteArray())
+            String capturedErrorText = childErr.toString()
+            if (childOut.size() > 0) {
+                System.out.print(childOut.toString())
+                System.out.flush()
+            }
+            if (childErr.size() > 0) {
+                System.err.print(capturedErrorText)
+                System.err.flush()
+            }
+
+            if (launcherStatus != 0) {
+                throw new GradleException("${launcherRelative} -p ${programName} exited with status ${launcherStatus} - its captured streams are in ${rawRelative} and ${errorRelative}")
+            }
+            if (!rawCapture.isFile() || rawCapture.length() == 0L) {
+                throw new GradleException("${programName} produced no output - ${rawRelative} is missing or empty, so there is nothing to normalise or compare")
+            }
+
+            // FACT [messages.properties:L56-L57]: INF008 announces that a process is about to be
+            // launched and INF009 records that one ended with an exit code. FACT
+            // [LinuxProcessLauncher.java:L76, WindowsProcessLauncher.java:L70] the first is written
+            // before the launch; FACT [LauncherController.java:L46] the second is written after the
+            // child has ended. Only the second is evidence that a COBOL programme actually ran, so
+            // only the second is counted, and it is counted from the stderr capture because that is
+            // where the product's log writes it.
+            int programCompletions = 0
+            int searchFrom = 0
+            while (true) {
+                int hit = capturedErrorText.indexOf('INF009', searchFrom)
+                if (hit < 0) {
+                    break
+                }
+                programCompletions++
+                searchFrom = hit + 'INF009'.length()
+            }
+            completionRecords += programCompletions
+            println "compareGoldenFiles: ${programName} completion records (INF009): ${programCompletions}"
+
+            // The forward normalisation runs from the test runtime classpath, so the filter under
+            // test is the one this build compiles rather than a second copy of its rules. Input and
+            // output are distinct relative paths resolved against the project directory.
+            ByteArrayOutputStream filterOut = new ByteArrayOutputStream()
+            ByteArrayOutputStream filterErr = new ByteArrayOutputStream()
+            int filterStatus = project.javaexec {
+                classpath = filterClasspath
+                main = filterMainClass
+                args = [rawRelative, filteredRelative]
+                workingDir = projectRoot
+                standardOutput = filterOut
+                errorOutput = filterErr
+                ignoreExitValue = true
+            }.getExitValue()
+            if (filterStatus != 0) {
+                if (filterOut.size() > 0) {
+                    System.out.print(filterOut.toString())
+                    System.out.flush()
+                }
+                if (filterErr.size() > 0) {
+                    System.err.print(filterErr.toString())
+                    System.err.flush()
+                }
+                throw new GradleException("${filterMainClass} exited with status ${filterStatus} while normalising ${rawRelative} into ${filteredRelative}")
+            }
+            if (!filteredCapture.isFile() || filteredCapture.length() == 0L) {
+                throw new GradleException("${filterMainClass} produced no output - ${filteredRelative} is missing or empty")
+            }
+
+            // The inherited comparator is reused rather than reimplemented: it is the comparison
+            // this build already has a test suite for [buildSrc/src/test/groovy/BuildHelperTest.groovy]
+            // and it already refuses to report a match when nothing was compared
+            // [buildSrc/src/main/groovy/BuildHelper.groovy:L21-L30]. trimLines is false here, so
+            // leading and trailing whitespace stays observable; the raw approval gate above keeps
+            // its own trimming behaviour. Both arguments are relative, because the comparator prints
+            // whole differing lines and an absolute argument would disclose the checkout root.
+            int comparison = new BuildHelper().compareFiles(goldenRelative, filteredRelative, false)
+            if (comparison != 0) {
+                throw new GradleException("${goldenRelative} and ${filteredRelative} are different (comparator status ${comparison})")
+            }
+            comparedMembers++
+            comparedNames.add(programName)
+            println "compareGoldenFiles: ${programName} matches ${goldenRelative} - PASS"
+        }
+
+        // The artifact that proves this gate did its work is the count below, not the exit status.
+        // Both totals are re-checked rather than assumed: every failure above throws, so reaching
+        // this point with either total at zero would mean the loop had no members to run at all.
+        if (comparedMembers == 0) {
+            throw new GradleException("no ${goldenSetRelative} member was compared - a gate that compares nothing has not verified anything")
+        }
+        if (completionRecords == 0) {
+            throw new GradleException("no INF009 completion record was observed across ${comparedMembers} run(s) - no COBOL programme is proven to have run, so this gate must not report a pass")
+        }
+
+        println "compareGoldenFiles: compared ${comparedMembers} ${goldenSetRelative} member(s): ${comparedNames.join(', ')}"
+        println "compareGoldenFiles: observed ${completionRecords} INF009 completion record(s) across those runs"
+        println "compareGoldenFiles: boundary - this gate compared each programme's NORMALISED capture with its ${goldenSetRelative} member, line by line and without trimming. It did NOT examine expected-output.txt or src/test/approvalTest/expected-output.txt: the raw approval baselines are not golden members and remain covered only by the approvalTest task above."
+    }
+}
+
